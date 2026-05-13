@@ -3,6 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Content Security Policy (defense-in-depth)
+  ------------------------------------------
+  全 innerHTML 補間は esc() で HTML エスケープ済みなので XSS シンクは無いが、
+  将来の回帰防止と CDN 侵害時の影響軽減のためのバックストップ。
+  - script-src: 'unsafe-inline' は inline <script> ブロック (本ファイル ~1127行) と
+    onload="imgLoaded(this)" 等のインラインイベント属性のため必須。nonce 化は
+    将来の課題 (リライト規模が大きいので保留)
+  - style-src: Google Fonts の CSS と inline <style> ブロックのため 'unsafe-inline'
+  - img-src: data:/blob: は付けない (生成していない)。CDragon + 国旗 CDN のみ
+  - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="OpenLeagueDisplay">
@@ -15,8 +28,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://raw.communitydragon.org">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- JSZip: ブラウザ完結でZIPを作るために遅延読込。CDN障害時もビューア自体は動く -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+<!-- JSZip: ブラウザ完結でZIPを作るために遅延読込。CDN障害時もビューア自体は動く。
+     integrity (SRI) で jsdelivr 侵害時の任意JS実行を防ぐ。バージョンを上げる時は
+     https://www.srihash.org/ などでハッシュも再生成すること -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
+        crossorigin="anonymous" defer></script>
 <style>
   :root {
     /* Codex palette: deeper ink, richer gold, crimson seal for accents */
