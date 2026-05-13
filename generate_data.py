@@ -24,9 +24,18 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CDRAGON = "https://raw.communitydragon.org"
+# 地域(出身)データは CDragon の lol-game-data には無いので Riot の Universe API を
+# 補助的に叩く。CDragon の方針からは少しズレるが、これだけ別ソースで取らないと
+# Demacia/Noxus/Ionia 等での横断検索が組めない。
+UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
+
+# CDragon のスキン rarity 値。kNoRarity は大多数 (= 1350 等) でノイズなので落とす。
+# 既知の rarity だけを data.json に書き出し、index.html 側の RARITY_LABELS と
+# 1:1 で対応させる (UI 翻訳の無い未知 rarity が混ざらないように)
+KNOWN_RARITIES = {"kEpic", "kLegendary", "kMythic", "kUltimate"}
 
 # クライアントが公式に提供している (= CDragon でも参照可能な) LoL ロケール。
 # `default` は en_US 相当なので別途出さない (data.json 側がそのまま英語名)。
@@ -137,6 +146,91 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
+def _norm_slug(s: str) -> str:
+    """champion slug 比較用に lowercase + 英数だけに正規化。
+
+    CDragon の alias は "MonkeyKing" / "AurelionSol" / "KSante" など PascalCase。
+    universe-meeps の slug は "wukong" / "aurelionsol" / "ksante" などで、
+    片方を正規化 (lowercase + alphanumeric のみ) すれば突き合わせやすい。
+    ただし Wukong のように alias と universe slug が別単語のケースがあるので、
+    呼び出し側で「alias 正規化」と「name 正規化」両方で当てる。
+    """
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
+def _cdragon_to_universe_locale(code: str) -> str:
+    """CDragon locale コード → universe-meeps の locale コード。
+
+    CDragon は `default` を英語に使うが universe は `en_us`。他は基本一致。
+    universe 側に未対応の locale もある (該当 fetch が 404 になるだけなので
+    呼び出し側は失敗時に空辞書扱いにする)。
+    """
+    return "en_us" if code == "default" else code
+
+
+def _fetch_universe_factions(locale_universe: str) -> dict[str, str]:
+    """{region_slug: localized_name} を universe-meeps から取得。失敗時は空辞書。"""
+    region_names: dict[str, str] = {}
+    try:
+        facs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/factions/index.json")
+    except Exception as e:
+        print(f"   [警告] universe factions ({locale_universe}): {e}", flush=True)
+        return region_names
+    if not isinstance(facs_doc, dict):
+        return region_names
+    for f in facs_doc.get("factions") or []:
+        if not isinstance(f, dict):
+            continue
+        slug = (f.get("slug") or "").strip().lower()
+        name = f.get("name")
+        if slug and isinstance(name, str) and name:
+            region_names[slug] = name
+    return region_names
+
+
+def fetch_universe_champion_regions(locale_universe: str) -> dict[str, list[str]]:
+    """{champ_slug: [region_slug, ...]} を universe-meeps から取得。失敗時は空辞書。
+
+    universe 側の schema にバリアントが観測される (associated-faction-slug 単数 と
+    associated-faction-slugs 複数 / factions が dict 配列など) ため複数の
+    フィールド名を試す。default (build_manifest) からのみ呼び出す想定で、
+    locale 切替時 (build_locale_index) は地域名の翻訳だけ要るので
+    _fetch_universe_factions() を直接使う。
+    """
+    champ_to_regions: dict[str, list[str]] = {}
+    try:
+        champs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/champions/index.json")
+    except Exception as e:
+        print(f"   [警告] universe champions ({locale_universe}): {e}", flush=True)
+        return champ_to_regions
+    if not isinstance(champs_doc, dict):
+        return champ_to_regions
+    for c in champs_doc.get("champions") or []:
+        if not isinstance(c, dict):
+            continue
+        slug = (c.get("slug") or "").strip().lower()
+        if not slug:
+            continue
+        regs: list[str] = []
+        # 複数地域フィールドの可能性。universe は slug 文字列の配列、
+        # または {slug, name} dict の配列、どちらの場合も観測例がある。
+        multi = c.get("associated-faction-slugs") or c.get("factions")
+        if isinstance(multi, list):
+            for x in multi:
+                if isinstance(x, str):
+                    regs.append(x)
+                elif isinstance(x, dict) and x.get("slug"):
+                    regs.append(x["slug"])
+        if not regs:
+            single = c.get("associated-faction-slug")
+            if isinstance(single, str) and single:
+                regs = [single]
+        if regs:
+            # dict.fromkeys で挿入順を保ったまま重複を落とす
+            champ_to_regions[slug] = list(dict.fromkeys(regs))
+    return champ_to_regions
+
+
 def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
     """`skinlines.json` の生 JSON を id → name のマップに正規化。
 
@@ -195,6 +289,14 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     line_ids = [ln.get("id") for ln in lines if isinstance(ln, dict) and ln.get("id")]
     if line_ids:
         entry["lines"] = line_ids
+
+    # スキン rarity (Legendary, Ultimate, Mythic, ...) — 検索キーワードに使う。
+    # CDragon は "kEpic" / "kLegendary" / "kUltimate" / "kMythic" / "kNoRarity" を
+    # 返す。UI 側 (index.html の RARITY_LABELS) に翻訳マップを持たせる都合で、
+    # 既知集合 KNOWN_RARITIES に絞る。新しい rarity が出たら両側を更新する想定。
+    rarity = skin_obj.get("rarity")
+    if isinstance(rarity, str) and rarity in KNOWN_RARITIES:
+        entry["rarity"] = rarity[1:]
 
     # 画像URLが1つも無い場合はスキップ
     if "splash" not in entry:
@@ -271,6 +373,17 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
             if detail is not None:
                 details[cid] = detail
 
+    # 地域 (Demacia, Noxus, ...) は CDragon の lol-game-data に無いので universe
+    # から取る。失敗してもここでは止めず、地域情報なしで続行する
+    print("==> universe-meeps から地域 (faction) 情報を取得...", flush=True)
+    universe_default = _cdragon_to_universe_locale("default")
+    champ_regions_map = fetch_universe_champion_regions(universe_default)
+    region_names = _fetch_universe_factions(universe_default)
+    if region_names or champ_regions_map:
+        print(f"    {len(region_names)} factions / {len(champ_regions_map)} 体マッピング", flush=True)
+    else:
+        print("    地域データなし (universe-meeps 取得失敗 or スキーマ不一致)", flush=True)
+
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
     for ch in champions:
@@ -299,12 +412,28 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         classic = next((s for s in skin_entries if s["label"].endswith("_Classic")), skin_entries[0])
         portrait = classic.get("tile") or classic.get("splash")
 
-        out_champs.append({
+        # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
+        roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
+
+        # universe-meeps の slug は概ね alias.lower() に一致するが、Wukong/MonkeyKing
+        # のように別語のケースがあるので alias と name 両方の正規化で当てに行く
+        regions: list[str] = []
+        for key in (_norm_slug(alias), _norm_slug(name)):
+            if key in champ_regions_map:
+                regions = champ_regions_map[key]
+                break
+
+        entry = {
             "name": name,
             "alias": alias,
             "portrait": portrait,
             "skins": skin_entries,
-        })
+        }
+        if roles:
+            entry["roles"] = roles
+        if regions:
+            entry["regions"] = regions
+        out_champs.append(entry)
         align_meta.append((cid, alias, paths_for_locale))
 
     total = sum(len(c["skins"]) for c in out_champs)
@@ -317,9 +446,16 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
                 used_line_ids.add(int(lid))
     filtered_lines = {str(lid): skin_lines[lid] for lid in used_line_ids if lid in skin_lines}
 
+    # 同様に、実際にチャンピオンに使われた地域だけを top-level に残す
+    used_region_slugs: set[str] = set()
+    for ch in out_champs:
+        for slug in ch.get("regions") or []:
+            used_region_slugs.add(slug)
+    filtered_regions = {s: region_names[s] for s in used_region_slugs if s in region_names}
+
     print(
         f"==> 完了: {len(out_champs)} チャンピオン, {total} スキン, "
-        f"{len(filtered_lines)} スキンライン",
+        f"{len(filtered_lines)} スキンライン, {len(filtered_regions)} 地域",
         flush=True,
     )
 
@@ -328,6 +464,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         "champion_count": len(out_champs),
         "skin_count": total,
         "skin_lines": filtered_lines,  # {"100": "PROJECT", ...}
+        "regions": filtered_regions,   # {"demacia": "Demacia", ...}
         "champions": out_champs,
         # locale 一覧と表示ラベルは data.json に同梱しておく。i18n/<locale>.json は
         # ここに載っている locale だけが切替候補。ブラウザ側はファイルの存在を
@@ -350,6 +487,10 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
+    # 地域名は universe-meeps の locale ファイル経由 (CDragon には無いため)。
+    # champion→region のマッピングは default の build_manifest 側で済ませているので
+    # locale 側は factions/index.json (= slug→翻訳名) だけ取れば十分。
+    regions_map = _fetch_universe_factions(_cdragon_to_universe_locale(locale))
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
@@ -393,6 +534,7 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
         "champions": champs_map,
         "skins": skins_map,
         "lines": lines_map,
+        "regions": regions_map,
     }
 
 
