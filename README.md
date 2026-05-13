@@ -15,7 +15,10 @@ GitHub Pages で公開できる完全静的サイト。
   等へ切替 (チャンピオン名・スキン名・UI 文字列がローカライズされる、選択は永続化)
 
 ## デモ
-GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で開きます。
+
+公開中: **<https://badfalcon.github.io/OpenLeagueDisplay/>**
+
+自分で fork した場合は GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で開きます。
 
 ## デプロイ手順 (5分)
 
