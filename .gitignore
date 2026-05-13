@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+# .idea/ は基本無視するが、共有用のRun Configurationだけはチェックインする
+.idea/*
+!.idea/runConfigurations/
