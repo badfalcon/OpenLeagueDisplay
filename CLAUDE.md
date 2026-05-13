@@ -47,6 +47,16 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **questSkinInfo 対応済み**: K/DA ALL OUT Akali 等のティア違いスプラッシュも展開する
 - **スキンライン情報も保持**: `skinlines.json` (CDragon) から id→name を取り込み、
   各スキンには所属する skin line ID を `lines` フィールドで持たせる
+- **検索キーワード軸を複数持つ**: チャンピオン名 / スキン名に加えて、ロール
+  (`roles`: Mage/Tank/...)、地域 (`regions`: Demacia/Noxus/...)、スキン rarity
+  (Legendary/Ultimate/Mythic) も検索ヒット対象。ロールは CDragon の
+  `champion-summary.json` の `roles` 配列、rarity は per-champion JSON の
+  `skins[].rarity` (`kNoRarity` は省く)。**地域だけ CDragon に無いので**
+  Riot Universe API (`universe-meeps.leagueoflegends.com`) を generate_data.py の
+  `fetch_universe_data()` で補助的に叩く (build-time のみ; ブラウザは触らない)。
+  universe slug は alias.lower() / name.lower() の正規化で CDragon と突き合わせる。
+  ロール/rarity の翻訳は有限セットなので index.html 内の `ROLE_LABELS` /
+  `RARITY_LABELS` にハードコード、地域名は i18n/<locale>.json の `regions` フィールド。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
