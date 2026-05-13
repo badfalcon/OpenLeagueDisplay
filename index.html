@@ -1049,9 +1049,9 @@
      - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
        タッチで操作できる形へ作り直す */
   @media (max-width: 600px) {
-    :root { --ctrl-h: 44px; --frame-cut: 9px; }
+    /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有 */
+    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); }
 
-    /* topbar: ノッチ回避 (viewport-fit=cover とセット) */
     .topbar { padding-top: env(safe-area-inset-top); }
 
     header { padding: 10px 12px; gap: 8px; }
@@ -1070,13 +1070,13 @@
       max-width: calc(100vw - 100px);
     }
 
-    /* content-toolbar: 2 行 grid。row1 = [tabs | search], row2 = [back/sort/select/slideshow]。
-       wrap 任せだと幅依存で並びが乱れるので明示配置する。
-       desktop の --search-w (JS が render() 時に書き換える) は flex: initial + width: 100%
-       で上書きするので JS 契約は無傷 */
+    /* content-toolbar: 2 行 grid。row1 = [tabs | search], row2 = [action buttons]。
+       3 列構成 (auto 1fr auto) は row2 の最大表示数 (back/select/slideshow = 3) に合わせて
+       implicit 列が生まれないようにするため。これで search が row1 の右端まで届く。
+       desktop の --search-w (JS が render() 時に書き換える) は flex: initial で無効化 */
     .content-toolbar {
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto 1fr auto;
       grid-auto-rows: auto;
       row-gap: 8px; column-gap: 8px;
       padding: 10px 12px;
@@ -1084,15 +1084,14 @@
       justify-content: stretch;
     }
     .content-toolbar > .view-tabs { grid-column: 1; grid-row: 1; }
-    .content-toolbar > #search {
-      grid-column: 2; grid-row: 1;
-      flex: initial; max-width: none; width: 100%;
-    }
+    .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; }
+    /* row 2: 表示中のボタンが auto-flow で col 1→2→3 を埋める。
+       back と sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
+       (home: sort/select/slideshow, lines: select/slideshow, detail: back/select/slideshow) */
     .content-toolbar > #back-btn,
     .content-toolbar > #sort-select,
     .content-toolbar > #select-toggle,
     .content-toolbar > #slideshow-btn { grid-row: 2; }
-    .content-toolbar > #back-btn { grid-column: 1 / span 2; justify-self: start; }
 
     .content-toolbar .btn,
     .content-toolbar .ctrl-select,
@@ -1111,9 +1110,9 @@
     .skin-card .label { font-size: 13.5px; }
     .line-card .name  { font-size: 16px; }
 
-    /* 選択チェックボックス: 28px は touch 最小未満。36px + padding でヒット領域確保 */
+    /* 選択チェックボックス: 28px は touch 最小未満。44px に拡大 (Material 48dp / Apple 44pt) */
     .sel-checkbox {
-      min-width: 36px; height: 36px; padding: 0 10px;
+      min-width: 44px; height: 44px; padding: 0 12px;
       top: 8px; left: 8px; font-size: 13px;
     }
 
@@ -1124,8 +1123,8 @@
     .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
     .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
     .lb-close, .lb-nav { width: 48px; height: 48px; font-size: 24px; }
-    .lb-close   { top: max(12px, env(safe-area-inset-top)); right: 12px; }
-    .lb-toolbar { top: max(12px, env(safe-area-inset-top)); left: 12px; gap: 6px; }
+    .lb-close   { top: var(--safe-top); right: 12px; }
+    .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }
     .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
