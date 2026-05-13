@@ -1221,7 +1221,7 @@ function buildIndexes() {
 // default (英語) にフォールバック。プレースホルダは {0}, {1} 形式。
 const UI_STRINGS = {
   default: {
-    search_placeholder: "Search champion…",
+    search_placeholder: "Search champion or skin…",
     lang_aria: "Display language",
     nav_home: "Champions",
     nav_lines: "Skin Lines",
@@ -1275,7 +1275,7 @@ const UI_STRINGS = {
     sort_name_desc: "Name Z → A",
   },
   ja_jp: {
-    search_placeholder: "チャンピオン検索...",
+    search_placeholder: "チャンピオン/スキン検索...",
     lang_aria: "表示言語",
     nav_home: "チャンピオン",
     nav_lines: "シリーズ",
@@ -1329,7 +1329,7 @@ const UI_STRINGS = {
     sort_name_desc: "名前 Z → A",
   },
   ko_kr: {
-    search_placeholder: "챔피언 검색…",
+    search_placeholder: "챔피언/스킨 검색…",
     lang_aria: "표시 언어",
     nav_home: "챔피언",
     nav_lines: "스킨 라인",
@@ -1383,7 +1383,7 @@ const UI_STRINGS = {
     sort_name_desc: "이름 ㅎ → ㄱ",
   },
   zh_cn: {
-    search_placeholder: "搜索英雄…",
+    search_placeholder: "搜索英雄/皮肤…",
     lang_aria: "显示语言",
     nav_home: "英雄",
     nav_lines: "皮肤系列",
@@ -1437,7 +1437,7 @@ const UI_STRINGS = {
     sort_name_desc: "名称 Z → A",
   },
   zh_tw: {
-    search_placeholder: "搜尋英雄…",
+    search_placeholder: "搜尋英雄/造型…",
     lang_aria: "顯示語言",
     nav_home: "英雄",
     nav_lines: "造型系列",
@@ -1491,7 +1491,7 @@ const UI_STRINGS = {
     sort_name_desc: "名稱 Z → A",
   },
   fr_fr: {
-    search_placeholder: "Rechercher un champion…",
+    search_placeholder: "Rechercher un champion ou un skin…",
     lang_aria: "Langue d'affichage",
     nav_home: "Champions",
     nav_lines: "Gammes de skins",
@@ -1545,7 +1545,7 @@ const UI_STRINGS = {
     sort_name_desc: "Nom Z → A",
   },
   de_de: {
-    search_placeholder: "Champion suchen…",
+    search_placeholder: "Champion oder Skin suchen…",
     lang_aria: "Anzeigesprache",
     nav_home: "Champions",
     nav_lines: "Skin-Reihen",
@@ -1599,7 +1599,7 @@ const UI_STRINGS = {
     sort_name_desc: "Name Z → A",
   },
   es_es: {
-    search_placeholder: "Buscar campeón…",
+    search_placeholder: "Buscar campeón o aspecto…",
     lang_aria: "Idioma",
     nav_home: "Campeones",
     nav_lines: "Líneas de aspectos",
@@ -1653,7 +1653,7 @@ const UI_STRINGS = {
     sort_name_desc: "Nombre Z → A",
   },
   pt_br: {
-    search_placeholder: "Buscar campeão…",
+    search_placeholder: "Buscar campeão ou skin…",
     lang_aria: "Idioma",
     nav_home: "Campeões",
     nav_lines: "Linhas de skins",
@@ -1707,7 +1707,7 @@ const UI_STRINGS = {
     sort_name_desc: "Nome Z → A",
   },
   ru_ru: {
-    search_placeholder: "Поиск чемпиона…",
+    search_placeholder: "Поиск чемпиона или образа…",
     lang_aria: "Язык",
     nav_home: "Чемпионы",
     nav_lines: "Серии образов",
@@ -2087,11 +2087,16 @@ function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
   // 検索は alias / 英語 name / 翻訳 name の全部に対してヒットさせる
   // (例: locale=ja_jp で "アーリ" でも "Ahri" でもヒット)
+  // 加えてスキン名 (英語 label / 翻訳 label) にもヒットさせる: "Star Guardian" や
+  // "K/DA" で配下に該当スキンを持つチャンプが残るようにする
   const list = DATA.champions.filter(c => {
     if (!q) return true;
-    return c.name.toLowerCase().includes(q)
+    if (c.name.toLowerCase().includes(q)
         || c.alias.toLowerCase().includes(q)
-        || champName(c).toLowerCase().includes(q);
+        || champName(c).toLowerCase().includes(q)) return true;
+    return c.skins.some(s =>
+      s.label.toLowerCase().includes(q)
+      || skinLabel(c, s).toLowerCase().includes(q));
   });
   // 並び替え: "default" は data.json の順 (リリース順) をそのまま使うので何もしない。
   // 名前順は localized name で localeCompare。比較に Intl 経路を使うため、
