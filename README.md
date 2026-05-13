@@ -14,11 +14,12 @@ GitHub Pages で公開できる完全静的サイト。
 - **20言語対応**: 国旗ピッカーで日本語 / 한국어 / 简体中文 / Français / Deutsch
   等へ切替 (チャンピオン名・スキン名・UI 文字列がローカライズされる、選択は永続化)
 
-## デモ
+## 公開サイト
 
-公開中: **<https://badfalcon.github.io/OpenLeagueDisplay/>**
+**<https://badfalcon.github.io/OpenLeagueDisplay/>**
 
-自分で fork した場合は GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で開きます。
+これがそのまま本体です。ブラウザで開けばすぐ使えます。
+自分で fork してデプロイした場合は `https://<your-username>.github.io/<repo-name>/` で開きます。
 
 ## デプロイ手順 (5分)
 
