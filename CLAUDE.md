@@ -114,6 +114,15 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [ ] キーボードショートカット一覧モーダル (? キーで表示)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
+- [ ] **universe-meeps から地域データが取れていない**: generate_data.py の
+  `fetch_universe_champion_regions()` / `_fetch_universe_factions()` が
+  常に 0 件を返している (2026-05 時点)。URL/schema の仮定が外れている可能性。
+  GitHub Actions の最新 run の log で `[警告] universe-meeps から 0 件`
+  を出力した直後の挙動を見て、`champions/index.json` / `factions/index.json`
+  への GET が HTTP 200 で返ってるか、レスポンス JSON のトップレベル shape を
+  実物で確認する。データが取れるようになると検索の地域軸 (Demacia/Noxus 等) が
+  自動で有効化される (data.json/i18n の `regions` フィールドは schema として
+  既に存在しているので index.html 側の変更不要)
 
 ## ローカル開発
 

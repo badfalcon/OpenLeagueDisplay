@@ -27,6 +27,13 @@ CDRAGON = "https://raw.communitydragon.org"
 # 地域(出身)データは CDragon の lol-game-data には無いので Riot の Universe API を
 # 補助的に叩く。CDragon の方針からは少しズレるが、これだけ別ソースで取らないと
 # Demacia/Noxus/Ionia 等での横断検索が組めない。
+#
+# TODO: 現状 universe-meeps からは 0 件しか返ってこない (2026-05 時点、PR #2 で
+# 確認)。エンドポイントの schema 仮定が外れているか、URL パスが違う可能性が高い。
+# `champions/index.json` と `factions/index.json` で 200 が返ってるか、レスポンスの
+# トップレベル shape は何か、を GitHub Actions のログで実際の出力を見て確認する。
+# 修正前は data.json/i18n の `regions` フィールドが空のままになる (検索の地域軸が
+# 効かないだけで他は影響なし)。
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
@@ -382,7 +389,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     if region_names or champ_regions_map:
         print(f"    {len(region_names)} factions / {len(champ_regions_map)} 体マッピング", flush=True)
     else:
-        print("    地域データなし (universe-meeps 取得失敗 or スキーマ不一致)", flush=True)
+        # silent failure を見つけやすくする目的で目立たせる。
+        # universe-meeps の URL/schema を実 response 起点で見直す必要あり (TODO 参照)
+        print("    [警告] universe-meeps から 0 件。URL/schema 要確認 (検索の地域軸はオフ)", flush=True)
 
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
