@@ -6,10 +6,13 @@ GitHub Pages で公開できる完全静的サイト。
 新パッチで新スキンが追加されたら GitHub Actions が週次で `data.json` を自動更新します。
 
 **特徴**:
-- 全 191 チャンピオン × 2103 スキンのスプラッシュをブラウザで閲覧
+- LoL の全チャンピオン × 全スキン (現状およそ 170 体 / 2000 スプラッシュ超) を
+  ブラウザで閲覧。新スキンは週次の自動更新で追従
 - チャンピオン別 / シリーズ別 (PROJECT, Star Guardian, K/DA など) で一覧
 - 選択モードで好きなスキンをまとめてチェック → **ZIPでまとめてDL** (壁紙設定用)
 - スライドショー (Ken Burns + クロスフェード)、検索、レスポンシブ対応
+- **20言語対応**: 国旗ピッカーで日本語 / 한국어 / 简体中文 / Français / Deutsch
+  等へ切替 (チャンピオン名・スキン名・UI 文字列がローカライズされる、選択は永続化)
 
 ## デモ
 GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で開きます。
@@ -40,10 +43,14 @@ GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で�
 
 ```
 .
-├── index.html                       # ビューア本体 (HTML + CSS + JS)
+├── index.html                       # ビューア本体 (HTML + CSS + JS、単一ファイル)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB)
-├── generate_data.py                 # data.json 生成スクリプト
+├── i18n/<locale>.json               # 言語別の名前辞書 (19 locales、各 100-200KB)
+├── generate_data.py                 # data.json + i18n 生成スクリプト (標準ライブラリのみ)
+├── serve.py                         # ローカル配信ラッパー (http.server の薄い包み)
 ├── .github/workflows/update.yml     # 週次自動更新 (毎週月曜 9:00 JST)
+├── .idea/runConfigurations/         # PyCharm 用の Run Configuration 同梱
+├── CLAUDE.md                        # 設計判断・コンベンションのメモ (開発者向け)
 └── README.md
 ```
 
@@ -55,6 +62,9 @@ GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で�
   を直接指している。Repo に画像は保存されない
 - ブラウザは初回読み込み時に `data.json` を fetch、サムネは
   `<img loading="lazy">` で必要時にCDNから取得
+- 多言語: `data.json` は英語 (CDragon の `default`) のみを保持し、各 LoL クライアント
+  locale (`ja_jp`, `ko_kr`, `zh_cn` 等の 19 言語) の翻訳名は `i18n/<locale>.json` に
+  分離。ブラウザは選択時にだけ該当ファイルを fetch するので、英語利用者の追加帯域はゼロ
 - スライドショーは Ken Burns 効果 + クロスフェード対応
 - モバイル対応 (Media Query でレイアウト切替)
 
@@ -68,6 +78,7 @@ GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で�
 | `Space` | スライドショー一時停止 |
 | 検索バー | チャンピオン / シリーズでフィルタ |
 | シリーズ | ヘッダーのボタンからシリーズ一覧へ |
+| 言語切替 | ヘッダーの国旗ボタンから 20 言語を選択 (選択は次回起動時も保持) |
 | 選択モード | チェックボックスでスキン選択 → ヘッダー「⬇ 選択分をZIP」で一括DL |
 | チャンピオンページ | 「⬇ 全スキンをZIP」ボタンでそのチャンピオン分まとめてDL |
 | シリーズページ | 「⬇ このシリーズをZIP」ボタンでそのシリーズ全部DL |
@@ -80,6 +91,25 @@ GitHub Pages に置けば `https://<your-username>.github.io/<repo-name>/` で�
   完了時にカウントだけ表示してスキップ
 - ローカルで展開 → Windowsなら「個人用設定 → 背景 → スライドショー」で
   当該フォルダを指定すれば LeagueDisplays 相当の壁紙ローテーションになる
+
+## ローカルで動かす
+
+```bash
+# 初回 or マニフェスト更新時のみ (data.json と i18n/*.json をビルド)
+python generate_data.py
+
+# 配信テスト (Python 標準ライブラリだけで動く)
+python serve.py
+# → http://127.0.0.1:8000
+```
+
+ビルドステップや依存パッケージはありません。フロントは vanilla JS + JSZip (CDN) のみ。
+PyCharm では `.idea/runConfigurations/` に "Generate data.json" と
+"Serve (http.server :8000)" を同梱しているので Run ▸ から選べます。
+
+社内プロキシ等で CDragon への接続が `CERTIFICATE_VERIFY_FAILED` で落ちる場合は
+`LOL_INSECURE=1 python generate_data.py` (PowerShell では
+`$env:LOL_INSECURE=1; python generate_data.py`) で証明書検証を回避できます。
 
 ## 自動更新を止めたい
 
