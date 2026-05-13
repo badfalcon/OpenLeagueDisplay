@@ -97,6 +97,7 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [ ] PWAマニフェスト追加してスマホでホーム画面追加可能に
 - [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
+- [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [ ] キーボードショートカット一覧モーダル (? キーで表示)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
 
@@ -143,7 +144,7 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 
 1. **CLI ダウンローダー** (`lol_splash_downloader.py`): 当初は Riot の Data Dragon
    を使ったが Wild Rift 等の幽霊エントリで失敗率76%。CDragon に切り替えて失敗率0%へ。
-   ローカルに ~2103 枚 (約600MB) をダウンロード
+   ローカルに 2000 枚超 (約600MB) をダウンロード
 2. **ローカルWebサーバビューア**: HTTPサーバ + HTML → 「サーバ立てる意味あるか？」
    と指摘され、サーバ廃止して静的HTML生成版に変更
 3. **Tkinter ネイティブGUI**: 「HTMLじゃなくてローカルの実行ファイルにしたい」
