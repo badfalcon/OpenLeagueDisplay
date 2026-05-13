@@ -2,10 +2,11 @@
 
 > **<https://badfalcon.github.io/OpenLeagueDisplay/>** — ブラウザで開けばすぐ使えます
 
+![screenshot](./screenshot.png)
+
 LeagueDisplays (Riot公式、2020年に更新停止) の代替を目指す、League of Legends
-のスプラッシュアートビューア。LoL の全チャンピオン × 全スキン (約 170 体 /
-2000 スプラッシュ超) をブラウザで眺め、好きな分だけ ZIP でまとめてダウンロードして
-ローカルの壁紙スライドショーに使えます。
+のスプラッシュアートビューア。LoL の全チャンピオン × 全スキンをブラウザで眺め、
+好きな分だけ ZIP でまとめてダウンロードしてローカルの壁紙スライドショーに使えます。
 
 完全静的サイトで、画像は **Community Dragon CDN** から直接読み込みます。
 新スキンは GitHub Actions が週次で自動追従します。
@@ -59,8 +60,9 @@ LeagueDisplays (Riot公式、2020年に更新停止) の代替を目指す、Lea
 - ブラウザは初回読み込み時に `data.json` を fetch、サムネは
   `<img loading="lazy">` で必要時に CDN から取得
 - 多言語: `data.json` は英語 (CDragon の `default`) のみを保持し、各 LoL クライアント
-  locale (`ja_jp`, `ko_kr`, `zh_cn` 等の 19 言語) の翻訳名は `i18n/<locale>.json` に
-  分離。ブラウザは選択時にだけ該当ファイルを fetch するので、英語利用者の追加帯域はゼロ
+  locale (`ja_jp`, `ko_kr`, `zh_cn` 等の 19 翻訳、英語と合わせて計 20 言語) は
+  `i18n/<locale>.json` に分離。ブラウザは選択時にだけ該当ファイルを fetch するので、
+  英語利用者の追加帯域はゼロ
 
 設計判断の詳細 (なぜ画像を repo に置かないか、なぜ Data Dragon でなく CDragon を
 使うか、など) は [`CLAUDE.md`](./CLAUDE.md) を参照。
@@ -77,6 +79,8 @@ LeagueDisplays (Riot公式、2020年に更新停止) の代替を目指す、Lea
 ├── .github/workflows/update.yml     # 週次自動更新 (毎週月曜 9:00 JST)
 ├── .idea/runConfigurations/         # PyCharm 用の Run Configuration 同梱
 ├── CLAUDE.md                        # 設計判断・コンベンションのメモ (開発者向け)
+├── LICENSE                          # MIT (リポジトリのコードに対して)
+├── screenshot.png                   # README 用キャプチャ
 └── README.md
 ```
 
@@ -99,7 +103,7 @@ PyCharm では `.idea/runConfigurations/` に "Generate data.json" と
 `LOL_INSECURE=1 python generate_data.py` (PowerShell では
 `$env:LOL_INSECURE=1; python generate_data.py`) で証明書検証を回避できます。
 
-### 自分のアカウントでデプロイ (5分)
+### 自分のアカウントでデプロイ (Python 導入済みなら 5 分)
 
 1. **新規 Repo を作る** (例: `OpenLeagueDisplay`)
 2. このフォルダの中身を全部 push:
@@ -130,9 +134,10 @@ PyCharm では `.idea/runConfigurations/` に "Generate data.json" と
 
 ## ライセンス
 
-スクリプト本体は MIT License 相当で自由に改変可。
-取得する画像/データの著作権は **Riot Games, Inc.** に帰属します。
-個人利用の範囲を超える再配布や商用利用は避けてください。
+リポジトリ内のソースコードは **MIT License** で配布しています ([`LICENSE`](./LICENSE))。
+ただし実行時に Community Dragon から取得する画像/データの著作権は
+**Riot Games, Inc.** に帰属し、MIT の範囲外です。個人利用の範囲を超える
+再配布や商用利用は避けてください。
 
 このプロジェクトは Riot Games 公認ではありません。
 Riot Games の "Legal Jibber Jabber" ポリシーの下で Community Dragon が公開している
