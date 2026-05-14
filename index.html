@@ -883,6 +883,12 @@
   }
 
   /* === PACK BAR === floating bottom pill =========================== */
+  /* 選択モード中は floating pack-bar (bottom: 28px) が画面下に常駐するので、
+     一番下までスクロールした時に footer と被らないよう body 側にスペースを確保する */
+  body.select-mode { padding-bottom: 96px; }
+  @media (max-width: 780px) {
+    body.select-mode { padding-bottom: 76px; }
+  }
   .pack-bar {
     position: fixed; left: 50%; bottom: 28px;
     transform: translateX(-50%);
