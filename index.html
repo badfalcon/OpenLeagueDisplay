@@ -835,9 +835,14 @@
   /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
      チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
   .champ-card.partial, .line-card.partial { border-color: var(--gold-deep); }
+  /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
+     親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
   .skin-card.selected .sel-checkbox::before,
   .champ-card.selected .sel-checkbox::before,
-  .line-card.selected .sel-checkbox::before { content: "✓"; color: var(--gold-hi); }
+  .line-card.selected .sel-checkbox::before {
+    content: "✓"; color: var(--gold-hi);
+    font-size: 20px; font-weight: 700; line-height: 1;
+  }
 
   /* === PACK BAR === floating bottom pill =========================== */
   .pack-bar {
@@ -1139,6 +1144,9 @@
       min-width: 32px; height: 32px; padding: 0 8px;
       top: 8px; left: 8px; font-size: 12px;
     }
+    .skin-card.selected .sel-checkbox::before,
+    .champ-card.selected .sel-checkbox::before,
+    .line-card.selected .sel-checkbox::before { font-size: 22px; }
 
     /* lightbox: 画像領域を優先、close/nav は 48px に拡大、サイドナビは
        下端に寄せて片手親指で届く位置へ。slideshow-controls は :hover が効かない
