@@ -1971,7 +1971,7 @@ function pickInitialLocale(available) {
 async function loadLocale(code) {
   if (code === "default") {
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, lines: {}, regions: {} };
+    state.i18n = { champions: {}, skins: {}, lines: {} };
     return;
   }
   try {
@@ -1983,13 +1983,12 @@ async function loadLocale(code) {
       champions: json.champions || {},
       skins: json.skins || {},
       lines: json.lines || {},
-      regions: json.regions || {},
     };
   } catch (e) {
     // i18n ファイルが無い/壊れている時は静かに英語にフォールバック。UI は動く
     console.warn(`i18n: ${code} の読み込み失敗、英語にフォールバック`, e);
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, lines: {}, regions: {} };
+    state.i18n = { champions: {}, skins: {}, lines: {} };
   }
 }
 

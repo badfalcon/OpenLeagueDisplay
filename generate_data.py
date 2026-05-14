@@ -336,12 +336,12 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
     "yorick": ["shadow-isles"],
     "yuumi": ["bandle-city"],
     "yunara": ["ionia"],
+    "zaahen": ["shurima", "runeterra"],
     "zac": ["zaun"],
     "zed": ["ionia"],
     "zeri": ["zaun"],
     "ziggs": ["bandle-city"],
     "zilean": ["runeterra"],
-    "zaahen": ["shurima", "runeterra"],
     "zoe": ["targon"],
     "zyra": ["ixtal"],
 }
@@ -592,8 +592,7 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     skins_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
     # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
-    # i18n ファイルには含めない (フィールド自体を出さなくても index.html 側は
-    # `state.i18n.regions || {}` でフォールバック済み)。
+    # i18n ファイルには含めない。index.html 側も state.i18n.regions は参照しない。
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
