@@ -28,6 +28,11 @@ UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
 
+# CDragon のスキン rarity 値。kNoRarity は大多数 (= 1350 等) でノイズなので落とす。
+# 既知の rarity だけを data.json に書き出し、index.html 側の RARITY_LABELS と
+# 1:1 で対応させる (UI 翻訳の無い未知 rarity が混ざらないように)
+KNOWN_RARITIES = {"kEpic", "kLegendary", "kMythic", "kUltimate"}
+
 # クライアントが公式に提供している (= CDragon でも参照可能な) LoL ロケール。
 # `default` は en_US 相当なので別途出さない (data.json 側がそのまま英語名)。
 # 並びはクライアントの言語ピッカーに近い順序で並べてあるが、UI 側は alpha 順で
@@ -137,6 +142,211 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
+# 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
+# が、サーバ側の S3 IAM 設定が壊れていて永続的に 403 を返すことが probe で確定
+# (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
+# not authori...` の AccessDenied)。CDragon にも champion→region のマッピングは
+# 無いため、やむを得ずハードコードで持つ。新チャンピオンが追加された時はここに
+# 1 行足す。新地域なら REGION_NAMES と index.html の REGION_LABELS にも追加する。
+REGION_NAMES: dict[str, str] = {
+    "demacia": "Demacia",
+    "noxus": "Noxus",
+    "ionia": "Ionia",
+    "piltover": "Piltover",
+    "zaun": "Zaun",
+    "bilgewater": "Bilgewater",
+    "bandle-city": "Bandle City",
+    "freljord": "Freljord",
+    "shadow-isles": "Shadow Isles",
+    "shurima": "Shurima",
+    "targon": "Mount Targon",
+    "ixtal": "Ixtal",
+    "void": "Void",
+    "runeterra": "Runeterra",  # 無所属/汎用 (Bard, Ryze, Kindred 等)
+    "camavor": "Camavor",
+    "icathia": "Icathia",
+}
+
+# CDragon の alias を lowercase したものをキーにする (例: MonkeyKing → monkeyking)。
+# Riot/Fandom Wiki の "primary region" を基準に、複数地域に深く関わるキャラ
+# (Lucian/Senna/Viego 等) は両方持たせる。空配列は「未調査」として残してOK
+# (regions 軸で検索ヒットしないだけで他は影響なし)。
+CHAMPION_REGIONS: dict[str, list[str]] = {
+    "aatrox": ["runeterra"],
+    "ahri": ["ionia"],
+    "akali": ["ionia"],
+    "akshan": ["shurima"],
+    "alistar": ["runeterra"],
+    "ambessa": ["noxus"],
+    "amumu": ["shurima"],
+    "anivia": ["freljord"],
+    "annie": ["noxus"],
+    "aphelios": ["targon"],
+    "ashe": ["freljord"],
+    "aurelionsol": ["targon"],
+    "aurora": ["freljord"],
+    "azir": ["shurima"],
+    "bard": ["runeterra"],
+    "belveth": ["void"],
+    "blitzcrank": ["zaun"],
+    "brand": ["runeterra"],
+    "braum": ["freljord"],
+    "briar": ["noxus"],
+    "caitlyn": ["piltover"],
+    "camille": ["piltover"],
+    "cassiopeia": ["noxus"],
+    "chogath": ["void"],
+    "corki": ["bandle-city"],
+    "darius": ["noxus"],
+    "diana": ["targon"],
+    "draven": ["noxus"],
+    "drmundo": ["zaun"],
+    "ekko": ["zaun"],
+    "elise": ["shadow-isles"],
+    "evelynn": ["runeterra"],
+    "ezreal": ["piltover"],
+    "fiddlesticks": ["runeterra"],
+    "fiora": ["demacia"],
+    "fizz": ["bilgewater"],
+    "galio": ["demacia"],
+    "gangplank": ["bilgewater"],
+    "garen": ["demacia"],
+    "gnar": ["freljord"],
+    "gragas": ["freljord"],
+    "graves": ["bilgewater"],
+    "gwen": ["shadow-isles"],
+    "hecarim": ["shadow-isles"],
+    "heimerdinger": ["piltover", "bandle-city"],
+    "hwei": ["ionia"],
+    "illaoi": ["bilgewater"],
+    "irelia": ["ionia"],
+    "ivern": ["ionia"],
+    "janna": ["zaun"],
+    "jarvaniv": ["demacia"],
+    "jax": ["icathia"],
+    "jayce": ["piltover"],
+    "jhin": ["ionia"],
+    "jinx": ["zaun"],
+    "kaisa": ["void"],
+    "kalista": ["shadow-isles"],
+    "karma": ["ionia"],
+    "karthus": ["shadow-isles"],
+    "kassadin": ["shurima", "void"],
+    "katarina": ["noxus"],
+    "kayle": ["demacia"],
+    "kayn": ["ionia"],
+    "kennen": ["ionia"],
+    "khazix": ["void"],
+    "kindred": ["runeterra"],
+    "kled": ["noxus"],
+    "kogmaw": ["void"],
+    "ksante": ["shurima"],
+    "leblanc": ["noxus"],
+    "leesin": ["ionia"],
+    "leona": ["targon"],
+    "lillia": ["ionia"],
+    "lissandra": ["freljord"],
+    "lucian": ["demacia", "shadow-isles"],
+    "lulu": ["bandle-city"],
+    "lux": ["demacia"],
+    "malphite": ["ixtal"],
+    "malzahar": ["shurima", "void"],
+    "maokai": ["shadow-isles"],
+    "masteryi": ["ionia"],
+    "mel": ["noxus", "piltover"],
+    "milio": ["ixtal"],
+    "missfortune": ["bilgewater"],
+    "mordekaiser": ["noxus"],
+    "morgana": ["demacia"],
+    "naafiri": ["shurima"],
+    "nami": ["runeterra"],
+    "nasus": ["shurima"],
+    "nautilus": ["bilgewater"],
+    "neeko": ["ixtal"],
+    "nidalee": ["ixtal"],
+    "nilah": ["bilgewater"],
+    "nocturne": ["runeterra"],
+    "nunu": ["freljord"],
+    "olaf": ["freljord"],
+    "orianna": ["piltover"],
+    "ornn": ["freljord"],
+    "pantheon": ["targon"],
+    "poppy": ["demacia", "bandle-city"],
+    "pyke": ["bilgewater"],
+    "qiyana": ["ixtal"],
+    "quinn": ["demacia"],
+    "rakan": ["ionia"],
+    "rammus": ["shurima"],
+    "reksai": ["void"],
+    "rell": ["noxus"],
+    "renata": ["zaun"],
+    "renekton": ["shurima"],
+    "rengar": ["ixtal"],
+    "riven": ["noxus"],
+    "rumble": ["bandle-city"],
+    "ryze": ["runeterra"],
+    "samira": ["noxus", "shurima"],
+    "sejuani": ["freljord"],
+    "senna": ["demacia", "shadow-isles"],
+    "seraphine": ["piltover", "zaun"],
+    "sett": ["ionia"],
+    "shaco": ["runeterra"],
+    "shen": ["ionia"],
+    "shyvana": ["demacia"],
+    "singed": ["zaun"],
+    "sion": ["noxus"],
+    "sivir": ["shurima"],
+    "skarner": ["shurima"],
+    "smolder": ["camavor"],
+    "sona": ["demacia"],
+    "soraka": ["targon"],
+    "swain": ["noxus"],
+    "sylas": ["demacia"],
+    "syndra": ["ionia"],
+    "tahmkench": ["runeterra"],
+    "taliyah": ["shurima"],
+    "talon": ["noxus"],
+    "taric": ["targon"],
+    "teemo": ["bandle-city"],
+    "thresh": ["shadow-isles"],
+    "tristana": ["bandle-city"],
+    "trundle": ["freljord"],
+    "tryndamere": ["freljord"],
+    "twistedfate": ["bilgewater"],
+    "twitch": ["zaun"],
+    "udyr": ["freljord"],
+    "urgot": ["zaun", "noxus"],
+    "varus": ["ionia"],
+    "vayne": ["demacia"],
+    "veigar": ["bandle-city"],
+    "velkoz": ["void"],
+    "vex": ["shadow-isles", "bandle-city"],
+    "vi": ["piltover"],
+    "viego": ["camavor", "shadow-isles"],
+    "viktor": ["zaun"],
+    "vladimir": ["noxus", "camavor"],
+    "volibear": ["freljord"],
+    "warwick": ["zaun"],
+    "monkeyking": ["ionia"],  # CDragon alias は MonkeyKing (Wukong)
+    "xayah": ["ionia"],
+    "xerath": ["shurima"],
+    "xinzhao": ["demacia"],
+    "yasuo": ["ionia"],
+    "yone": ["ionia"],
+    "yorick": ["shadow-isles"],
+    "yuumi": ["bandle-city"],
+    "yunara": ["ionia"],
+    "zaahen": ["shurima", "runeterra"],
+    "zac": ["zaun"],
+    "zed": ["ionia"],
+    "zeri": ["zaun"],
+    "ziggs": ["bandle-city"],
+    "zilean": ["runeterra"],
+    "zoe": ["targon"],
+    "zyra": ["ixtal"],
+}
+
+
 def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
     """`skinlines.json` の生 JSON を id → name のマップに正規化。
 
@@ -195,6 +405,14 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     line_ids = [ln.get("id") for ln in lines if isinstance(ln, dict) and ln.get("id")]
     if line_ids:
         entry["lines"] = line_ids
+
+    # スキン rarity (Legendary, Ultimate, Mythic, ...) — 検索キーワードに使う。
+    # CDragon は "kEpic" / "kLegendary" / "kUltimate" / "kMythic" / "kNoRarity" を
+    # 返す。UI 側 (index.html の RARITY_LABELS) に翻訳マップを持たせる都合で、
+    # 既知集合 KNOWN_RARITIES に絞る。新しい rarity が出たら両側を更新する想定。
+    rarity = skin_obj.get("rarity")
+    if isinstance(rarity, str) and rarity in KNOWN_RARITIES:
+        entry["rarity"] = rarity[1:]
 
     # 画像URLが1つも無い場合はスキップ
     if "splash" not in entry:
@@ -271,6 +489,24 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
             if detail is not None:
                 details[cid] = detail
 
+    # 地域は CHAMPION_REGIONS / REGION_NAMES に hardcode (universe-meeps が
+    # 永続的に 403 を返すため、外部 fetch なし)
+    print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
+    # 新チャンピオン追加時の漏れ検知。CDragon 側の alias が CHAMPION_REGIONS に
+    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)。
+    # `unmapped_regions.json` を書き出すので update.yml がそれを読んで @claude
+    # 宛て issue を自動起票する (なければ書かない = 後段の hashFiles で no-op)
+    unmapped = sorted(
+        ch.get("alias", "").lower()
+        for ch in champions
+        if ch.get("alias") and ch["alias"].lower() not in CHAMPION_REGIONS
+    )
+    if unmapped:
+        print(f"   [警告] CHAMPION_REGIONS 未登録: {unmapped}", flush=True)
+        (Path(__file__).parent / "unmapped_regions.json").write_text(
+            json.dumps(unmapped), encoding="utf-8"
+        )
+
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
     for ch in champions:
@@ -299,12 +535,22 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         classic = next((s for s in skin_entries if s["label"].endswith("_Classic")), skin_entries[0])
         portrait = classic.get("tile") or classic.get("splash")
 
-        out_champs.append({
+        # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
+        roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
+
+        regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
+
+        entry = {
             "name": name,
             "alias": alias,
             "portrait": portrait,
             "skins": skin_entries,
-        })
+        }
+        if roles:
+            entry["roles"] = roles
+        if regions:
+            entry["regions"] = regions
+        out_champs.append(entry)
         align_meta.append((cid, alias, paths_for_locale))
 
     total = sum(len(c["skins"]) for c in out_champs)
@@ -350,6 +596,8 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
+    # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
+    # i18n ファイルには含めない。index.html 側も state.i18n.regions は参照しない。
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
