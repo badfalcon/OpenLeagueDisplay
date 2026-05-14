@@ -44,6 +44,9 @@ export const SELECT_KEY = (alias, label) => `${alias}//${label}`;
 export const LS_SELECTED_KEY = "old.selected";
 export const LS_LOCALE_KEY = "old.locale";
 export const LS_SORT_KEY = "old.sort";
+// 初回訪問チュートリアルの既読フラグ。値は "1" (見せたら立てる) で、未設定なら未読扱い。
+// ヘッダの ? ボタン / ? キーから再表示する場合はこのフラグを変更しない (既読のまま)
+export const LS_TUTORIAL_KEY = "old.tutorial.seen";
 
 // QuotaExceeded / プライベートブラウジング / 読み込み専用環境では落ちることがあるので
 // 失敗は無視して fallback を返す best-effort 永続化
