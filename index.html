@@ -1078,34 +1078,44 @@
     /* content-toolbar: 2 行 grid。row1 = [tabs | search], row2 = [action buttons]。
        3 列構成 (auto 1fr auto) は row2 の最大表示数 (back/select/slideshow = 3) に合わせて
        implicit 列が生まれないようにするため。これで search が row1 の右端まで届く。
+       minmax(0, ...) で auto 列も縮められるようにし、ボタン側の text-overflow: ellipsis と
+       組み合わせて CJK locale (例: ja_jp "スライドショー") のはみ出しを防ぐ。
        desktop の --search-w (JS が render() 時に書き換える) は flex: initial で無効化 */
     .content-toolbar {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
       grid-auto-rows: auto;
-      row-gap: 8px; column-gap: 8px;
+      row-gap: 8px; column-gap: 6px;
       padding: 10px 12px;
       flex-wrap: initial;
       justify-content: stretch;
     }
-    .content-toolbar > .view-tabs { grid-column: 1; grid-row: 1; }
-    .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; }
+    .content-toolbar > .view-tabs { grid-column: 1; grid-row: 1; min-width: 0; }
+    .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; min-width: 0; }
     /* row 2: 表示中のボタンが auto-flow で col 1→2→3 を埋める。
        back と sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
        (home: sort/select/slideshow, lines: select/slideshow, detail: back/select/slideshow) */
     .content-toolbar > #back-btn,
     .content-toolbar > #sort-select,
     .content-toolbar > #select-toggle,
-    .content-toolbar > #slideshow-btn { grid-row: 2; }
+    .content-toolbar > #slideshow-btn { grid-row: 2; min-width: 0; }
 
     .content-toolbar .btn,
     .content-toolbar .ctrl-select,
     .content-toolbar .view-tabs .tab {
-      padding-left: 10px; padding-right: 10px;
-      letter-spacing: 0.12em;
+      padding-left: 8px; padding-right: 8px;
+      letter-spacing: 0.04em;  /* CJK では大きい字間が幅を食うだけなので最小限 */
       font-size: 10px;
     }
-    .content-toolbar .ctrl-select { padding-right: 26px; }  /* 矢印用余白を残す */
+    .content-toolbar .ctrl-select { padding-right: 22px; }  /* 矢印用余白を残す */
+    /* nowrap のまま入りきらない時はクリップして "..." を出す。letter-spacing と
+       padding を絞っても CJK の長いラベル (スライドショー 等) は max-content が
+       広いので、最後の保険として ellipsis に倒す */
+    .content-toolbar .btn,
+    .content-toolbar .ctrl-select {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     main { padding: 24px 16px 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
