@@ -587,27 +587,6 @@
   .skin-card:hover::after {
     box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 28px rgba(212, 168, 87, 0.16);
   }
-  /* 最初のスキンを「フィーチャー」枠として横長 2 カラムぶんに広げる。
-     雑誌の見開き第一面のような印象を作る。狭幅では潰すと窮屈なので media query で解除 */
-  .skin-grid .skin-card:first-child {
-    grid-column: span 2;
-    aspect-ratio: 21 / 9;
-  }
-  @media (max-width: 900px) {
-    .skin-grid .skin-card:first-child { grid-column: auto; aspect-ratio: 16 / 9; }
-  }
-  /* 検索結果のスキングリッドはフィーチャー枠 (1 枚目だけ横長 + 大ラベル) を抑止する。
-     champ 検索で偶然先頭になっただけのスキンを目立たせる理由がないので、全タイル均等 */
-  .skin-grid.is-flat .skin-card:first-child { grid-column: auto; aspect-ratio: 16 / 9; }
-  .skin-grid.is-flat .skin-card:first-child .label {
-    padding: 24px 18px 16px;
-    font-size: 15.5px;
-    font-variation-settings: "opsz" 18, "SOFT" 60, "wght" 500;
-    line-height: 1.18;
-  }
-  .skin-grid.is-flat .skin-card:first-child .label::before {
-    font-size: 10px; margin-bottom: 0; margin-right: 8px;
-  }
   .skin-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 18px 16px;
@@ -635,17 +614,6 @@
     margin-right: 8px;
     vertical-align: middle;
     opacity: 0.85;
-  }
-  /* フィーチャー枠だけは大きめのラベル */
-  .skin-grid .skin-card:first-child .label {
-    padding: 36px 28px 24px;
-    font-size: clamp(20px, 2.2vw, 28px);
-    font-variation-settings: "opsz" 28, "SOFT" 80, "wght" 500;
-    line-height: 1.1;
-  }
-  .skin-grid .skin-card:first-child .label::before {
-    font-size: 11px;
-    margin-bottom: 8px; margin-right: 10px;
   }
 
   /* === LIGHTBOX ==================================================== */
