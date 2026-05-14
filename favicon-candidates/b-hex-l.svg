@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- B: ヘックス + L (現状の派生で識別性UP) -->
-  <rect width="64" height="64" rx="10" fill="#07060b"/>
-  <polygon points="32,6 55,19 55,45 32,58 9,45 9,19"
-           fill="none" stroke="#d4a857" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M26 20 L26 44 L40 44"
-        fill="none" stroke="#d4a857" stroke-width="5"
-        stroke-linecap="square" stroke-linejoin="miter"/>
-</svg>

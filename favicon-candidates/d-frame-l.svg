@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- D: スプラッシュフレーム + Cinzel風 L (機能 × タイポ) -->
-  <rect width="64" height="64" rx="10" fill="#07060b"/>
-  <rect x="8" y="14" width="48" height="36" rx="2"
-        fill="none" stroke="#d4a857" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M24 22 L24 42 L42 42"
-        fill="none" stroke="#d4a857" stroke-width="4"
-        stroke-linecap="square" stroke-linejoin="miter"/>
-</svg>

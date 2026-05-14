@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- C: クリスタル (LoLアイテム風の尖った菱形) -->
-  <rect width="64" height="64" rx="10" fill="#07060b"/>
-  <g fill="none" stroke="#d4a857" stroke-width="3" stroke-linejoin="round">
-    <polygon points="32,6 52,24 32,58 12,24"/>
-    <polyline points="12,24 32,30 52,24"/>
-    <line x1="32" y1="30" x2="32" y2="58"/>
-  </g>
-</svg>
