@@ -130,7 +130,15 @@
   .header-actions {
     display: flex; align-items: center; gap: 12px;
   }
+  /* header-brand は info (h1+stats 縦積み) と lang-picker を横並びにする。
+     狭幅で header が折返した時、brand cluster (info+lang) は 1 つのユニットとして
+     row 1 に留まる */
   .header-brand {
+    display: flex; align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+  .header-brand-info {
     display: flex; flex-direction: column;
     gap: 4px;
     min-width: 0;
@@ -1088,26 +1096,12 @@
      padding と font-size を詰める */
   @media (max-width: 900px) {
     :root { --container-pad: 20px; }
-    /* header 幅不足対応:
-       - lang-picker を position: absolute で右上に固定 (padding-right に確保した
-         スペースに浮かせる)
-       - .header-brand を flex-basis: 100% にして row 1 を占有 → 残り
-         (view-tabs / select-toggle / slideshow-btn) は自動的に row 2 へ折返す
-       - row 2 では既存の `#select-toggle { margin-left: auto }` が効き、
-         tabs が左、select+slideshow が右に分かれる */
-    header {
-      position: relative;
-      padding: 12px var(--container-pad);
-      padding-right: calc(var(--container-pad) + 64px);  /* absolute lang 用 */
-      gap: 10px 14px;
-    }
-    header > .lang-picker {
-      position: absolute;
-      top: 12px;
-      right: var(--container-pad);
-      margin-left: 0;
-    }
+    /* header 幅不足対応: brand cluster (info+lang) を flex: 1 1 100% で row 1 を
+       独占 → 残り (view-tabs / .header-actions) が自動的に row 2 へ折返す。
+       brand 内では lang を info の右隣にぶら下げる (margin-left: auto で右端寄せ) */
+    header { padding: 12px var(--container-pad); gap: 10px 14px; }
     .header-brand { flex: 1 1 100%; min-width: 0; }
+    .header-brand .lang-picker { margin-left: auto; }
     header h1 { font-size: 20px; }
     main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
@@ -1139,10 +1133,8 @@
 
     header {
       padding: 10px var(--container-pad);
-      padding-right: calc(var(--container-pad) + 64px);  /* 900px から継承する absolute lang 用余白 */
       gap: 6px 8px;
     }
-    header > .lang-picker { top: 10px; right: var(--container-pad); }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
     /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
@@ -1289,8 +1281,16 @@
 <div class="topbar">
   <header>
     <div class="header-brand">
-      <h1 id="title">OpenLeagueDisplay</h1>
-      <span id="stats"></span>
+      <div class="header-brand-info">
+        <h1 id="title">OpenLeagueDisplay</h1>
+        <span id="stats"></span>
+      </div>
+      <div class="lang-picker" id="lang-picker">
+        <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
+          <img class="lang-flag" id="lang-flag" alt="" decoding="async">
+        </button>
+        <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+      </div>
     </div>
     <div class="view-tabs" role="tablist">
       <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
@@ -1299,12 +1299,6 @@
     <div class="header-actions">
       <button class="btn" id="select-toggle" aria-label="Select">Select</button>
       <button class="btn" id="slideshow-btn">Slideshow</button>
-    </div>
-    <div class="lang-picker" id="lang-picker">
-      <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
-        <img class="lang-flag" id="lang-flag" alt="" decoding="async">
-      </button>
-      <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
     </div>
   </header>
 </div>
