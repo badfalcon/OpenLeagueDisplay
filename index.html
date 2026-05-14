@@ -60,6 +60,12 @@
 
     --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
     --ctrl-h: 40px;     /* 全コントロール (btn/search/lang/tab) 共通の高さ */
+    /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
+       header / main / footer の「中身」をこの幅で中央寄せする */
+    --container-max: 1760px;
+    /* 上記 4 要素の左右パディング。これを共通化することで画面端の縦線が揃う。
+       breakpoint ごとに :root で上書きする */
+    --container-pad: 56px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -91,9 +97,9 @@
   body { scrollbar-color: var(--bg-3) var(--bg); }
 
   /* === HEADER ====================================================== */
-  /* topbar = header (brand + lang) + content-toolbar (タブ/検索/操作) を1つの
-     sticky バーにまとめる。背景・blur はラッパーが持ち、内側は構造のみ。
-     これでスクロール時にタブと選択モードも追従する */
+  /* topbar = brand + view-tabs + アクション + lang を 1 行に並べる sticky バー。
+     背景・blur はラッパーが持ち、内側は構造のみ。検索バー/戻る/ソートは
+     dom-stash から render() で .champ-header-controls に transplant される */
   .topbar {
     position: sticky; top: 0; z-index: 30;
     background: linear-gradient(180deg, rgba(7, 6, 11, 0.96), rgba(7, 6, 11, 0.85));
@@ -107,35 +113,32 @@
     opacity: 0.55; pointer-events: none;
   }
 
-  /* 1 行構成: brand | lang-picker (右端) */
+  /* 1 行構成: [brand] [view-tabs] (auto-spacer) [actions=select+slideshow] [lang]
+     header-actions に margin-left: auto を付けて「左クラスタ (brand+tabs)」と
+     「右クラスタ (actions+lang)」を分離。select-toggle と slideshow-btn は
+     .header-actions で 1 つの flex 群にまとめ、狭幅で折返す時もセットで動く */
   header {
     display: flex; align-items: center;
-    gap: 18px;
-    padding: 16px 36px;
-    border-bottom: 1px solid var(--rule);  /* header と toolbar の境界 */
-    flex-wrap: wrap;  /* 極端に狭い時だけ折返す */
-  }
-  header > .lang-picker { margin-left: auto; }  /* 折返し時も lang は右端にスナップ */
-  /* 検索バーは固定上限のみで flex-grow させない。タブ/モード群を端に張り付かせず、
-     行全体を justify-content: center でまとめて中央寄せにするため */
-  .content-toolbar > #search { flex: 0 1 520px; min-width: 0; }
-
-  /* sort-select の保管庫。home view では champ-header 内のスロットに transplant
-     されるため、本体は常に非表示でよい。home 以外では select 自体が DOM 上ここに
-     居るだけで描画されない */
-  .grid-toolbar { display: none; }
-
-  /* ページのアクション専用バー。topbar の一部として header の真下に積まれ、
-     スクロール時も header と一緒に追従する。main と同じ max-width で中央寄せ */
-  .content-toolbar {
-    max-width: 1760px;
+    gap: 12px;
+    padding: 12px var(--container-pad);
+    border-bottom: 1px solid var(--rule);
+    flex-wrap: wrap;
+    max-width: var(--container-max);
     margin: 0 auto;
-    padding: 14px 56px;
-    display: flex; gap: 10px;
-    align-items: center;
-    justify-content: center;
   }
+  header > .header-actions { margin-left: auto; }
+  .header-actions {
+    display: flex; align-items: center; gap: 12px;
+  }
+  /* header-brand は info (h1+stats 縦積み) と lang-picker を横並びにする。
+     狭幅で header が折返した時、brand cluster (info+lang) は 1 つのユニットとして
+     row 1 に留まる */
   .header-brand {
+    display: flex; align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+  .header-brand-info {
     display: flex; flex-direction: column;
     gap: 4px;
     min-width: 0;
@@ -280,6 +283,10 @@
   }
   .btn:hover { background: rgba(212, 168, 87, 0.10); border-color: var(--gold); color: var(--gold-hi); }
   .btn:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
+  /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
+     author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
+     (#primary-action を home/lines で消すのに必要) */
+  .btn[hidden] { display: none; }
 
   /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
      ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
@@ -367,8 +374,8 @@
   main {
     /* topbar (sticky) の下に来るので上に少し余白を取り、コンテンツが
        バーの真下にぴったり張り付かないようにする */
-    padding: 28px 56px 100px;
-    max-width: 1760px; margin: 0 auto;
+    padding: 28px var(--container-pad) 100px;
+    max-width: var(--container-max); margin: 0 auto;
     animation: fadeIn 0.5s ease;
     position: relative;
   }
@@ -504,6 +511,10 @@
   }
 
   /* === CHAMP / LINE HEADER ========================================= */
+  /* author の .champ-header { display: grid } が UA の [hidden] { display: none } を
+     同 specificity (0,1,0) で覆って勝つ仕様。永続 #primary-header に setPrimaryHeader
+     前の hidden 状態が残ると空 header がレイアウトを占有するので、明示的に殺す */
+  .champ-header[hidden] { display: none; }
   .champ-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -528,13 +539,14 @@
   }
   .champ-header h2 {
     margin: 0;
-    grid-column: 1 / -1;
+    grid-column: 1;   /* 常に col 1 に縛る。col 2 は controls スロット用 */
     font-family: var(--font-display);
     font-size: clamp(48px, 7vw, 96px);
     font-weight: 400; font-style: italic;
     font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 400;
     color: var(--gold-hi);
     letter-spacing: -0.02em; line-height: 0.92;
+    overflow-wrap: anywhere;  /* 長い名前で controls 列を圧迫した時の折返し */
   }
   /* 一覧画面 (チャンピオン一覧 / シリーズ一覧) のヘッダーは、固有名詞ではなく
      セクションラベル ("CHAMPIONS" / "SKIN LINES") を出すだけなので、個別画面の
@@ -543,24 +555,34 @@
     font-size: clamp(26px, 3.4vw, 44px);
     font-variation-settings: "opsz" 72, "SOFT" 100, "wght" 400;
   }
-  /* h2 と並び替えセレクタを同じ行に並べるためのスロット。is-list で h2 を col 1
-     に縛り直し、col 2 を controls 用に空けておく (詳細画面の champ-header は
-     既存通り h2 が全幅 = grid-column 1/-1 のまま) */
-  .champ-header.is-list h2 { grid-column: 1; }
+  /* h2 と同じ row 1 の右端に並ぶ controls スロット。dom-stash から transplant
+     された [back?][search][sort?] が flex で横並びに入る。align-self: end で
+     巨大 h2 (96px) の下辺と揃える */
   .champ-header-controls {
     grid-column: 2; grid-row: 1;
-    justify-self: end; align-self: center;
+    justify-self: end; align-self: end;
+    display: flex; align-items: center; gap: 10px;
+    min-width: 0;
   }
+  .champ-header-controls > #search {
+    flex: 0 1 clamp(280px, 28vw, 480px);
+    min-width: 0;
+  }
+  .champ-header-controls > #back-btn,
+  .champ-header-controls > .ctrl-select { flex: 0 0 auto; }
   .champ-header .count {
-    grid-column: 1;
+    grid-column: 1; grid-row: 2;
     color: var(--ink-soft);
     font-family: var(--font-eyebrow);
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.32em;
     text-transform: uppercase;
   }
-  .champ-header .btn,
-  .champ-header .btn.primary {
+  /* primary download ボタンは .champ-header の直接子 (renderChampion /
+     renderLine のテンプレで生成)。子セレクタに絞ることで、controls スロット内の
+     #back-btn (.btn 持ち) には適用されない */
+  .champ-header > .btn,
+  .champ-header > .btn.primary {
     grid-column: 2; grid-row: 2;
     justify-self: end; align-self: end;
     margin-left: 0 !important;
@@ -750,9 +772,11 @@
   }
   .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
 
-  /* === FOOTER ====================================================== */
+  /* === FOOTER ======================================================
+     border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
+     テキストは .footer-inner で --container-max に絞って中央寄せ */
   footer {
-    padding: 56px 36px 40px;
+    padding: 56px var(--container-pad) 40px;
     text-align: center;
     font-family: var(--font-eyebrow);
     font-size: 10.5px; font-weight: 500;
@@ -762,6 +786,10 @@
     border-top: 1px solid var(--rule);
     margin-top: 60px;
     position: relative;
+  }
+  .footer-inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
   }
   footer::before {
     content: "✦";
@@ -1047,14 +1075,35 @@
   .progress-actions { margin-top: 22px; }
 
   /* === RESPONSIVE ================================================= */
-  /* ヘッダは元から flex-column で縦に積んでいるので、狭幅でも基本構造は崩れない。
-     padding と font-size だけを縮めればよい */
+  /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
+     champ-header の controls スロットを row 2 に落とす。h2 と controls が
+     横並びだと窮屈になるサイズ */
+  @media (max-width: 1100px) {
+    .champ-header-controls {
+      grid-column: 1 / -1; grid-row: 2;
+      justify-self: stretch; align-self: start;
+      flex-wrap: wrap;
+    }
+    .champ-header .count { grid-row: 3; }
+    .champ-header > .btn,
+    .champ-header > .btn.primary { grid-row: 3; }
+    .champ-header-controls > #search {
+      flex: 1 1 240px;
+      max-width: none;
+    }
+  }
+  /* 900px 以下: タブレット帯域。header の右クラスタが折返す可能性を許容しつつ、
+     padding と font-size を詰める */
   @media (max-width: 900px) {
-    header { padding: 14px 18px; gap: 10px 14px; }
+    :root { --container-pad: 20px; }
+    /* header 幅不足対応: brand cluster (info+lang) を flex: 1 1 100% で row 1 を
+       独占 → 残り (view-tabs / .header-actions) が自動的に row 2 へ折返す。
+       brand 内では lang を info の右隣にぶら下げる (margin-left: auto で右端寄せ) */
+    header { padding: 12px var(--container-pad); gap: 10px 14px; }
+    .header-brand { flex: 1 1 100%; min-width: 0; }
+    .header-brand .lang-picker { margin-left: auto; }
     header h1 { font-size: 20px; }
-    .content-toolbar { padding: 10px 20px; flex-wrap: wrap; }
-    .content-toolbar > #search { max-width: none; flex: 1 1 200px; }
-    main { padding: 20px 20px 100px; }
+    main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
     .skin-grid { grid-template-columns: repeat(auto-fill, 260px); }
     .line-grid { grid-template-columns: repeat(auto-fill, 260px); }
@@ -1073,16 +1122,19 @@
   /* 600px 以下: スマホ全帯域 (320-430px) を一気に最適化。
      - グリッドは fluid (auto-fill + minmax) でカードはみ出しを解消
      - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
-     - content-toolbar は flex-wrap 任せをやめ grid で 2 行に明示配置
+     - header は flex-wrap の自然な折返しでナビ + アクション + lang が 2-3 段に
      - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
        タッチで操作できる形へ作り直す */
   @media (max-width: 600px) {
     /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有 */
-    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); }
+    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; }
 
     .topbar { padding-top: env(safe-area-inset-top); }
 
-    header { padding: 10px 12px; gap: 8px; }
+    header {
+      padding: 10px var(--container-pad);
+      gap: 6px 8px;
+    }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
     /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
@@ -1098,46 +1150,33 @@
       max-width: calc(100vw - 100px);
     }
 
-    /* content-toolbar: 2 行 grid。row1 = [tabs OR back | search], row2 = [action buttons]。
-       tabs と back は意味的に重複 (どちらも一覧へ戻る) するので row1 col1 を共有させ、
-       詳細ビューでは tabs を隠して back に置き換える。3 列構成 (auto 1fr auto) は
-       row2 の最大表示数 (select/slideshow = 2) に余裕を持たせるため。これで search が
-       row1 の右端まで届く。minmax(0, ...) で auto 列も縮められるようにし、ボタン側の
-       text-overflow: ellipsis と組み合わせて CJK locale (例: ja_jp "スライドショー") の
-       はみ出しを防ぐ。desktop の #search 幅 (520px) は flex: initial で無効化 */
-    .content-toolbar {
-      display: grid;
-      grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
-      grid-auto-rows: auto;
-      row-gap: 8px; column-gap: 6px;
-      padding: 10px 12px;
-      flex-wrap: initial;
-      justify-content: stretch;
-    }
-    .content-toolbar > .view-tabs,
-    .content-toolbar > #back-btn  { grid-column: 1; grid-row: 1; min-width: 0; }
-    .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; min-width: 0; }
-    /* row 2: ボタンが auto-flow で col 1→2 を埋める (select/slideshow の 2 個固定) */
-    .content-toolbar > #select-toggle,
-    .content-toolbar > #slideshow-btn { grid-row: 2; min-width: 0; }
-
-    .content-toolbar .btn,
-    .content-toolbar .ctrl-select,
-    .content-toolbar .view-tabs .tab {
+    /* topbar 内ボタン/タブの省幅化: CJK / 長 locale 対応 */
+    header .btn,
+    header .view-tabs .tab {
       padding-left: 8px; padding-right: 8px;
-      letter-spacing: 0.04em;  /* CJK では大きい字間が幅を食うだけなので最小限 */
+      letter-spacing: 0.04em;
       font-size: 10px;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .content-toolbar .ctrl-select { padding-right: 22px; }  /* 矢印用余白を残す */
-    /* タブは 1 つあたり 40vw までで頭打ち。例えば es_es "Líneas de aspectos" (18 字) や
-       fr_fr "Gammes de skins" のように長いラベルが片方のタブを支配して
-       検索バーが消えるのを防ぐ。短いタブ ("シリーズ" 等) は max-content 通りで縮まない */
-    .content-toolbar .view-tabs .tab { max-width: 40vw; }
+    header .view-tabs .tab { max-width: 40vw; }
 
-    main { padding: 24px 16px 100px; }
+    /* champ-header の controls スロットは縦積みに切替 (1100px ブレークの flex-wrap
+       より厳しい層): 320px-幅で back / search / sort が横並びだとはみ出すため */
+    .champ-header-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .champ-header-controls > #search,
+    .champ-header-controls > #back-btn,
+    .champ-header-controls > .ctrl-select {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: none;
+    }
+
+    main { padding: 24px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
     .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
@@ -1211,64 +1250,65 @@
   /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
      skin/line は 1 列、champ は 3 列固定にする */
   @media (max-width: 400px) {
-    :root { --frame-cut: 8px; }
-    main { padding: 16px 10px 96px; }
+    :root { --frame-cut: 8px; --container-pad: 10px; }
+    main { padding: 16px var(--container-pad) 96px; }
     .skin-grid, .line-grid { grid-template-columns: 1fr; }
     .champ-grid { grid-template-columns: repeat(3, 1fr); }
 
-    /* 320px 級では es_es / fr_fr / pt_br の長ラベルが上の 600px 設定でもキツいので
+    /* 320px 級では es_es / fr_fr / pt_br の長ラベルが 600px 設定でもキツいので
        letter-spacing を切って 9.5px に落とす。ellipsis は親側で既に効くので
        入りきらない分は "..." に倒れる */
-    .content-toolbar { column-gap: 4px; padding: 10px 8px; }
-    .content-toolbar .btn,
-    .content-toolbar .ctrl-select,
-    .content-toolbar .view-tabs .tab {
+    header { column-gap: 4px; }
+    header .btn,
+    header .view-tabs .tab,
+    .champ-header-controls .ctrl-select {
       padding-left: 6px; padding-right: 6px;
       letter-spacing: 0;
       font-size: 9.5px;
     }
-    .content-toolbar .ctrl-select { padding-right: 20px; }
-    .content-toolbar .view-tabs .tab { max-width: 36vw; }
+    .champ-header-controls .ctrl-select { padding-right: 20px; }
+    header .view-tabs .tab { max-width: 36vw; }
   }
 </style>
 </head>
 <body>
 
-<!-- topbar: header (brand + lang) と content-toolbar (タブ/検索/操作) を
-     1 つの sticky バーにまとめる。スクロール時もタブと選択モードが追従する -->
+<!-- topbar: brand + ナビ (view-tabs) + アクション (select / slideshow) + lang を
+     1 行にまとめた sticky バー。広い PC 幅では brand と lang の間に余裕があるので、
+     旧 content-toolbar 行は champ-header に降ろした。
+     検索バー / 戻るボタン / ソートは下の dom-stash に置き、render() で
+     .champ-header-controls スロットへ transplant する -->
 <div class="topbar">
   <header>
     <div class="header-brand">
-      <h1 id="title">OpenLeagueDisplay</h1>
-      <span id="stats"></span>
+      <div class="header-brand-info">
+        <h1 id="title">OpenLeagueDisplay</h1>
+        <span id="stats"></span>
+      </div>
+      <div class="lang-picker" id="lang-picker">
+        <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
+          <img class="lang-flag" id="lang-flag" alt="" decoding="async">
+        </button>
+        <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+      </div>
     </div>
-    <div class="lang-picker" id="lang-picker">
-      <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
-        <img class="lang-flag" id="lang-flag" alt="" decoding="async">
-      </button>
-      <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
-    </div>
-  </header>
-
-  <!-- ビュー切替 / 検索 / ページ操作を 1 行にまとめる。検索バーは flex-grow で
-       左 (タブ・Back) と右 (Select・Slideshow) の間の空きを埋めつつ、ビュー単位の
-       操作と同じ層に並ぶことで文脈をはっきりさせる -->
-  <div class="content-toolbar">
     <div class="view-tabs" role="tablist">
       <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
       <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
     </div>
-    <button class="btn" id="back-btn" style="display:none">← Back</button>
-    <input type="search" id="search" placeholder="Search champion…">
-    <button class="btn" id="select-toggle" aria-label="Select">Select</button>
-    <button class="btn" id="slideshow-btn">Slideshow</button>
-  </div>
+    <div class="header-actions">
+      <button class="btn" id="select-toggle" aria-label="Select">Select</button>
+      <button class="btn" id="slideshow-btn">Slideshow</button>
+    </div>
+  </header>
 </div>
 
-<!-- グリッド上の独立ツールバー: ホーム (Champions 一覧) のときだけ表示する並び順
-     セレクタを置く。topbar とは分離して main の直上に来るので、検索バー/タブ群と
-     視覚的に区別される。skin lines / 詳細では意味が無いので render() 側で hide -->
-<div class="grid-toolbar" id="grid-toolbar">
+<!-- DOM 保管庫: 検索バー / 戻るボタン / 並び順セレクタの「住所」。render() の
+     直前にここへ退避させ、innerHTML 再生成後の .champ-header-controls スロットに
+     transplant する。hidden 属性で非表示 -->
+<div class="dom-stash" id="dom-stash" hidden>
+  <button class="btn" id="back-btn">← Back</button>
+  <input type="search" id="search" placeholder="Search champion…">
   <select class="ctrl-select" id="sort-select" aria-label="Sort order">
     <option value="default">Default</option>
     <option value="name_asc">Name A → Z</option>
@@ -1320,9 +1360,11 @@
 </div>
 
 <footer>
-  Images & data from <a href="https://communitydragon.org" target="_blank" rel="noopener">Community Dragon</a>
-  · League of Legends © Riot Games, Inc.
-  · <span id="patch-info"></span>
+  <div class="footer-inner">
+    Images & data from <a href="https://communitydragon.org" target="_blank" rel="noopener">Community Dragon</a>
+    · League of Legends © Riot Games, Inc.
+    · <span id="patch-info"></span>
+  </div>
 </footer>
 
 <script>
@@ -2325,38 +2367,64 @@ async function init() {
   render();
 }
 
+// view-content の上に居る永続的な champ-header。h2 / count / primary は
+// renderXxx 側から setPrimaryHeader() で書き換える。.champ-header-controls
+// (back-btn / search / sort-select) は一度ここに住んだら二度と動かさない。
+// これで search input の親が render() ごとに壊されることが無くなり、入力中の
+// フォーカスやカーソル位置・IME composition が保たれる
+function ensureLayout(root) {
+  if ($("view-content")) return;
+  root.innerHTML = `
+    <div class="champ-header" id="primary-header" hidden>
+      <h2 id="primary-title"></h2>
+      <div class="champ-header-controls"></div>
+      <span class="count" id="primary-count"></span>
+      <button class="btn primary" id="primary-action" hidden></button>
+    </div>
+    <div id="view-content"></div>`;
+  const slot = root.querySelector(".champ-header-controls");
+  slot.appendChild($("back-btn"));
+  slot.appendChild($("search"));
+  slot.appendChild($("sort-select"));
+}
+
+// 永続 champ-header の中身を更新する唯一の窓口。renderXxx は innerHTML を
+// 触らず、ここに値を渡すだけにする
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null }) {
+  const ph = $("primary-header");
+  ph.hidden = false;
+  ph.classList.toggle("is-list", !!isList);
+  $("primary-title").textContent = title;
+  $("primary-count").textContent = count;
+  const btn = $("primary-action");
+  if (primaryLabel) {
+    btn.hidden = false;
+    btn.textContent = primaryLabel;
+    // onclick への代入で前回の handler は自動破棄される (addEventListener と違って重複しない)
+    btn.onclick = primaryClick;
+  } else {
+    btn.hidden = true;
+    btn.onclick = null;
+  }
+}
+
 function render() {
   const root = $("root");
-  // タブはトップレベル切替。back-btn は詳細 (champion / line) に居る時だけ表示。
-  // ライン/ホーム同士の往復はタブ自身でやる。
-  // 詳細ビューではタブと back が同じ「一覧へ戻る」アクションを意味するので、
-  // タブを隠して back で置き換える (両者は同じ grid スロットを共有)
+  ensureLayout(root);
+  // タブはトップレベル切替。back-btn は詳細 (champion / line) または検索中に表示
   const isLines = (state.view === "lines" || state.view === "line");
   const isDetail = (state.view === "champion" || state.view === "line");
-  // 検索中も「一覧へ戻る」アクションを兼ねるので、タブを back に置き換える。
-  // 詳細ビューと同じ挙動 (同 grid スロットを共有)
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
   $("tab-home").classList.toggle("active", !isLines);
   $("nav-lines").classList.toggle("active", isLines);
-  document.querySelector(".view-tabs").style.display = showBack ? "none" : "";
-  $("back-btn").style.display = showBack ? "" : "none";
-  // 並び順セレクタは home (チャンピオン一覧) ヘッダ右端に居る。innerHTML を
-  // 書き換える前に保管庫 (#grid-toolbar) に退避しておかないと event listener ごと
-  // 消える。home 以外では保管庫が display:none なので select も自動的に隠れる
-  const sortSel = $("sort-select");
-  if (sortSel && sortSel.parentNode !== $("grid-toolbar")) {
-    $("grid-toolbar").appendChild(sortSel);
-  }
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
-  // home の Champions ヘッダにスロットを描いた後、退避してあった select を transplant
-  if (state.view === "home" && sortSel) {
-    const slot = root.querySelector(".champ-header-controls");
-    if (slot) slot.appendChild(sortSel);
-  }
+  // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
+  $("back-btn").style.display = showBack ? "" : "none";
+  $("sort-select").style.display = state.view === "home" ? "" : "none";
   renderPackBar();
 }
 
@@ -2391,13 +2459,8 @@ function renderHome(root) {
   if (!q) {
     const list = DATA.champions.slice();
     sortChamps(list);
-    root.innerHTML = `
-      <div class="champ-header is-list">
-        <h2>${t("nav_home")}</h2>
-        <div class="champ-header-controls"></div>
-        <span class="count">${t("champs_count", list.length)}</span>
-      </div>
-      <div class="champ-grid">${renderChampCards(list)}</div>`;
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
+    $("view-content").innerHTML = `<div class="champ-grid">${renderChampCards(list)}</div>`;
     wireChampCards(root);
     return;
   }
@@ -2422,33 +2485,31 @@ function renderHome(root) {
   sortSkins(skinMatches);
 
   if (champMatches.length === 0 && skinMatches.length === 0) {
-    root.innerHTML = `<div class="loading"><h2>${t("no_results_title")}</h2><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
+    $("view-content").innerHTML = `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     return;
   }
 
+  // primary header はトップセクションを担当 (champions が居れば Champions、
+  // skins だけなら Skins)。両方ある場合の二段目見出しは view-content 内に
+  // 通常の champ-header として innerHTML で書き出す (controls スロット無し)
   const parts = [];
   if (champMatches.length > 0) {
-    parts.push(`
-      <div class="champ-header is-list">
-        <h2>${t("nav_home")}</h2>
-        <div class="champ-header-controls"></div>
-        <span class="count">${t("champs_count", champMatches.length)}</span>
-      </div>
-      <div class="champ-grid">${renderChampCards(champMatches)}</div>`);
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length) });
+    parts.push(`<div class="champ-grid">${renderChampCards(champMatches)}</div>`);
+    if (skinMatches.length > 0) {
+      parts.push(`
+        <div class="champ-header is-list">
+          <h2>${t("section_skins")}</h2>
+          <span class="count">${t("skins_count", skinMatches.length)}</span>
+        </div>
+        <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
+    }
+  } else {
+    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length) });
+    parts.push(`<div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
   }
-  if (skinMatches.length > 0) {
-    // 並び順スロットは原則 Champions ヘッダ側に置くが、検索ヒットが skin だけだった
-    // 場合は Champions ヘッダ自体が描かれないので、その時だけ Skins 側を受け皿にする
-    const ctrlSlot = champMatches.length === 0 ? `<div class="champ-header-controls"></div>` : "";
-    parts.push(`
-      <div class="champ-header is-list">
-        <h2>${t("section_skins")}</h2>
-        ${ctrlSlot}
-        <span class="count">${t("skins_count", skinMatches.length)}</span>
-      </div>
-      <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
-  }
-  root.innerHTML = parts.join("");
+  $("view-content").innerHTML = parts.join("");
   wireChampCards(root);
   wireSearchSkinCards(root, skinMatches);
 }
@@ -2531,21 +2592,20 @@ function renderChampion(root) {
       <div class="label">${esc(lab)}</div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header">
-      <h2>${esc(champName(c))}</h2>
-      <span class="count">${t("skins_count", c.skins.length)}</span>
-      <button class="btn primary" id="dl-champ">${t("dl_champion")}</button>
-    </div>
-    <div class="skin-grid">${cards}</div>`;
-  root.querySelectorAll(".skin-card").forEach(el => {
+  setPrimaryHeader({
+    title: champName(c),
+    count: t("skins_count", c.skins.length),
+    primaryLabel: t("dl_champion"),
+    primaryClick: () => downloadChampion(c),
+  });
+  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
+  $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
       if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(buildChampList(c), idx, "manual");
     });
   });
-  $("dl-champ").addEventListener("click", () => downloadChampion(c));
 }
 
 function renderLines(root) {
@@ -2574,7 +2634,8 @@ function renderLines(root) {
     .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   if (entries.length === 0) {
-    root.innerHTML = `<div class="loading"><h2>${t("no_results_title")}</h2><p>${t("no_lines_msg")}</p></div>`;
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
+    $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
     return;
   }
   const cards = entries.map(e => {
@@ -2594,13 +2655,9 @@ function renderLines(root) {
       </div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header is-list">
-      <h2>${t("skin_lines_header")}</h2>
-      <span class="count">${t("lines_count", entries.length)}</span>
-    </div>
-    <div class="line-grid">${cards}</div>`;
-  root.querySelectorAll(".line-card").forEach(el => {
+  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
+  $("view-content").innerHTML = `<div class="line-grid">${cards}</div>`;
+  $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.addEventListener("click", () => openLine(el.dataset.line));
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
@@ -2631,22 +2688,21 @@ function renderLine(root) {
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header">
-      <h2>${esc(lname)}</h2>
-      <span class="count">${t("skins_count", items.length)}</span>
-      <button class="btn primary" id="dl-line">${t("dl_line")}</button>
-    </div>
-    <div class="skin-grid">${cards}</div>`;
+  setPrimaryHeader({
+    title: lname,
+    count: t("skins_count", items.length),
+    primaryLabel: t("dl_line"),
+    primaryClick: () => downloadLine(lid, lname, items),
+  });
+  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash }));
-  root.querySelectorAll(".skin-card").forEach(el => {
+  $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
       if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(lbList, idx, "manual");
     });
   });
-  $("dl-line").addEventListener("click", () => downloadLine(lid, lname, items));
 }
 
 // 選択モード中、ヘッダー直下に「現在 N 件選択中 / DL / クリア」バーを出す
