@@ -92,9 +92,8 @@
   .header-actions {
     display: flex; align-items: center; gap: 12px;
   }
-  /* header-brand は info (h1+stats 縦積み) と lang-picker を横並びにする。
-     狭幅で header が折返した時、brand cluster (info+lang) は 1 つのユニットとして
-     row 1 に留まる */
+  /* header-brand は info (h1+stats 縦積み) を包む薄いラッパ。lang-picker は
+     header の末尾 (右クラスタの一番右) に並ぶので brand には含めない */
   .header-brand {
     display: flex; align-items: center;
     gap: 18px;
@@ -1058,12 +1057,12 @@
      padding と font-size を詰める */
   @media (max-width: 900px) {
     :root { --container-pad: 20px; }
-    /* header 幅不足対応: brand cluster (info+lang) を flex: 1 1 100% で row 1 を
-       独占 → 残り (view-tabs / .header-actions) が自動的に row 2 へ折返す。
-       brand 内では lang を info の右隣にぶら下げる (margin-left: auto で右端寄せ) */
+    /* header 幅不足対応: brand を flex: 1 1 100% で row 1 を独占 → 残り
+       (view-tabs / .header-actions / .lang-picker) が自動的に row 2 へ折返す。
+       .header-actions の margin-left: auto (PC幅と共通の右クラスタ寄せ) が効くため、
+       row 2 では [view-tabs] (gap) [actions] [lang] の順で右に詰まる */
     header { padding: 12px var(--container-pad); gap: 10px 14px; }
     .header-brand { flex: 1 1 100%; min-width: 0; }
-    .header-brand .lang-picker { margin-left: auto; }
     header h1 { font-size: 20px; }
     main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
