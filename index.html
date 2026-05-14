@@ -1,6 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- i18n-loading: ES Modules は defer 相当で、保存 locale の applyStaticUIStrings()
+     が走る前に index.html の英語ハードコードが一瞬見えてしまう。styles.css 側で
+     対象要素を visibility:hidden にしておき、init() 内で外す。
+     JS が完全に失敗した時のための保険として 3 秒経過で自動解除する -->
+<html lang="en" class="i18n-loading">
 <head>
+<script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--

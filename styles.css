@@ -30,6 +30,12 @@
     --container-pad: 56px;
   }
   * { box-sizing: border-box; }
+  /* 初回ロード時の英語ラベルちらつき抑止。<html class="i18n-loading"> は
+     index.html 側で付与され、init() で applyStaticUIStrings() 完了後に外す。
+     visibility:hidden なのでレイアウトは確保したままテキストだけ消える */
+  html.i18n-loading .view-tabs .tab,
+  html.i18n-loading .header-actions .btn,
+  html.i18n-loading #loading-msg { visibility: hidden; }
   html, body {
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font-body);
