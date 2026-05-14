@@ -117,10 +117,22 @@
   }
   header > .lang-picker { margin-left: auto; }  /* 折返し時も lang は右端にスナップ */
   /* 検索バーは固定上限のみで flex-grow させない。タブ/モード群を端に張り付かせず、
-     行全体を justify-content: center でまとめて中央寄せにするため。
-     --search-w は sort-select を隠す view (lines/詳細) でその幅+gap ぶんだけ伸ばす
-     (JS が render() 時に書き換える)。これで右端のボタン位置が view 切替で動かない */
-  .content-toolbar > #search { flex: 0 1 var(--search-w, 520px); min-width: 0; }
+     行全体を justify-content: center でまとめて中央寄せにするため */
+  .content-toolbar > #search { flex: 0 1 520px; min-width: 0; }
+
+  /* グリッド上の独立ツールバー。並び替えなど「コンテンツ一覧専用」の操作を、
+     ページ最上部の topbar とは分離して main の真上に置く。home view 以外では
+     hidden 属性で消える (display:none で main がそのまま topbar 直下に来る) */
+  .grid-toolbar {
+    max-width: 1760px;
+    margin: 0 auto;
+    padding: 24px 56px 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+  }
+  .grid-toolbar[hidden] { display: none; }
 
   /* ページのアクション専用バー。topbar の一部として header の真下に積まれ、
      スクロール時も header と一緒に追従する。main と同じ max-width で中央寄せ */
@@ -166,7 +178,7 @@
 
 
   #search {
-    width: 100%; max-width: var(--search-w, 520px);
+    width: 100%; max-width: 520px;
     height: var(--ctrl-h);
     padding: 0 18px 0 42px;
     background: var(--bg-1);
@@ -1082,11 +1094,10 @@
     /* content-toolbar: 2 行 grid。row1 = [tabs OR back | search], row2 = [action buttons]。
        tabs と back は意味的に重複 (どちらも一覧へ戻る) するので row1 col1 を共有させ、
        詳細ビューでは tabs を隠して back に置き換える。3 列構成 (auto 1fr auto) は
-       row2 の最大表示数 (sort/select/slideshow = 3) に合わせて implicit 列が生まれない
-       ようにするため。これで search が row1 の右端まで届く。
-       minmax(0, ...) で auto 列も縮められるようにし、ボタン側の text-overflow: ellipsis と
-       組み合わせて CJK locale (例: ja_jp "スライドショー") のはみ出しを防ぐ。
-       desktop の --search-w (JS が render() 時に書き換える) は flex: initial で無効化 */
+       row2 の最大表示数 (select/slideshow = 2) に余裕を持たせるため。これで search が
+       row1 の右端まで届く。minmax(0, ...) で auto 列も縮められるようにし、ボタン側の
+       text-overflow: ellipsis と組み合わせて CJK locale (例: ja_jp "スライドショー") の
+       はみ出しを防ぐ。desktop の #search 幅 (520px) は flex: initial で無効化 */
     .content-toolbar {
       display: grid;
       grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
@@ -1099,12 +1110,12 @@
     .content-toolbar > .view-tabs,
     .content-toolbar > #back-btn  { grid-column: 1; grid-row: 1; min-width: 0; }
     .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; min-width: 0; }
-    /* row 2: 表示中のボタンが auto-flow で col 1→2→3 を埋める。
-       sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
-       (home: sort/select/slideshow, lines/detail: select/slideshow) */
-    .content-toolbar > #sort-select,
+    /* row 2: ボタンが auto-flow で col 1→2 を埋める (select/slideshow の 2 個固定) */
     .content-toolbar > #select-toggle,
     .content-toolbar > #slideshow-btn { grid-row: 2; min-width: 0; }
+
+    /* grid-toolbar の左右余白は main と同じ 20px に合わせる */
+    .grid-toolbar { padding: 16px 20px 0; }
 
     .content-toolbar .btn,
     .content-toolbar .ctrl-select,
@@ -1123,6 +1134,7 @@
     .content-toolbar .view-tabs .tab { max-width: 40vw; }
 
     main { padding: 24px 16px 100px; }
+    .grid-toolbar { padding: 12px 16px 0; }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
     .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
@@ -1245,16 +1257,20 @@
     </div>
     <button class="btn" id="back-btn" style="display:none">← Back</button>
     <input type="search" id="search" placeholder="Search champion…">
-    <!-- ホーム (Champions 一覧) のときだけ表示する並び順セレクタ。
-         skin lines / 詳細では意味が無いので render() 側で hide -->
-    <select class="ctrl-select" id="sort-select" aria-label="Sort order">
-      <option value="default">Default</option>
-      <option value="name_asc">Name A → Z</option>
-      <option value="name_desc">Name Z → A</option>
-    </select>
     <button class="btn" id="select-toggle" aria-label="Select">Select</button>
     <button class="btn" id="slideshow-btn">Slideshow</button>
   </div>
+</div>
+
+<!-- グリッド上の独立ツールバー: ホーム (Champions 一覧) のときだけ表示する並び順
+     セレクタを置く。topbar とは分離して main の直上に来るので、検索バー/タブ群と
+     視覚的に区別される。skin lines / 詳細では意味が無いので render() 側で hide -->
+<div class="grid-toolbar" id="grid-toolbar">
+  <select class="ctrl-select" id="sort-select" aria-label="Sort order">
+    <option value="default">Default</option>
+    <option value="name_asc">Name A → Z</option>
+    <option value="name_desc">Name Z → A</option>
+  </select>
 </div>
 
 <main id="root">
@@ -2265,41 +2281,6 @@ async function init() {
   render();
 }
 
-// sort-select の表示切替と、その消えた幅ぶん検索バーを伸ばす処理をまとめる。
-// content-toolbar は justify-content:center なので、要素が消えると右側ボタンが
-// 中央側に寄ってしまう。隠す時点で実測幅をキャッシュし、--search-w に足し戻す
-const TOOLBAR_GAP = 10;  /* .content-toolbar の gap と一致させる */
-const SEARCH_W_BASE = 520;
-let _sortReservedW = 0;  /* 最後に観測した sort-select の幅 (gap 込み) */
-function setSortVisible(visible) {
-  const sortSel = $("sort-select");
-  if (visible) {
-    sortSel.hidden = false;
-    document.documentElement.style.setProperty("--search-w", SEARCH_W_BASE + "px");
-    return;
-  }
-  // 隠す直前か、まだ可視ならそのまま実測。すでに隠れている (locale 切替で
-  // ラベルが変わったケース) は visibility:hidden で一旦見えなくしてレイアウトに
-  // 戻し、offsetWidth を取ってから hidden に戻す。display:none は flex 計算に
-  // 載らないので測れないが、visibility:hidden なら載る
-  let w = 0;
-  if (!sortSel.hidden) {
-    w = sortSel.offsetWidth;
-  } else {
-    const prevVis = sortSel.style.visibility;
-    sortSel.style.visibility = "hidden";
-    sortSel.hidden = false;
-    w = sortSel.offsetWidth;
-    sortSel.hidden = true;
-    sortSel.style.visibility = prevVis;
-  }
-  if (w > 0) _sortReservedW = w + TOOLBAR_GAP;
-  sortSel.hidden = true;
-  if (_sortReservedW > 0) {
-    document.documentElement.style.setProperty("--search-w", (SEARCH_W_BASE + _sortReservedW) + "px");
-  }
-}
-
 function render() {
   const root = $("root");
   // タブはトップレベル切替。back-btn は詳細 (champion / line) に居る時だけ表示。
@@ -2316,11 +2297,9 @@ function render() {
   $("nav-lines").classList.toggle("active", isLines);
   document.querySelector(".view-tabs").style.display = showBack ? "none" : "";
   $("back-btn").style.display = showBack ? "" : "none";
-  // 並び順セレクタはホーム (チャンピオン一覧) でのみ意味があるので、それ以外では隠す。
-  // 隠す view では消えた幅 (sort 自身 + flex gap) を検索バーが吸収するように
-  // --search-w を伸ばす。これで右端の Select/Slideshow が view 切替で左右にズレない。
-  // 幅は locale で変わる ("Default" vs "デフォルト") ので毎回 offsetWidth で実測する
-  setSortVisible(state.view === "home");
+  // 並び順セレクタ (grid-toolbar) はホーム (チャンピオン一覧) でのみ意味があるので、
+  // それ以外では隠す。main の直上に独立行で居るので、消しても topbar 側のレイアウトは動かない
+  $("grid-toolbar").hidden = state.view !== "home";
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
