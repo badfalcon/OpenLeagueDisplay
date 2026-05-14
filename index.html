@@ -2308,10 +2308,14 @@ function render() {
   // タブを隠して back で置き換える (両者は同じ grid スロットを共有)
   const isLines = (state.view === "lines" || state.view === "line");
   const isDetail = (state.view === "champion" || state.view === "line");
+  // 検索中も「一覧へ戻る」アクションを兼ねるので、タブを back に置き換える。
+  // 詳細ビューと同じ挙動 (同 grid スロットを共有)
+  const hasSearch = !!state.searchQuery;
+  const showBack = isDetail || hasSearch;
   $("tab-home").classList.toggle("active", !isLines);
   $("nav-lines").classList.toggle("active", isLines);
-  document.querySelector(".view-tabs").style.display = isDetail ? "none" : "";
-  $("back-btn").style.display = isDetail ? "" : "none";
+  document.querySelector(".view-tabs").style.display = showBack ? "none" : "";
+  $("back-btn").style.display = showBack ? "" : "none";
   // 並び順セレクタはホーム (チャンピオン一覧) でのみ意味があるので、それ以外では隠す。
   // 隠す view では消えた幅 (sort 自身 + flex gap) を検索バーが吸収するように
   // --search-w を伸ばす。これで右端の Select/Slideshow が view 切替で左右にズレない。
@@ -2708,8 +2712,13 @@ function openChampion(alias) {
   state.view = "champion"; state.currentChamp = alias;
   window.scrollTo(0, 0); render();
 }
-// 戻る: lines系は lines 一覧へ、それ以外は home へ
+// 戻る: 検索中なら検索クリアを優先 (現在の view は維持)。
+// それ以外は lines系→lines 一覧、その他→home。
 function goBack() {
+  if (state.searchQuery) {
+    state.searchQuery = ""; $("search").value = "";
+    render(); return;
+  }
   if (state.view === "line") openLines();
   else { state.view = "home"; state.currentChamp = null; state.currentLine = null; render(); }
 }
