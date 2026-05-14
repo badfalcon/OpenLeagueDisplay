@@ -800,7 +800,8 @@
   body.select-mode .champ-card { cursor: pointer; }
   .sel-checkbox {
     position: absolute; top: 12px; left: 12px; z-index: 5;
-    min-width: 28px; height: 28px; padding: 0 7px;
+    width: 28px; height: 28px; padding: 0;
+    box-sizing: border-box;
     background: rgba(7, 6, 11, 0.88);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--gold);
@@ -835,6 +836,10 @@
   /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
      チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
   .champ-card.partial, .line-card.partial { border-color: var(--gold-deep); }
+  /* "3/14" など数字を入れる時だけ横方向に伸ばす。デフォルトは正方形固定で、
+     ✓ (::before) が padding と相互作用して箱を太らせるのを防ぐ */
+  .champ-card.partial .sel-checkbox,
+  .line-card.partial .sel-checkbox { width: auto; min-width: 28px; padding: 0 7px; }
   /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
      親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
   .skin-card.selected .sel-checkbox::before,
@@ -1143,9 +1148,11 @@
        skin-card は本体タップで toggle、champ/line-card は本体タップで詳細遷移なので
        Material/Apple のタッチ最小ガイドラインを厳守する必要は無い。32px に圧縮 */
     .sel-checkbox {
-      min-width: 32px; height: 32px; padding: 0 8px;
+      width: 32px; height: 32px; padding: 0;
       top: 8px; left: 8px; font-size: 12px;
     }
+    .champ-card.partial .sel-checkbox,
+    .line-card.partial .sel-checkbox { width: auto; min-width: 32px; padding: 0 8px; }
     .skin-card.selected .sel-checkbox::before,
     .champ-card.selected .sel-checkbox::before,
     .line-card.selected .sel-checkbox::before { font-size: 22px; }
