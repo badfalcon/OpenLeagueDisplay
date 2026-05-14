@@ -1,0 +1,42 @@
+name: Claude
+
+# `@claude <task>` を issue 本文 / issue コメント / PR レビューコメントに含めると、
+# Anthropic 公式の Claude Code Action がリポジトリに対して動く。
+# 通常用途は CHAMPION_REGIONS 未登録 issue の自動 PR 化 (update.yml が起票したものを
+# Claude が拾って wiki を調べて PR を作る)。それ以外の通常の "@claude help me with X"
+# 系も同じ仕組みで動く。
+#
+# author_association ガードで OWNER/MEMBER/COLLABORATOR のみ通すため、外部の見ず知らずの
+# ユーザが "@claude" と書いても API クレジットは消費されない。
+# update.yml が自動起票する issue は github-actions[bot] が作るが、その本文に書いた
+# "@claude" メンションは issue 作成イベントでは起動しない (issues.opened を on: に
+# 入れていないため)。代わりに以下のどちらかで明示的に拾わせる:
+#   a. メンテナが issue にコメントで "@claude proceed" と書く
+#   b. on: に issues.opened を追加して全自動化する (※API キーが消費されるので注意)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write       # PR 作成用に branch を push する権限
+  issues: write         # issue にコメントを返す
+  pull-requests: write  # PR の作成・更新
+
+jobs:
+  claude:
+    if: >
+      contains(github.event.comment.body, '@claude') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

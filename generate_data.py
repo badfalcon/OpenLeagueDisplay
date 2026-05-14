@@ -493,7 +493,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     # 永続的に 403 を返すため、外部 fetch なし)
     print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
     # 新チャンピオン追加時の漏れ検知。CDragon 側の alias が CHAMPION_REGIONS に
-    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)
+    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)。
+    # `unmapped_regions.json` を書き出すので update.yml がそれを読んで @claude
+    # 宛て issue を自動起票する (なければ書かない = 後段の hashFiles で no-op)
     unmapped = sorted(
         ch.get("alias", "").lower()
         for ch in champions
@@ -501,6 +503,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     )
     if unmapped:
         print(f"   [警告] CHAMPION_REGIONS 未登録: {unmapped}", flush=True)
+        (Path(__file__).parent / "unmapped_regions.json").write_text(
+            json.dumps(unmapped), encoding="utf-8"
+        )
 
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
