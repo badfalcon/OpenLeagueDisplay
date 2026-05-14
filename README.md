@@ -12,7 +12,7 @@
 
 ![screenshot](./screenshot.png)
 
-Riot's official LeagueDisplays app has been sitting abandoned since 2020, and
+Riot's official LeagueDisplays app has been sitting abandoned since 2021, and
 they're clearly not coming back to it. OpenLeagueDisplay is a community
 stand-in for the people who still want that experience — a League of Legends
 splash art viewer where you can browse every champion × every skin in the

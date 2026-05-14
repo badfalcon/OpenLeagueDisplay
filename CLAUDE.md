@@ -165,8 +165,10 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 
 ## このプロジェクトの背景 (チャット履歴サマリ)
 
-ユーザーは League Displays (Riot の公式スプラッシュ閲覧アプリ、2020年のパッチ10.19
-で更新停止) のファン。代替を作る過程で以下を辿った:
+ユーザーは League Displays (Riot の公式スプラッシュ閲覧アプリ、2020年の Spirit
+Blossom 以降ほぼ放置 → 2021年5月に一度だけキャッチアップ更新が入ったあと、
+2021年7月以降に追加されたスキンが一切入らないまま実質凍結) のファン。代替を作る
+過程で以下を辿った:
 
 1. **CLI ダウンローダー** (`lol_splash_downloader.py`): 当初は Riot の Data Dragon
    を使ったが Wild Rift 等の幽霊エントリで失敗率76%。CDragon に切り替えて失敗率0%へ。
