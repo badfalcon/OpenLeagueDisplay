@@ -58,7 +58,10 @@ GitHub Actions job, so the catalog stays current without anyone babysitting it.
 
 ### About the ZIP download
 
-- File layout inside the ZIP: `<champion>/<skin>.jpg`
+- File layout inside the ZIP: flat — `<Champion>_<Skin>.jpg` at the root, no
+  per-champion subfolder. This is intentional: Windows' wallpaper slideshow
+  only scans the folder you point it at, not subfolders, so a flat layout
+  makes the extracted ZIP drop-in usable.
 - Stored uncompressed (JPEGs are already compressed; this keeps zipping fast)
 - Fetched directly from CDragon with a concurrency of 6. Skins that return 404
   on CDragon are silently skipped and counted in the final summary.
@@ -70,7 +73,7 @@ GitHub Actions job, so the catalog stays current without anyone babysitting it.
 ### How it works
 
 - `data.json` is built from Community Dragon's `champion-summary.json` and the
-  per-champion `champions/{id}.json` files (~1.1 MB / ~300 KB gzipped).
+  per-champion `champions/{id}.json` files (~1.1 MB / ~75 KB gzipped).
 - Image URLs (`splash`, `tile`, `loading`) point directly at
   `https://raw.communitydragon.org/latest/...`. No images are stored in the
   repo.
@@ -91,7 +94,7 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 .
 ├── index.html                       # The viewer (HTML + CSS + JS, single file)
 ├── data.json                        # Champion / skin manifest (~1.1 MB)
-├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~100-200 KB each)
+├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
 ├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
 ├── serve.py                         # Thin wrapper around http.server for local serving
 ├── .github/workflows/update.yml     # Weekly auto-update (Mondays 09:00 JST)
