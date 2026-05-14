@@ -547,7 +547,90 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     }
 
 
+def _probe_raw_get(url: str, timeout: int = 15) -> tuple[int | None, bytes, str]:
+    """fetch_json は 4xx/5xx を例外として握り潰すので、probe では status を素で見たい。
+
+    戻り値: (status_code or None, body_first_300_bytes, error_str_or_empty)
+    """
+    try:
+        req = urllib.request.Request(url, headers=UA)
+        ctx = ssl._create_unverified_context() if SSL_INSECURE else SSL_CTX
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+            return r.getcode(), r.read(300), ""
+    except urllib.error.HTTPError as e:
+        # HTTPError は status を持ってる (e.code) ので拾い分ける
+        try:
+            body = e.read(300) if hasattr(e, "read") else b""
+        except Exception:
+            body = b""
+        return e.code, body, f"{type(e).__name__}: {e}"
+    except Exception as e:
+        return None, b"", f"{type(e).__name__}: {e}"
+
+
+def run_probe() -> int:
+    """ネットワーク疎通と schema を 1 分くらいで確認するモード。
+
+    通常実行 (data.json 生成) を走らせず、universe-meeps と CDragon の
+    universes.json / 代表 champion JSON だけを叩く。GitHub Actions の log に
+    [PROBE] プレフィックスで出力するので、universe-meeps を捨てて CDragon
+    一本化できるか (= CDragon 側に region/faction フィールドがあるか) を
+    判別するのが目的。
+    """
+    print("[PROBE] === universe-meeps reachability ===", flush=True)
+    for path in ("en_us/champions/index.json", "en_us/factions/index.json"):
+        url = f"{UNIVERSE}/{path}"
+        status, body, err = _probe_raw_get(url)
+        head = body[:200].decode("utf-8", errors="replace").replace("\n", "\\n")
+        print(f"[PROBE]   {url}", flush=True)
+        print(f"[PROBE]     status={status} err={err or '(none)'}", flush=True)
+        print(f"[PROBE]     head={head!r}", flush=True)
+
+    base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/v1"
+
+    print("[PROBE] === CDragon universes.json ===", flush=True)
+    try:
+        universes = fetch_json(f"{base}/universes.json")
+    except Exception as e:
+        print(f"[PROBE]   取得失敗: {e}", flush=True)
+        universes = None
+    if isinstance(universes, list) and universes:
+        print(f"[PROBE]   list, len={len(universes)}", flush=True)
+        sample = universes[0] if isinstance(universes[0], dict) else {}
+        print(f"[PROBE]   first keys: {sorted(sample.keys())}", flush=True)
+        for u in universes[:3]:
+            if isinstance(u, dict):
+                print(f"[PROBE]   sample: {json.dumps(u, ensure_ascii=False)[:300]}", flush=True)
+    elif isinstance(universes, dict):
+        print(f"[PROBE]   dict, top keys: {sorted(universes.keys())}", flush=True)
+
+    print("[PROBE] === CDragon champion JSON: region/faction/universe keys ===", flush=True)
+    # Aatrox=266, Annie=1, Garen=86, Ahri=103, Sett=875 — 地域がはっきりしてる代表
+    sample_ids = [266, 1, 86, 103, 875]
+    needle = ("region", "faction", "universe", "home", "lore", "associated")
+    for cid in sample_ids:
+        try:
+            detail = fetch_json(f"{base}/champions/{cid}.json")
+        except Exception as e:
+            print(f"[PROBE]   {cid}: 取得失敗 {e}", flush=True)
+            continue
+        if not isinstance(detail, dict):
+            continue
+        matched = {k: detail[k] for k in detail if any(n in k.lower() for n in needle)}
+        alias = detail.get("alias") or detail.get("name") or str(cid)
+        print(f"[PROBE]   {alias} ({cid}): matched fields = {list(matched.keys()) or '(none)'}", flush=True)
+        for k, v in matched.items():
+            preview = json.dumps(v, ensure_ascii=False)[:200]
+            print(f"[PROBE]     {k} = {preview}", flush=True)
+
+    print("[PROBE] === done ===", flush=True)
+    return 0
+
+
 def main() -> int:
+    if "--probe" in sys.argv[1:]:
+        return run_probe()
+
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "data.json"
     # i18n の出力先は data.json と同じディレクトリの `i18n/` 配下に固定。
     # CLI 引数で data.json のパスを変えた場合も追従するので、custom path 指定時も

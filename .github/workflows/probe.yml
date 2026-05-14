@@ -1,0 +1,21 @@
+name: Probe data sources
+
+# universe-meeps / CDragon の疎通と schema を 1 分くらいで確認する用。
+# 通常の update.yml は 20〜30 分掛かるのでデバッグ用途には重すぎる。
+# workflow_dispatch のみ (cron 無し) で手動トリガー専用。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Probe
+        run: python generate_data.py --probe
