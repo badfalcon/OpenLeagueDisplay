@@ -544,12 +544,13 @@
     font-size: clamp(26px, 3.4vw, 44px);
     font-variation-settings: "opsz" 72, "SOFT" 100, "wght" 400;
   }
-  /* h2 と同じ row 1 の右端に並ぶ controls スロット。dom-stash から transplant
-     された [back?][search][sort?] が flex で横並びに入る。align-self: end で
-     巨大 h2 (96px) の下辺と揃える */
+  /* col 2 を占める controls スロット: h2 (row 1) と count (row 2) の両方を
+     またぐように grid-row: 1 / 3 で配置し、align-self: center で
+     h2 + count の縦中央に来るようにする。dom-stash から transplant された
+     [back?][search][sort?] が flex で横並びに入る */
   .champ-header-controls {
-    grid-column: 2; grid-row: 1;
-    justify-self: end; align-self: end;
+    grid-column: 2; grid-row: 1 / 3;
+    justify-self: end; align-self: center;
     display: flex; align-items: center; gap: 10px;
     min-width: 0;
   }
@@ -568,11 +569,12 @@
     text-transform: uppercase;
   }
   /* primary download ボタンは .champ-header の直接子 (renderChampion /
-     renderLine のテンプレで生成)。子セレクタに絞ることで、controls スロット内の
+     renderLine のテンプレで生成)。controls が row 1-2 を占有するため、
+     primary は row 3 に押し下げる。子セレクタに絞ることで、controls スロット内の
      #back-btn (.btn 持ち) には適用されない */
   .champ-header > .btn,
   .champ-header > .btn.primary {
-    grid-column: 2; grid-row: 2;
+    grid-column: 2; grid-row: 3;
     justify-self: end; align-self: end;
     margin-left: 0 !important;
   }
