@@ -547,13 +547,14 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     }
 
 
-def _probe_raw_get(url: str, timeout: int = 15) -> tuple[int | None, bytes, str]:
+def _probe_raw_get(url: str, timeout: int = 15, headers: dict[str, str] | None = None) -> tuple[int | None, bytes, str]:
     """fetch_json は 4xx/5xx を例外として握り潰すので、probe では status を素で見たい。
 
     戻り値: (status_code or None, body_first_300_bytes, error_str_or_empty)
+    headers を渡せば既定 UA を上書きできる (UA/Referer/Origin の影響切り分け用)
     """
     try:
-        req = urllib.request.Request(url, headers=UA)
+        req = urllib.request.Request(url, headers=headers or UA)
         ctx = ssl._create_unverified_context() if SSL_INSECURE else SSL_CTX
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
             return r.getcode(), r.read(300), ""
@@ -577,14 +578,35 @@ def run_probe() -> int:
     一本化できるか (= CDragon 側に region/faction フィールドがあるか) を
     判別するのが目的。
     """
-    print("[PROBE] === universe-meeps reachability ===", flush=True)
+    print("[PROBE] === universe-meeps: header variant matrix ===", flush=True)
+    # 既存実装は 403 を喰らうことが update.yml のログで確定してる。
+    # UA / Referer / Origin / Accept のうちどれが効くかを切り分ける。
+    chrome_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    header_variants = {
+        "current (OpenLeagueDisplay-Generator)": dict(UA),
+        "chrome ua only": {"User-Agent": chrome_ua},
+        "chrome ua + referer + origin (universe.lol)": {
+            "User-Agent": chrome_ua,
+            "Referer": "https://universe.leagueoflegends.com/",
+            "Origin": "https://universe.leagueoflegends.com",
+            "Accept": "application/json, text/plain, */*",
+        },
+        "chrome ua + referer (universe-meeps own)": {
+            "User-Agent": chrome_ua,
+            "Referer": "https://universe-meeps.leagueoflegends.com/",
+            "Accept": "application/json, text/plain, */*",
+        },
+    }
     for path in ("en_us/champions/index.json", "en_us/factions/index.json"):
         url = f"{UNIVERSE}/{path}"
-        status, body, err = _probe_raw_get(url)
-        head = body[:200].decode("utf-8", errors="replace").replace("\n", "\\n")
         print(f"[PROBE]   {url}", flush=True)
-        print(f"[PROBE]     status={status} err={err or '(none)'}", flush=True)
-        print(f"[PROBE]     head={head!r}", flush=True)
+        for label, hdrs in header_variants.items():
+            status, body, err = _probe_raw_get(url, headers=hdrs)
+            head = body[:160].decode("utf-8", errors="replace").replace("\n", "\\n")
+            print(f"[PROBE]     [{label}] status={status} head={head!r}", flush=True)
 
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/v1"
 
