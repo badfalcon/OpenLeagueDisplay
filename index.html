@@ -1134,9 +1134,11 @@
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
     .lb-next { right: 12px; }
-    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上に逃がす。
-       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ調整 */
-    .slideshow-controls { bottom: 76px; }
+    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上へ。
+       96px は (下隅ナビ 64px + 余白 12px) を超えつつ、2 行になり得る lb-overlay 内の
+       skin name (例: "K/DA ALL OUT Akali Prestige Edition") に被らない高さ。
+       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
+    .slideshow-controls { bottom: 96px; }
 
     /* pack-bar: 320px でも収まる padding/gap に絞る。
        既存 ≤780px の hint: display:none (L876) はそのまま活きる */
