@@ -730,47 +730,6 @@ export function applyStaticUIStrings() {
   }
 }
 
-// stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
-// <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
-// 以降の呼び出し (locale 切替時など) は即時表示にしてチラつかせない
-let _statsAnimated = false;
-function renderStats(champCount, skinCount) {
-  const tmpl = (UI_STRINGS[state.locale] || UI_STRINGS.default).stats_format
-            || UI_STRINGS.default.stats_format;
-  const targets = [champCount, skinCount];
-  const initial = _statsAnimated;
-  const html = tmpl.replace(/(\{(\d+)\})|([^{}]+)/g, (_m, ph, idx, txt) => {
-    if (ph) {
-      const v = targets[Number(idx)] ?? 0;
-      const w = String(v).length;
-      const shown = initial ? v : 0;
-      return `<span class="stat-num" data-target="${v}" style="min-width:${w}ch">${shown}</span>`;
-    }
-    return esc(txt);
-  });
-  $("stats").innerHTML = html;
-  if (_statsAnimated) return;
-  _statsAnimated = true;
-  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const nodes = [...$("stats").querySelectorAll(".stat-num")];
-  if (reduce) {
-    nodes.forEach(n => { n.textContent = n.dataset.target; });
-    return;
-  }
-  const dur = 1400;
-  const start = performance.now();
-  function frame(now) {
-    const p = Math.min(1, (now - start) / dur);
-    const e = 1 - Math.pow(1 - p, 3); // ease-out-cubic
-    for (const n of nodes) {
-      const tgt = Number(n.dataset.target);
-      n.textContent = Math.round(tgt * e);
-    }
-    if (p < 1) requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
 // 表示用ヘルパ: 翻訳マップが空 (default) なら data.json の英語名にフォールバック。
 // 翻訳が無いキーも英語名で出るので、locale が一部欠損していても UI は壊れない。
 export function champName(c) {
