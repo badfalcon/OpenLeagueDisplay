@@ -17,7 +17,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 
 ```
 .
-├── index.html                       # ビューア本体 (HTML + CSS + JS、~18KB)
+├── index.html                       # マークアップ本体 (styles.css と js/app.js を読み込む、~7KB)
+├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
+├── js/                              # ES Modules
+│   ├── app.js                       #   エントリ: data.json fetch + イベント配線
+│   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
+│   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
+│   ├── render.js                    #   view レンダリング (home / champion / lines / line)
+│   ├── zip.js                       #   ZIP DL (JSZip)
+│   └── lightbox.js                  #   ライトボックス + スライドショー
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
@@ -26,6 +34,26 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── README.md
 └── .gitignore
 ```
+
+### モジュール分割の指針
+
+- **state.js**: mutable な `state` オブジェクトと、`let DATA` (setData 経由で
+  更新)、SKIN_BY_KEY / LINE_INDEX、localStorage I/O、`$` / `esc` の汎用関数。
+  他モジュールを import しない (依存される側専用)
+- **i18n.js**: UI 文字列テーブル / `t()` / ROLE_LABELS / RARITY_LABELS /
+  REGION_LABELS / 言語ピッカー描画と loadLocale。`applyStaticUIStrings`
+  だけ render.js の `renderStats` を呼ぶので render.js への循環 import が
+  ある (ES Modules の関数宣言は hoist されるので runtime 呼び出しなら OK)
+- **render.js**: `render()` と view 別レンダラ、選択トグル、ナビゲーション、
+  カウントアップアニメ (`renderStats`)、`imgLoaded` / `imgErr`。
+  app.js が `window.imgLoaded = imgLoaded` をして `<img onload="imgLoaded(this)">`
+  からも届くようにしている
+- **zip.js**: JSZip 連携。`pMap` / `downloadAsZip` は module 内 private、
+  公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
+- **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
+  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)
+- **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
+  `window.imgLoaded` / `window.imgErr` の露出だけを担当する
 
 ## 設計の意思決定 (なぜそうしたか)
 
@@ -145,8 +173,10 @@ python serve.py
 
 **テスト/lintは無い**。単体テストフレームワーク・lint・フォーマッタの設定は
 このリポジトリには存在しない。`generate_data.py` の構文確認は
-`python -m py_compile generate_data.py` で十分。フロントは vanilla JS なので
-ビルドステップも無い (ブラウザで `index.html` を開けば即動く)。
+`python -m py_compile generate_data.py` で十分。フロントは vanilla JS (ES
+Modules) なのでビルドステップも無いが、`file://` 直開きでは ES Modules が
+CORS で読めないので必ず `python serve.py` 経由でアクセスすること。
+JS の構文確認は `node --check js/*.js` で軽く拾える。
 
 **CDragon 接続が SSL エラーで落ちる場合**: 社内プロキシや古い中間CAが原因で
 `CERTIFICATE_VERIFY_FAILED` が出ることがある。`generate_data.py` は1回目の

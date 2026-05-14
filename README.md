@@ -92,7 +92,15 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 
 ```
 .
-├── index.html                       # The viewer (HTML + CSS + JS, single file)
+├── index.html                       # The viewer markup (loads styles.css + js/app.js)
+├── styles.css                       # All styling (CSS variables for theme)
+├── js/                              # ES Modules
+│   ├── app.js                       #   entry: data.json fetch + event wiring
+│   ├── state.js                     #   shared state, DATA, indexes, utilities
+│   ├── i18n.js                      #   UI_STRINGS, locale loader, name maps
+│   ├── render.js                    #   view rendering (home / champion / lines / line)
+│   ├── zip.js                       #   bulk ZIP download (JSZip)
+│   └── lightbox.js                  #   fullscreen viewer + slideshow
 ├── data.json                        # Champion / skin manifest (~1.1 MB)
 ├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
 ├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
@@ -118,7 +126,9 @@ python serve.py
 ```
 
 There is no build step and no package dependency. The front-end is plain
-vanilla JS plus JSZip (loaded from a CDN). PyCharm users get the
+vanilla JS (ES Modules) plus JSZip (loaded from a CDN). Open the page through
+`python serve.py` rather than `file://` directly — ES Modules require an HTTP
+origin to load. PyCharm users get the
 "Generate data.json" and "Serve (http.server :8000)" Run Configurations under
 `.idea/runConfigurations/` for free.
 
