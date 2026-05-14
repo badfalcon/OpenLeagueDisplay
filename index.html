@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Content Security Policy (defense-in-depth)
   ------------------------------------------
@@ -726,6 +726,11 @@
     pointer-events: auto;
   }
   .lightbox:hover .slideshow-controls { opacity: 1; }
+  /* hover が無いデバイス (touch / pen) では再生コントロールを常時表示。
+     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う */
+  @media (hover: none) {
+    .slideshow-controls { opacity: 1; }
+  }
   .ss-btn {
     padding: 11px 18px;
     background: rgba(12, 11, 20, 0.7);
@@ -1042,13 +1047,135 @@
     .progress-box { min-width: auto; padding: 28px 24px; }
     .progress-box h3 { font-size: 22px; }
   }
+  /* 600px 以下: スマホ全帯域 (320-430px) を一気に最適化。
+     - グリッドは fluid (auto-fill + minmax) でカードはみ出しを解消
+     - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
+     - content-toolbar は flex-wrap 任せをやめ grid で 2 行に明示配置
+     - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
+       タッチで操作できる形へ作り直す */
   @media (max-width: 600px) {
+    /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有 */
+    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); }
+
+    .topbar { padding-top: env(safe-area-inset-top); }
+
+    header { padding: 10px 12px; gap: 8px; }
+    header h1 { font-size: 18px; }
+    header h1::before { font-size: 11px; }
+    /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
+       inline-block + ellipsis で逃がし、lang-btn 幅 (約 52px) を残す */
+    .header-brand #stats {
+      display: inline-block;
+      padding-left: 18px;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: calc(100vw - 100px);
+    }
+
+    /* content-toolbar: 2 行 grid。row1 = [tabs | search], row2 = [action buttons]。
+       3 列構成 (auto 1fr auto) は row2 の最大表示数 (back/select/slideshow = 3) に合わせて
+       implicit 列が生まれないようにするため。これで search が row1 の右端まで届く。
+       desktop の --search-w (JS が render() 時に書き換える) は flex: initial で無効化 */
+    .content-toolbar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      grid-auto-rows: auto;
+      row-gap: 8px; column-gap: 8px;
+      padding: 10px 12px;
+      flex-wrap: initial;
+      justify-content: stretch;
+    }
+    .content-toolbar > .view-tabs { grid-column: 1; grid-row: 1; }
+    .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; }
+    /* row 2: 表示中のボタンが auto-flow で col 1→2→3 を埋める。
+       back と sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
+       (home: sort/select/slideshow, lines: select/slideshow, detail: back/select/slideshow) */
+    .content-toolbar > #back-btn,
+    .content-toolbar > #sort-select,
+    .content-toolbar > #select-toggle,
+    .content-toolbar > #slideshow-btn { grid-row: 2; }
+
+    .content-toolbar .btn,
+    .content-toolbar .ctrl-select,
+    .content-toolbar .view-tabs .tab {
+      padding-left: 10px; padding-right: 10px;
+      letter-spacing: 0.12em;
+      font-size: 10px;
+    }
+    .content-toolbar .ctrl-select { padding-right: 26px; }  /* 矢印用余白を残す */
+
     main { padding: 24px 16px 100px; }
-    .champ-grid { grid-template-columns: repeat(auto-fill, 108px); gap: 10px; }
+    .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+    .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
     .skin-card .label, .line-card .meta { padding: 14px 12px 12px; }
     .skin-card .label { font-size: 13.5px; }
-    .line-card .name { font-size: 16px; }
-    :root { --frame-cut: 9px; }
+    .line-card .name  { font-size: 16px; }
+
+    /* 選択チェックボックス: 28px は touch 最小未満。44px に拡大 (Material 48dp / Apple 44pt) */
+    .sel-checkbox {
+      min-width: 44px; height: 44px; padding: 0 12px;
+      top: 8px; left: 8px; font-size: 13px;
+    }
+
+    /* lightbox: 画像領域を優先、close/nav は 48px に拡大、サイドナビは
+       下端に寄せて片手親指で届く位置へ。slideshow-controls は :hover が効かない
+       touch で永久に隠れる長年のバグ (line 725) を opacity: 1 で解消 */
+    .lb-overlay { padding: 56px 16px 18px; }
+    .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
+    .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
+    .lb-close, .lb-nav { width: 48px; height: 48px; font-size: 24px; }
+    .lb-close   { top: var(--safe-top); right: 12px; }
+    .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }
+    .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
+    .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
+    .lb-prev { left: 12px; }
+    .lb-next { right: 12px; }
+    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上へ。
+       96px は (下隅ナビ 64px + 余白 12px) を超えつつ、2 行になり得る lb-overlay 内の
+       skin name (例: "K/DA ALL OUT Akali Prestige Edition") に被らない高さ。
+       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
+    .slideshow-controls { bottom: 96px; }
+
+    /* pack-bar: 320px でも収まる padding/gap に絞る。
+       既存 ≤780px の hint: display:none (L876) はそのまま活きる */
+    .pack-bar {
+      padding: 10px 12px; gap: 8px; bottom: 12px;
+      max-width: calc(100vw - 16px);
+    }
+    .pack-bar .count { font-size: 13px; padding-right: 10px; margin-right: 6px; }
+    .pack-bar .btn   { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
+
+    /* lang menu: 画面右端からはみ出さない max-width 制約 */
+    .lang-menu {
+      min-width: 200px;
+      max-width: calc(100vw - 16px);
+      right: -4px;
+      max-height: 70vh;
+    }
+    .lang-menu button { padding: 12px 16px; font-size: 11px; }
+
+    /* 進捗ダイアログ: 320px でも h3/Cancel が収まる幅へ */
+    .progress-box {
+      padding: 22px 18px 18px;
+      width: calc(100vw - 24px);
+      max-width: 460px;
+    }
+    .progress-box h3   { font-size: 19px; }
+    .progress-box .desc { font-size: 11.5px; }
+    .progress-stats     { font-size: 10px; letter-spacing: 0.12em; }
+  }
+
+  /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
+     skin/line は 1 列、champ は 3 列固定にする */
+  @media (max-width: 400px) {
+    :root { --frame-cut: 8px; }
+    main { padding: 16px 10px 96px; }
+    .skin-grid, .line-grid { grid-template-columns: 1fr; }
+    .champ-grid { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
 </head>
@@ -1087,7 +1214,7 @@
       <option value="name_asc">Name A → Z</option>
       <option value="name_desc">Name Z → A</option>
     </select>
-    <button class="btn" id="select-toggle">Select</button>
+    <button class="btn" id="select-toggle" aria-label="Select">Select</button>
     <button class="btn" id="slideshow-btn">Slideshow</button>
   </div>
 </div>
