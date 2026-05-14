@@ -1083,9 +1083,11 @@
       max-width: calc(100vw - 100px);
     }
 
-    /* content-toolbar: 2 行 grid。row1 = [tabs | search], row2 = [action buttons]。
-       3 列構成 (auto 1fr auto) は row2 の最大表示数 (back/select/slideshow = 3) に合わせて
-       implicit 列が生まれないようにするため。これで search が row1 の右端まで届く。
+    /* content-toolbar: 2 行 grid。row1 = [tabs OR back | search], row2 = [action buttons]。
+       tabs と back は意味的に重複 (どちらも一覧へ戻る) するので row1 col1 を共有させ、
+       詳細ビューでは tabs を隠して back に置き換える。3 列構成 (auto 1fr auto) は
+       row2 の最大表示数 (sort/select/slideshow = 3) に合わせて implicit 列が生まれない
+       ようにするため。これで search が row1 の右端まで届く。
        minmax(0, ...) で auto 列も縮められるようにし、ボタン側の text-overflow: ellipsis と
        組み合わせて CJK locale (例: ja_jp "スライドショー") のはみ出しを防ぐ。
        desktop の --search-w (JS が render() 時に書き換える) は flex: initial で無効化 */
@@ -1098,12 +1100,12 @@
       flex-wrap: initial;
       justify-content: stretch;
     }
-    .content-toolbar > .view-tabs { grid-column: 1; grid-row: 1; min-width: 0; }
+    .content-toolbar > .view-tabs,
+    .content-toolbar > #back-btn  { grid-column: 1; grid-row: 1; min-width: 0; }
     .content-toolbar > #search    { grid-column: 2 / -1; grid-row: 1; flex: initial; width: 100%; min-width: 0; }
     /* row 2: 表示中のボタンが auto-flow で col 1→2→3 を埋める。
-       back と sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
-       (home: sort/select/slideshow, lines: select/slideshow, detail: back/select/slideshow) */
-    .content-toolbar > #back-btn,
+       sort は view 別に display: none で消えるので、各 view で行内の並びが自然になる
+       (home: sort/select/slideshow, lines/detail: select/slideshow) */
     .content-toolbar > #sort-select,
     .content-toolbar > #select-toggle,
     .content-toolbar > #slideshow-btn { grid-row: 2; min-width: 0; }
@@ -2288,11 +2290,15 @@ function setSortVisible(visible) {
 function render() {
   const root = $("root");
   // タブはトップレベル切替。back-btn は詳細 (champion / line) に居る時だけ表示。
-  // ライン/ホーム同士の往復はタブ自身でやる
+  // ライン/ホーム同士の往復はタブ自身でやる。
+  // 詳細ビューではタブと back が同じ「一覧へ戻る」アクションを意味するので、
+  // タブを隠して back で置き換える (両者は同じ grid スロットを共有)
   const isLines = (state.view === "lines" || state.view === "line");
+  const isDetail = (state.view === "champion" || state.view === "line");
   $("tab-home").classList.toggle("active", !isLines);
   $("nav-lines").classList.toggle("active", isLines);
-  $("back-btn").style.display = (state.view === "champion" || state.view === "line") ? "" : "none";
+  document.querySelector(".view-tabs").style.display = isDetail ? "none" : "";
+  $("back-btn").style.display = isDetail ? "" : "none";
   // 並び順セレクタはホーム (チャンピオン一覧) でのみ意味があるので、それ以外では隠す。
   // 隠す view では消えた幅 (sort 自身 + flex gap) を検索バーが吸収するように
   // --search-w を伸ばす。これで右端の Select/Slideshow が view 切替で左右にズレない。
