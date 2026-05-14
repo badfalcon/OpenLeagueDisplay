@@ -60,6 +60,9 @@
 
     --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
     --ctrl-h: 40px;     /* 全コントロール (btn/search/lang/tab) 共通の高さ */
+    /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
+       header / content-toolbar / main / footer の「中身」をこの幅で中央寄せする */
+    --container-max: 1760px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -107,13 +110,16 @@
     opacity: 0.55; pointer-events: none;
   }
 
-  /* 1 行構成: brand | lang-picker (右端) */
+  /* 1 行構成: brand | lang-picker (右端)。
+     topbar の背景 (blur) は全幅のまま、中身だけ --container-max で中央寄せ */
   header {
     display: flex; align-items: center;
     gap: 18px;
     padding: 16px 36px;
     border-bottom: 1px solid var(--rule);  /* header と toolbar の境界 */
     flex-wrap: wrap;  /* 極端に狭い時だけ折返す */
+    max-width: var(--container-max);
+    margin: 0 auto;
   }
   header > .lang-picker { margin-left: auto; }  /* 折返し時も lang は右端にスナップ */
   /* 検索バーは固定上限のみで flex-grow させない。タブ/モード群を端に張り付かせず、
@@ -128,7 +134,7 @@
   /* ページのアクション専用バー。topbar の一部として header の真下に積まれ、
      スクロール時も header と一緒に追従する。main と同じ max-width で中央寄せ */
   .content-toolbar {
-    max-width: 1760px;
+    max-width: var(--container-max);
     margin: 0 auto;
     padding: 14px 56px;
     display: flex; gap: 10px;
@@ -368,7 +374,7 @@
     /* topbar (sticky) の下に来るので上に少し余白を取り、コンテンツが
        バーの真下にぴったり張り付かないようにする */
     padding: 28px 56px 100px;
-    max-width: 1760px; margin: 0 auto;
+    max-width: var(--container-max); margin: 0 auto;
     animation: fadeIn 0.5s ease;
     position: relative;
   }
@@ -750,7 +756,9 @@
   }
   .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
 
-  /* === FOOTER ====================================================== */
+  /* === FOOTER ======================================================
+     border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
+     テキストは .footer-inner で --container-max に絞って中央寄せ */
   footer {
     padding: 56px 36px 40px;
     text-align: center;
@@ -762,6 +770,10 @@
     border-top: 1px solid var(--rule);
     margin-top: 60px;
     position: relative;
+  }
+  .footer-inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
   }
   footer::before {
     content: "✦";
@@ -1320,9 +1332,11 @@
 </div>
 
 <footer>
-  Images & data from <a href="https://communitydragon.org" target="_blank" rel="noopener">Community Dragon</a>
-  · League of Legends © Riot Games, Inc.
-  · <span id="patch-info"></span>
+  <div class="footer-inner">
+    Images & data from <a href="https://communitydragon.org" target="_blank" rel="noopener">Community Dragon</a>
+    · League of Legends © Riot Games, Inc.
+    · <span id="patch-info"></span>
+  </div>
 </footer>
 
 <script>
