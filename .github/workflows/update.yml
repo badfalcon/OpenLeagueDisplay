@@ -27,10 +27,15 @@ jobs:
 
       - name: File @claude issue for unmapped champions
         # generate_data.py が unmapped_regions.json を書き出した場合のみ走る。
-        # ファイルが無ければ hashFiles が '' を返してこの step は skip される
+        # ファイルが無ければ hashFiles が '' を返してこの step は skip される。
+        # github-token は PAT (secrets.GH_PAT) が設定されていればそれを使う = 起票した
+        # issue が claude.yml の issues.opened を発火させて自動 PR まで進む。PAT 未設定
+        # の場合は GITHUB_TOKEN にフォールバック → issue は立つが claude.yml は
+        # 発火しないので、メンテナが手動で "@claude proceed" コメントするまで待機する
         if: hashFiles('unmapped_regions.json') != ''
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const aliases = JSON.parse(fs.readFileSync('unmapped_regions.json', 'utf8'));
