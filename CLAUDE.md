@@ -61,11 +61,13 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   と確定。CDragon にも champion→region のマッピングが無いため、Riot 側が直すのを
   待たず `generate_data.py` の `CHAMPION_REGIONS` (alias.lower()→[slug,...]) と
   `REGION_NAMES` (slug→英名) で持つ。新チャンピオンが追加された時はここに 1 行
-  追記する (data.json regenerate で `missing` チェックが走ると整合不一致は気付ける)。
-  ロール/rarity と同じく翻訳も有限セット (~14 地域) なので index.html の
-  `REGION_LABELS` (default + ja_jp/ko_kr/zh_cn の主要 locale) にハードコード。
-  i18n/<locale>.json には regions フィールドを出さない (index.html 側は
-  `state.i18n.regions || {}` でフォールバックするので壊れない)。
+  追記する。漏れは `build_manifest()` の警告 (`[警告] CHAMPION_REGIONS 未登録: <alias>`)
+  で次回 regenerate 時に気付ける。ロール/rarity と同じく翻訳も有限セット
+  (~14 地域) なので index.html の `REGION_LABELS` (default + ja_jp/ko_kr/zh_cn の
+  主要 locale) にハードコード。検索フィルタは `REGION_LABELS[state.locale]` を
+  見て、未対応 locale なら `REGION_LABELS.default` (英語) にフォールバック
+  (ROLE_LABELS / RARITY_LABELS と同じ二段当たり)。i18n/<locale>.json には
+  regions フィールド自体を出さない。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整

@@ -492,6 +492,15 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     # 地域は CHAMPION_REGIONS / REGION_NAMES に hardcode (universe-meeps が
     # 永続的に 403 を返すため、外部 fetch なし)
     print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
+    # 新チャンピオン追加時の漏れ検知。CDragon 側の alias が CHAMPION_REGIONS に
+    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)
+    unmapped = sorted(
+        ch.get("alias", "").lower()
+        for ch in champions
+        if ch.get("alias") and ch["alias"].lower() not in CHAMPION_REGIONS
+    )
+    if unmapped:
+        print(f"   [警告] CHAMPION_REGIONS 未登録: {unmapped}", flush=True)
 
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
@@ -524,7 +533,6 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
         roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
 
-        # CHAMPION_REGIONS は CDragon alias を lowercase したものをキーにしてる
         regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
 
         entry = {
@@ -550,16 +558,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
                 used_line_ids.add(int(lid))
     filtered_lines = {str(lid): skin_lines[lid] for lid in used_line_ids if lid in skin_lines}
 
-    # 同様に、実際にチャンピオンに使われた地域だけを top-level に残す
-    used_region_slugs: set[str] = set()
-    for ch in out_champs:
-        for slug in ch.get("regions") or []:
-            used_region_slugs.add(slug)
-    filtered_regions = {s: REGION_NAMES[s] for s in used_region_slugs if s in REGION_NAMES}
-
     print(
         f"==> 完了: {len(out_champs)} チャンピオン, {total} スキン, "
-        f"{len(filtered_lines)} スキンライン, {len(filtered_regions)} 地域",
+        f"{len(filtered_lines)} スキンライン",
         flush=True,
     )
 
@@ -568,7 +569,6 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         "champion_count": len(out_champs),
         "skin_count": total,
         "skin_lines": filtered_lines,  # {"100": "PROJECT", ...}
-        "regions": filtered_regions,   # {"demacia": "Demacia", ...}
         "champions": out_champs,
         # locale 一覧と表示ラベルは data.json に同梱しておく。i18n/<locale>.json は
         # ここに載っている locale だけが切替候補。ブラウザ側はファイルの存在を
