@@ -1066,20 +1066,12 @@
   .progress-actions { margin-top: 22px; }
 
   /* === RESPONSIVE ================================================= */
-  /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
-     champ-header の controls スロットを row 2 に落とす。h2 と controls が
-     横並びだと窮屈になるサイズ */
+  /* 中型ノート PC 帯域 (1100px) では search を縮めて、controls スロットが
+     col 2 内に収まり h2 と横並びを維持できるようにする。controls は desktop
+     と同じ grid-row: 1 / 3 + align-self: center の中央配置を全帯域で継続 */
   @media (max-width: 1100px) {
-    .champ-header-controls {
-      grid-column: 1 / -1; grid-row: 2;
-      justify-self: stretch; align-self: start;
-      flex-wrap: wrap;
-    }
-    .champ-header .count { grid-row: 3; }
-    .champ-header > .btn,
-    .champ-header > .btn.primary { grid-row: 3; }
     .champ-header-controls > #search {
-      flex: 1 1 240px;
+      flex: 1 1 200px;
       max-width: none;
     }
   }
@@ -1145,17 +1137,13 @@
     }
     header .view-tabs .tab { max-width: 40vw; }
 
-    /* champ-header の controls スロットは縦積みに切替 (1100px ブレークの flex-wrap
-       より厳しい層): 320px-幅で back / search / sort が横並びだとはみ出すため */
-    .champ-header-controls {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .champ-header-controls > #search,
-    .champ-header-controls > #back-btn,
-    .champ-header-controls > .ctrl-select {
-      flex: 0 0 auto;
-      width: 100%;
+    /* モバイル帯域でも desktop と同様 controls を col 2 で h2 + count の縦中央に
+       置く方針を維持。狭幅で収めるため search を強めに縮め、controls 内で
+       flex-wrap も許す (h2 が極端に長い locale で改行が必要な時の保険) */
+    .champ-header-controls { flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    .champ-header-controls > #search {
+      flex: 1 1 100px;
+      min-width: 90px;
       max-width: none;
     }
 
