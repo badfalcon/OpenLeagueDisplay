@@ -42,6 +42,10 @@ async function init() {
     state.sortOrder = savedSort;
   }
   applyStaticUIStrings();
+  // localized テキストが当たったので、index.html で立てた i18n-loading を外して
+  // 隠していたタブ/ボタン/ローディング文言を見せる。これ以降の locale 切替は
+  // 同期的に DOM を書き換えるためフラッシュは発生しない
+  document.documentElement.classList.remove("i18n-loading");
   // Cinzel フォントは defer 読込なので、初回の equalizeTabs() はフォールバック
   // フォントで測ってしまう。ready 後にもう一度合わせて崩れを防ぐ。
   if (document.fonts && document.fonts.ready) {
