@@ -1,0 +1,1238 @@
+  :root {
+    /* Codex palette: deeper ink, richer gold, crimson seal for accents */
+    --bg:        #07060b;
+    --bg-1:      #0c0b14;
+    --bg-2:      #161325;
+    --bg-3:      #221d36;
+    --ink:       #ede5d3;
+    --ink-soft:  #a89c80;
+    --ink-mute:  #6b6451;
+    --gold:      #d4a857;
+    --gold-hi:   #f4dfa6;
+    --gold-deep: #8a6a2e;
+    --crimson:   #b73a3a;
+    --rule:      rgba(212, 168, 87, 0.18);
+    --rule-bold: rgba(212, 168, 87, 0.45);
+
+    --font-display: "Fraunces", "Marcellus", Georgia, serif;
+    --font-eyebrow: "Cinzel", "Marcellus", Georgia, serif;
+    --font-body:   ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                   "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
+    --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
+    --ctrl-h: 40px;     /* 全コントロール (btn/search/lang/tab) 共通の高さ */
+    /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
+       header / main / footer の「中身」をこの幅で中央寄せする */
+    --container-max: 1760px;
+    /* 上記 4 要素の左右パディング。これを共通化することで画面端の縦線が揃う。
+       breakpoint ごとに :root で上書きする */
+    --container-pad: 56px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font-body);
+    min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* 背景: 二段の放射状ヴィネット + SVGノイズ。ベタ塗りだと「とりあえずダーク」感が強いので
+     雰囲気のレイヤーを足す。z-index -1 で固定、ポインタイベント貫通 */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background:
+      radial-gradient(ellipse 80% 60% at 8% -10%, rgba(212, 168, 87, 0.10), transparent 60%),
+      radial-gradient(ellipse 70% 55% at 92% 110%, rgba(183, 58, 58, 0.07), transparent 70%),
+      radial-gradient(ellipse 120% 90% at 50% 50%, rgba(22, 19, 37, 0.5), transparent 80%);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    opacity: 0.35; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  ::-webkit-scrollbar { width: 12px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-3); border-left: 1px solid var(--rule); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
+  body { scrollbar-color: var(--bg-3) var(--bg); }
+
+  /* === HEADER ====================================================== */
+  /* topbar = brand + view-tabs + アクション + lang を 1 行に並べる sticky バー。
+     背景・blur はラッパーが持ち、内側は構造のみ。検索バー/戻る/ソートは
+     dom-stash から render() で .champ-header-controls に transplant される */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    background: linear-gradient(180deg, rgba(7, 6, 11, 0.96), rgba(7, 6, 11, 0.85));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+  /* topbar 下端の金線: 中央が明るく両端が消えるフェード。古地図の罫線っぽさを出す */
+  .topbar::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-deep) 18%, var(--gold) 50%, var(--gold-deep) 82%, transparent);
+    opacity: 0.55; pointer-events: none;
+  }
+
+  /* 1 行構成: [brand] [view-tabs] (auto-spacer) [actions=select+slideshow] [lang]
+     header-actions に margin-left: auto を付けて「左クラスタ (brand+tabs)」と
+     「右クラスタ (actions+lang)」を分離。select-toggle と slideshow-btn は
+     .header-actions で 1 つの flex 群にまとめ、狭幅で折返す時もセットで動く */
+  header {
+    display: flex; align-items: center;
+    gap: 12px;
+    padding: 12px var(--container-pad);
+    border-bottom: 1px solid var(--rule);
+    flex-wrap: wrap;
+    max-width: var(--container-max);
+    margin: 0 auto;
+  }
+  header > .header-actions { margin-left: auto; }
+  .header-actions {
+    display: flex; align-items: center; gap: 12px;
+  }
+  /* header-brand は info (h1+stats 縦積み) を包む薄いラッパ。lang-picker は
+     header の末尾 (右クラスタの一番右) に並ぶので brand には含めない */
+  .header-brand {
+    display: flex; align-items: center;
+    gap: 18px;
+    min-width: 0;
+  }
+  .header-brand-info {
+    display: flex; flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  header h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 24px; font-weight: 500;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 500;
+    color: var(--gold-hi);
+    letter-spacing: -0.005em;
+    line-height: 1;
+    cursor: pointer; user-select: none;
+    display: flex; align-items: baseline; gap: 10px;
+    white-space: nowrap;
+  }
+  header h1::before {
+    content: "✦";
+    color: var(--gold);
+    font-size: 13px; font-style: normal;
+    font-variation-settings: normal;
+    transform: translateY(-2px);
+  }
+  /* stats を h1 の真下に小さく置く。雑誌の「kicker」役で、画面右側の行動ボタン列を圧迫しない */
+  .header-brand #stats {
+    padding-left: 24px;  /* ✦ + gap と揃える */
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+  }
+
+
+  #search {
+    width: 100%; max-width: 520px;
+    height: var(--ctrl-h);
+    padding: 0 18px 0 42px;
+    background: var(--bg-1);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 60, "wght" 400;
+    letter-spacing: 0.01em;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a89c80' stroke-width='1.5'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: 14px center;
+    background-size: 18px;
+  }
+  #search::placeholder { color: var(--ink-mute); font-style: italic; }
+  #search:focus {
+    border-color: var(--gold);
+    background-color: var(--bg-2);
+    box-shadow: 0 0 0 4px rgba(212, 168, 87, 0.08);
+  }
+
+  /* 言語ピッカー: 国旗絵文字を出すアイコンボタン + 下に展開する独自メニュー。
+     ネイティブ <select> をやめた理由は (1) アイコン1個だけ出したい (2) option 内に
+     絵文字を入れても OS によって白黒レンダリングされるブラウザがある、の2点 */
+  .lang-picker { position: relative; }
+  #lang-btn {
+    /* .btn の継承で height: var(--ctrl-h) は効くが、padding と min-width を旗向けに上書き */
+    padding: 0 12px;
+    min-width: 48px;
+  }
+  /* 国旗は OS フォント (Segoe UI Emoji 等) に任せると Windows で「2文字の
+     地域識別子」になって幅が揃わないので、SVG 画像を固定サイズで使う。
+     画像は flagcdn.com (ISO 3166-1 alpha-2 で配信されている静的 SVG) */
+  .lang-flag {
+    display: inline-block;
+    width: 22px; height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    vertical-align: middle;
+    background: rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+  }
+  .lang-menu {
+    position: absolute;
+    top: calc(100% + 6px); right: 0;
+    margin: 0; padding: 6px 0;
+    list-style: none;
+    background: var(--bg-1);
+    border: 1px solid var(--rule-bold);
+    min-width: 220px;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 50;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
+  .lang-menu[hidden] { display: none; }
+  .lang-menu li { margin: 0; }
+  .lang-menu button {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 9px 14px;
+    background: transparent; border: 0;
+    color: var(--ink);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: left; cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .lang-menu button:hover,
+  .lang-menu button:focus-visible {
+    background: rgba(212, 168, 87, 0.10);
+    color: var(--gold-hi);
+    outline: none;
+  }
+  .lang-menu button[aria-selected="true"] {
+    color: var(--gold-hi);
+    background: rgba(212, 168, 87, 0.06);
+  }
+
+  .btn {
+    height: var(--ctrl-h);
+    padding: 0 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    outline: none;
+    line-height: 1;
+    white-space: nowrap;
+    /* 入りきらない時は "..." に倒す。Latin (デフォルト) は普段は問題無いが、
+       長ラベル locale (es_es "⬇ Selección en ZIP" 18 字 / pt_br / ru_ru "По умолчанию"
+       12 字 / ja_jp "⬇ 全スキンをZIP" 等) で隣の要素を押し出すのを防ぐ。
+       white-space:nowrap と組み合わせて常に 1 行ボタン形状を維持 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .btn:hover { background: rgba(212, 168, 87, 0.10); border-color: var(--gold); color: var(--gold-hi); }
+  .btn:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
+  /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
+     author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
+     (#primary-action を home/lines で消すのに必要) */
+  .btn[hidden] { display: none; }
+
+  /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
+     ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
+     OS のドロップダウン挙動を引き継げるため。矢印は ::after が使えないので
+     background-image (SVG inline) でゴールド色の▼を右端に置く */
+  .ctrl-select {
+    height: var(--ctrl-h);
+    padding: 0 32px 0 14px;
+    background-color: transparent;
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    line-height: 1; white-space: nowrap;
+    outline: none;
+    transition: all 0.18s ease;
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23f0e6d2' stroke-width='1.4'><path d='M1 1l4 4 4-4'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 10px 6px;
+  }
+  .ctrl-select:hover { background-color: rgba(212, 168, 87, 0.10); border-color: var(--gold); }
+  .ctrl-select:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
+  /* option はネイティブ実装に任せる: 背景だけ揃えてダーク UI で読めるようにする。
+     OS によっては無視される (Win Chromium 系) が問題なし */
+  .ctrl-select option { background: var(--bg-1); color: var(--ink); }
+  .ctrl-select[hidden] { display: none; }
+
+  /* セグメントタブ: Champions / Skin Lines。アクティブはゴールド地、非アクティブは
+     ゴーストの色を踏襲。.btn と高さ揃え (--ctrl-h) */
+  .view-tabs {
+    display: inline-flex;
+    height: var(--ctrl-h);
+    border: 1px solid var(--rule-bold);
+    background: var(--bg-1);
+    flex-shrink: 0;
+  }
+  .view-tabs .tab {
+    height: 100%;
+    padding: 0 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 0;
+    color: var(--ink-soft);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer; outline: none;
+    line-height: 1; white-space: nowrap;
+    transition: all 0.18s ease;
+    position: relative;
+  }
+  .view-tabs .tab + .tab { border-left: 1px solid var(--rule); }
+  .view-tabs .tab:hover:not(.active) {
+    color: var(--gold-hi);
+    background: rgba(212, 168, 87, 0.08);
+  }
+  .view-tabs .tab.active {
+    background: var(--gold); color: #1a1208;
+    font-weight: 600;
+  }
+  .view-tabs .tab:focus-visible { box-shadow: inset 0 0 0 2px rgba(212, 168, 87, 0.5); }
+  #stats {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  /* カウントアップ中に桁数が増えても周辺テキストが揺れないよう、
+     最終桁数 (data-target の桁) を min-width として ch で確保する */
+  #stats .stat-num {
+    display: inline-block;
+    color: var(--gold);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === MAIN ======================================================== */
+  main {
+    /* topbar (sticky) の下に来るので上に少し余白を取り、コンテンツが
+       バーの真下にぴったり張り付かないようにする */
+    padding: 28px var(--container-pad) 100px;
+    max-width: var(--container-max); margin: 0 auto;
+    animation: fadeIn 0.5s ease;
+    position: relative;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .loading {
+    text-align: center; padding: 140px 24px; color: var(--ink-soft);
+  }
+  .loading h2 {
+    font-family: var(--font-display);
+    font-weight: 400; font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
+    color: var(--gold-hi);
+    font-size: 56px; letter-spacing: -0.015em; line-height: 1;
+    margin: 0 0 14px;
+  }
+  .loading p {
+    font-family: var(--font-eyebrow);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .loading code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg-1);
+    border: 1px solid var(--rule);
+    padding: 2px 8px;
+    letter-spacing: 0;
+  }
+
+  /* === CHAMPION GRID =============================================== */
+  /* auto-fill + 固定トラック幅。1fr でストレッチさせるとウィンドウ幅に応じて
+     サムネが連続的に伸縮してしまうため、トラックは常にこの幅で、余りは
+     左右均等に逃がす */
+  .champ-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 168px);
+    justify-content: center;
+    gap: 22px;
+    counter-reset: champ;
+  }
+  .champ-card {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+    overflow: hidden;
+    background: var(--bg-1);
+    border: 1px solid transparent;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+    /* コーデックス的な切り欠きフレーム。clip-path だと縁の box-shadow が消えるので
+       内側の発光は ::after の inset shadow で表現する */
+    clip-path: polygon(
+      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
+      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
+      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
+      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
+    );
+    counter-increment: champ;
+  }
+  .champ-card::after {
+    content: ""; position: absolute; inset: 0; z-index: 3;
+    box-shadow:
+      inset 0 0 60px rgba(7, 6, 11, 0.55),
+      inset 0 0 0 1px rgba(212, 168, 87, 0.12);
+    pointer-events: none;
+    transition: box-shadow 0.35s;
+  }
+  .champ-card img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s, filter 0.5s;
+    position: relative; z-index: 1;
+    filter: saturate(0.92) contrast(1.05);
+  }
+  /* 画像ロード完了までシマーで「読み込み中」を示す。CDragon は CDN なので普通は
+     一瞬で終わるが、初回訪問や回線が細い時にカードが真っ黒だと「壊れた？」感が出る。
+     img-loaded クラスは img の onload/onerror で付ける */
+  .champ-card:not(.img-loaded) img,
+  .skin-card:not(.img-loaded) img,
+  .line-card:not(.img-loaded) img { opacity: 0; }
+  .champ-card:not(.img-loaded)::before,
+  .skin-card:not(.img-loaded)::before,
+  .line-card:not(.img-loaded)::before {
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background: linear-gradient(110deg,
+      var(--bg-1) 0%, var(--bg-1) 35%,
+      var(--bg-2) 50%,
+      var(--bg-1) 65%, var(--bg-1) 100%);
+    background-size: 220% 100%;
+    animation: shimmer 1.6s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 120% 0; }
+    100% { background-position: -120% 0; }
+  }
+  .champ-card:hover { transform: translateY(-4px); }
+  .champ-card:hover img { transform: scale(1.10); filter: saturate(1.1) contrast(1.08); }
+  .champ-card:hover::after {
+    box-shadow:
+      inset 0 0 60px rgba(7, 6, 11, 0.55),
+      inset 0 0 0 1px var(--gold),
+      inset 0 0 30px rgba(212, 168, 87, 0.22);
+  }
+  .champ-card .label {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 22px 14px 14px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 50, "wght" 500;
+    font-size: 14.5px;
+    letter-spacing: 0;
+    line-height: 1.15;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.7) 50%, rgba(7, 6, 11, 0) 100%);
+    color: var(--gold-hi);
+    z-index: 2;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  }
+  /* カード番号 (01, 02, ...) — 雑誌のページ番号風に各カードの上に出す。
+     CSS counters で純粋にスタイル側で番号を打つので JS は弄らない */
+  .champ-card .label::before {
+    content: counter(champ, decimal-leading-zero);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+
+  /* === CHAMP / LINE HEADER ========================================= */
+  /* author の .champ-header { display: grid } が UA の [hidden] { display: none } を
+     同 specificity (0,1,0) で覆って勝つ仕様。永続 #primary-header に setPrimaryHeader
+     前の hidden 状態が残ると空 header がレイアウトを占有するので、明示的に殺す */
+  .champ-header[hidden] { display: none; }
+  .champ-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 24px 32px;
+    margin-bottom: 42px;
+    padding: 32px 0 26px;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+  }
+  /* 左半分の金線 (グラデでフェード) + 中央のひし形装飾 — 編集デザインの常套手段 */
+  .champ-header::before {
+    content: ""; position: absolute; left: 0; right: 50%; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold-deep) 60%, transparent 100%);
+  }
+  .champ-header::after {
+    content: "◆";
+    position: absolute; left: 50%; bottom: -8px;
+    transform: translateX(-50%);
+    color: var(--gold); font-size: 11px;
+    background: var(--bg); padding: 0 10px;
+  }
+  .champ-header h2 {
+    margin: 0;
+    grid-column: 1;   /* 常に col 1 に縛る。col 2 は controls スロット用 */
+    font-family: var(--font-display);
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 400; font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 400;
+    color: var(--gold-hi);
+    letter-spacing: -0.02em; line-height: 0.92;
+    overflow-wrap: anywhere;  /* 長い名前で controls 列を圧迫した時の折返し */
+  }
+  /* 一覧画面 (チャンピオン一覧 / シリーズ一覧) のヘッダーは、固有名詞ではなく
+     セクションラベル ("CHAMPIONS" / "SKIN LINES") を出すだけなので、個別画面の
+     ような巨大表示は不要。フォントだけ抑える */
+  .champ-header.is-list h2 {
+    font-size: clamp(26px, 3.4vw, 44px);
+    font-variation-settings: "opsz" 72, "SOFT" 100, "wght" 400;
+  }
+  /* h2 と同じ row 1 の右端に並ぶ controls スロット。dom-stash から transplant
+     された [back?][search][sort?] が flex で横並びに入る。align-self: end で
+     巨大 h2 (96px) の下辺と揃える */
+  .champ-header-controls {
+    grid-column: 2; grid-row: 1;
+    justify-self: end; align-self: end;
+    display: flex; align-items: center; gap: 10px;
+    min-width: 0;
+  }
+  .champ-header-controls > #search {
+    flex: 0 1 clamp(280px, 28vw, 480px);
+    min-width: 0;
+  }
+  .champ-header-controls > #back-btn,
+  .champ-header-controls > .ctrl-select { flex: 0 0 auto; }
+  .champ-header .count {
+    grid-column: 1; grid-row: 2;
+    color: var(--ink-soft);
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+  /* primary download ボタンは .champ-header の直接子 (renderChampion /
+     renderLine のテンプレで生成)。子セレクタに絞ることで、controls スロット内の
+     #back-btn (.btn 持ち) には適用されない */
+  .champ-header > .btn,
+  .champ-header > .btn.primary {
+    grid-column: 2; grid-row: 2;
+    justify-self: end; align-self: end;
+    margin-left: 0 !important;
+  }
+
+  /* === SKIN GRID =================================================== */
+  .skin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 340px);
+    justify-content: center;
+    gap: 18px;
+    counter-reset: skin;
+  }
+  .skin-card {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    cursor: pointer;
+    overflow: hidden;
+    background: var(--bg-1);
+    border: 1px solid transparent;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+    clip-path: polygon(
+      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
+      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
+      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
+      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
+    );
+    counter-increment: skin;
+  }
+  .skin-card::after {
+    content: ""; position: absolute; inset: 0; z-index: 3;
+    box-shadow: inset 0 0 0 1px rgba(212, 168, 87, 0.10);
+    pointer-events: none;
+    transition: box-shadow 0.35s;
+  }
+  .skin-card img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s;
+    position: relative; z-index: 1;
+  }
+  .skin-card:hover { transform: translateY(-3px); }
+  .skin-card:hover img { transform: scale(1.06); }
+  .skin-card:hover::after {
+    box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 28px rgba(212, 168, 87, 0.16);
+  }
+  .skin-card .label {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 24px 18px 16px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 18, "SOFT" 60, "wght" 500;
+    font-size: 15.5px;
+    letter-spacing: 0;
+    line-height: 1.18;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.6) 60%, rgba(7, 6, 11, 0) 100%);
+    color: var(--gold-hi);
+    z-index: 2;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  }
+  /* スキンの通し番号。「· 」を入れて区切る (ピリオドだとデジタル臭くなる) */
+  .skin-card .label::before {
+    content: counter(skin, decimal-leading-zero) "  ·";
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    margin-right: 8px;
+    vertical-align: middle;
+    opacity: 0.85;
+  }
+
+  /* === LIGHTBOX ==================================================== */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 100;
+    background: #000;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .lightbox.open { opacity: 1; pointer-events: auto; }
+  /* ライトボックス/スライドショー中は背景スクロールを止める。
+     position:fixed のオーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう */
+  body.lightbox-open { overflow: hidden; }
+  .lb-stage { position: absolute; inset: 0; overflow: hidden; }
+  .lb-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: contain;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  .lb-img.show { opacity: 1; }
+  .lightbox.slideshow .lb-img.show {
+    animation: kenburns 12s ease-out forwards;
+  }
+  @keyframes kenburns {
+    from { transform: scale(1.0) translate(0, 0); }
+    to   { transform: scale(1.08) translate(-1.5%, -1%); }
+  }
+  .lb-overlay {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    /* 明るいスプラッシュ (例: Star Guardian 系) でも文字が読めるよう、
+       グラデーションを高め＆濃いめにし、テキスト側にもシャドウを掛ける */
+    padding: 80px 56px 44px;
+    background: linear-gradient(to top,
+                  rgba(0, 0, 0, 0.94) 0%,
+                  rgba(0, 0, 0, 0.78) 40%,
+                  rgba(0, 0, 0, 0.35) 75%,
+                  rgba(0, 0, 0, 0) 100%);
+    pointer-events: none;
+  }
+  .lb-skin {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 400; font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
+    color: var(--gold-hi);
+    letter-spacing: -0.015em; line-height: 1.0;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
+  }
+  .lb-champ {
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 500;
+    color: var(--gold);
+    text-transform: uppercase; letter-spacing: 0.42em;
+    margin-bottom: 12px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  }
+  .lb-close, .lb-nav {
+    position: absolute;
+    background: rgba(12, 11, 20, 0.65);
+    border: 1px solid var(--rule-bold);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    color: var(--gold-hi); cursor: pointer; user-select: none;
+    width: 52px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 22px; font-style: italic;
+    transition: all 0.18s;
+  }
+  .lb-close:hover, .lb-nav:hover {
+    background: var(--gold); color: #1a1208; border-color: var(--gold);
+  }
+  .lb-close { top: 28px; right: 28px; }
+  .lb-prev { top: 50%; left: 28px; transform: translateY(-50%); }
+  .lb-next { top: 50%; right: 28px; transform: translateY(-50%); }
+  .lb-toolbar {
+    position: absolute; top: 28px; left: 28px;
+    display: flex; gap: 8px; font-size: 11px;
+  }
+  .lb-toolbar .badge {
+    padding: 9px 14px;
+    background: rgba(12, 11, 20, 0.65);
+    border: 1px solid var(--rule-bold);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 10px; font-weight: 500;
+  }
+  /* 上ツールバーに置く ss-btn (間隔設定) は隣の静的バッジと高さ/濃さを揃える。
+     下の「操作」群より控えめにしたいので padding と background を上書き */
+  .lb-toolbar .ss-btn {
+    padding: 9px 14px; font-size: 10px;
+    background: rgba(12, 11, 20, 0.65);
+  }
+
+  .slideshow-controls {
+    position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; opacity: 0; transition: opacity 0.25s;
+    pointer-events: auto;
+  }
+  .lightbox:hover .slideshow-controls { opacity: 1; }
+  /* hover が無いデバイス (touch / pen) では再生コントロールを常時表示。
+     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う */
+  @media (hover: none) {
+    .slideshow-controls { opacity: 1; }
+  }
+  .ss-btn {
+    padding: 11px 18px;
+    background: rgba(12, 11, 20, 0.7);
+    border: 1px solid var(--rule-bold);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    color: var(--gold-hi); cursor: pointer;
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase;
+  }
+  .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+
+  /* === FOOTER ======================================================
+     border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
+     テキストは .footer-inner で --container-max に絞って中央寄せ */
+  footer {
+    padding: 56px var(--container-pad) 40px;
+    text-align: center;
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    color: var(--ink-mute);
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    border-top: 1px solid var(--rule);
+    margin-top: 60px;
+    position: relative;
+  }
+  .footer-inner {
+    max-width: var(--container-max);
+    margin: 0 auto;
+  }
+  footer::before {
+    content: "✦";
+    position: absolute; top: -8px; left: 50%;
+    transform: translateX(-50%);
+    color: var(--gold); font-size: 13px;
+    background: var(--bg); padding: 0 12px;
+  }
+  footer a { color: var(--gold); text-decoration: none; transition: color 0.18s; }
+  footer a:hover {
+    color: var(--gold-hi);
+    text-decoration: underline; text-underline-offset: 4px;
+    text-decoration-color: var(--gold-deep);
+  }
+
+  /* === ZIP DL / SELECTION ========================================= */
+  .btn.primary {
+    background: var(--gold); color: #1a1208;
+    border-color: var(--gold);
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: var(--gold-hi); border-color: var(--gold-hi); color: #1a1208; }
+  .btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    background: transparent; color: var(--ink-soft);
+    border-color: var(--rule);
+  }
+  .btn.danger { border-color: rgba(183, 58, 58, 0.55); color: #e8a8a8; }
+  .btn.danger:hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
+
+  /* 選択モード中、カードにチェックボックスを乗せる。
+     選択の実体 (state.selected) は常に「1スキン単位」のキー。
+     チャンプ/ラインカードの □ は「その配下の全スキンを一括 add/remove」のショートカット */
+  body.select-mode .skin-card,
+  body.select-mode .champ-card { cursor: pointer; }
+  .sel-checkbox {
+    position: absolute; top: 12px; left: 12px; z-index: 5;
+    width: 28px; height: 28px; padding: 0;
+    /* ✓ (::before) は font-size 20px の JetBrains Mono Bold で line-height 1 でも
+       グリフが上下に染み出して箱を視覚的に長方形化する。min/max で寸法を完全固定し、
+       overflow:hidden で滲み出しを切る。partial 状態は max-width を解除して横に伸ばす */
+    min-width: 28px; max-width: 28px;
+    min-height: 28px; max-height: 28px;
+    box-sizing: border-box;
+    overflow: hidden;
+    background: rgba(7, 6, 11, 0.88);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border: 1px solid var(--gold);
+    display: none; align-items: center; justify-content: center;
+    color: var(--gold-hi);
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    transition: all 0.18s;
+  }
+  body.select-mode .sel-checkbox { display: flex; }
+  /* チャンプ/ラインカードの本体クリックは「詳細画面へ移動」のまま (個別スキン調整の
+     導線を残す)。一括 toggle は左上の □ をクリックする */
+  body.select-mode .champ-card .sel-checkbox,
+  body.select-mode .line-card .sel-checkbox {
+    pointer-events: auto; cursor: pointer;
+  }
+  body.select-mode .champ-card .sel-checkbox:hover,
+  body.select-mode .line-card .sel-checkbox:hover {
+    background: var(--gold); color: #1a1208;
+  }
+  .skin-card.selected, .champ-card.selected, .line-card.selected { border-color: var(--gold); }
+  .skin-card.selected::after,
+  .champ-card.selected::after {
+    content: ""; position: absolute; inset: 0; z-index: 3;
+    box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 50px rgba(212, 168, 87, 0.22);
+    pointer-events: none;
+  }
+  /* line-card は ::after を既にグラデで使っているので、本体に box-shadow で枠を乗せる */
+  .line-card.selected { box-shadow: inset 0 0 0 3px var(--gold); }
+  /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
+     チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
+  .champ-card.partial, .line-card.partial { border-color: var(--gold-deep); }
+  /* "3/14" など数字を入れる時だけ横方向に伸ばす。デフォルトは正方形固定で、
+     ✓ (::before) が padding と相互作用して箱を太らせるのを防ぐ */
+  .champ-card.partial .sel-checkbox,
+  .line-card.partial .sel-checkbox { width: auto; min-width: 28px; max-width: none; padding: 0 7px; }
+  /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
+     親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
+  .skin-card.selected .sel-checkbox::before,
+  .champ-card.selected .sel-checkbox::before,
+  .line-card.selected .sel-checkbox::before {
+    content: "✓"; color: var(--gold-hi);
+    font-size: 20px; font-weight: 700; line-height: 1;
+  }
+
+  /* === PACK BAR === floating bottom pill =========================== */
+  /* 選択モード中は floating pack-bar (bottom: 28px) が画面下に常駐するので、
+     一番下までスクロールした時に footer と被らないよう body 側にスペースを確保する */
+  body.select-mode { padding-bottom: 96px; }
+  @media (max-width: 780px) {
+    body.select-mode { padding-bottom: 76px; }
+  }
+  .pack-bar {
+    position: fixed; left: 50%; bottom: 28px;
+    transform: translateX(-50%);
+    z-index: 25;
+    display: flex; gap: 14px; align-items: center;
+    padding: 14px 16px 14px 24px;
+    background: rgba(12, 11, 20, 0.92);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--gold);
+    box-shadow:
+      0 28px 64px rgba(0, 0, 0, 0.7),
+      0 0 0 4px rgba(212, 168, 87, 0.06);
+    animation: packIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    max-width: calc(100vw - 32px);
+    flex-wrap: nowrap;
+  }
+  @keyframes packIn {
+    from { opacity: 0; transform: translate(-50%, 24px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .pack-bar .count {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 18, "SOFT" 70, "wght" 500;
+    color: var(--gold-hi);
+    font-size: 17px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    padding-right: 4px;
+    border-right: 1px solid var(--rule);
+    margin-right: 10px;
+    padding-right: 18px;
+  }
+  .pack-bar .hint {
+    color: var(--ink-soft);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    max-width: 380px; line-height: 1.45;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (max-width: 780px) {
+    .pack-bar .hint { display: none; }
+    .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
+    .pack-bar .count { font-size: 15px; padding-right: 14px; margin-right: 8px; }
+  }
+
+  /* === SKIN LINES GRID ============================================ */
+  /* 各ラインから代表スキンのスプラッシュをサムネとして表示 */
+  .line-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 300px);
+    justify-content: center;
+    gap: 18px;
+    counter-reset: line;
+  }
+  .line-card {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    cursor: pointer;
+    overflow: hidden;
+    background: var(--bg-1);
+    border: 1px solid transparent;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.4s;
+    clip-path: polygon(
+      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
+      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
+      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
+      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
+    );
+    counter-increment: line;
+  }
+  .line-card img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s, filter 0.5s;
+    position: relative; z-index: 1;
+    filter: saturate(0.88) contrast(1.04);
+  }
+  .line-card:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1px var(--gold); }
+  .line-card:hover img { transform: scale(1.06); filter: saturate(1) contrast(1.06); }
+  /* テキストの可読性確保 (skin-card と同じ手法だが、ライン名+件数の2行ぶん濃いめに) */
+  .line-card::after {
+    content: ""; position: absolute; inset: 0; z-index: 2;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.95) 0%, rgba(7, 6, 11, 0.4) 55%, rgba(7, 6, 11, 0) 75%);
+    pointer-events: none;
+  }
+  .line-card .meta {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 22px 18px 18px;
+    z-index: 3;
+  }
+  .line-card .name {
+    font-family: var(--font-display);
+    color: var(--gold-hi);
+    font-size: 19px;
+    font-style: italic;
+    font-variation-settings: "opsz" 24, "SOFT" 80, "wght" 500;
+    letter-spacing: -0.005em;
+    line-height: 1.15;
+  }
+  .line-card .meta::before {
+    content: counter(line, decimal-leading-zero);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: 6px;
+    opacity: 0.8;
+  }
+  .line-card .count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-top: 10px;
+    opacity: 0.75;
+  }
+
+  /* === PROGRESS OVERLAY =========================================== */
+  .progress-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(7, 6, 11, 0.88);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .progress-overlay.open { display: flex; }
+  .progress-box {
+    min-width: 440px; max-width: 92vw;
+    padding: 40px 44px 32px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold);
+    text-align: center;
+    position: relative;
+    clip-path: polygon(
+      16px 0%, calc(100% - 16px) 0%,
+      100% 16px, 100% calc(100% - 16px),
+      calc(100% - 16px) 100%, 16px 100%,
+      0% calc(100% - 16px), 0% 16px
+    );
+  }
+  .progress-box h3 {
+    margin: 0 0 12px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
+    color: var(--gold-hi);
+    font-size: 30px;
+    letter-spacing: -0.015em;
+    text-transform: none;
+    font-weight: 400;
+  }
+  .progress-box .desc {
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    margin-bottom: 22px;
+  }
+  .progress-bar {
+    width: 100%; height: 3px;
+    background: var(--bg-3);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold-deep), var(--gold-hi), var(--gold-deep));
+    background-size: 200% 100%;
+    animation: shimmerBar 2.4s linear infinite;
+    transition: width 0.2s ease;
+  }
+  @keyframes shimmerBar {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+  .progress-stats {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .progress-actions { margin-top: 22px; }
+
+  /* === RESPONSIVE ================================================= */
+  /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
+     champ-header の controls スロットを row 2 に落とす。h2 と controls が
+     横並びだと窮屈になるサイズ */
+  @media (max-width: 1100px) {
+    .champ-header-controls {
+      grid-column: 1 / -1; grid-row: 2;
+      justify-self: stretch; align-self: start;
+      flex-wrap: wrap;
+    }
+    .champ-header .count { grid-row: 3; }
+    .champ-header > .btn,
+    .champ-header > .btn.primary { grid-row: 3; }
+    .champ-header-controls > #search {
+      flex: 1 1 240px;
+      max-width: none;
+    }
+  }
+  /* 900px 以下: タブレット帯域。header の右クラスタが折返す可能性を許容しつつ、
+     padding と font-size を詰める */
+  @media (max-width: 900px) {
+    :root { --container-pad: 20px; }
+    /* header 幅不足対応: brand を flex: 1 1 100% で row 1 を独占 → 残り
+       (view-tabs / .header-actions / .lang-picker) が自動的に row 2 へ折返す。
+       .header-actions の margin-left: auto (PC幅と共通の右クラスタ寄せ) が効くため、
+       row 2 では [view-tabs] (gap) [actions] [lang] の順で右に詰まる */
+    header { padding: 12px var(--container-pad); gap: 10px 14px; }
+    .header-brand { flex: 1 1 100%; min-width: 0; }
+    header h1 { font-size: 20px; }
+    main { padding: 20px var(--container-pad) 100px; }
+    .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
+    .skin-grid { grid-template-columns: repeat(auto-fill, 260px); }
+    .line-grid { grid-template-columns: repeat(auto-fill, 260px); }
+    .champ-header { padding: 24px 0 22px; margin-bottom: 32px; }
+    .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
+    .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
+    .lb-overlay { padding: 48px 24px 24px; }
+    .lb-close, .lb-nav { width: 44px; height: 44px; }
+    .lb-close { top: 16px; right: 16px; }
+    .lb-prev { left: 16px; }
+    .lb-next { right: 16px; }
+    .lb-toolbar { top: 16px; left: 16px; }
+    .progress-box { min-width: auto; padding: 28px 24px; }
+    .progress-box h3 { font-size: 22px; }
+  }
+  /* 600px 以下: スマホ全帯域 (320-430px) を一気に最適化。
+     - グリッドは fluid (auto-fill + minmax) でカードはみ出しを解消
+     - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
+     - header は flex-wrap の自然な折返しでナビ + アクション + lang が 2-3 段に
+     - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
+       タッチで操作できる形へ作り直す */
+  @media (max-width: 600px) {
+    /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有 */
+    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; }
+
+    .topbar { padding-top: env(safe-area-inset-top); }
+
+    header {
+      padding: 10px var(--container-pad);
+      gap: 6px 8px;
+    }
+    header h1 { font-size: 18px; }
+    header h1::before { font-size: 11px; }
+    /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
+       inline-block + ellipsis で逃がし、lang-btn 幅 (約 52px) を残す */
+    .header-brand #stats {
+      display: inline-block;
+      padding-left: 18px;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: calc(100vw - 100px);
+    }
+
+    /* topbar 内ボタン/タブの省幅化: CJK / 長 locale 対応 */
+    header .btn,
+    header .view-tabs .tab {
+      padding-left: 8px; padding-right: 8px;
+      letter-spacing: 0.04em;
+      font-size: 10px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    header .view-tabs .tab { max-width: 40vw; }
+
+    /* champ-header の controls スロットは縦積みに切替 (1100px ブレークの flex-wrap
+       より厳しい層): 320px-幅で back / search / sort が横並びだとはみ出すため */
+    .champ-header-controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .champ-header-controls > #search,
+    .champ-header-controls > #back-btn,
+    .champ-header-controls > .ctrl-select {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: none;
+    }
+
+    main { padding: 24px var(--container-pad) 100px; }
+    .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+    .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+    .skin-card .label, .line-card .meta { padding: 14px 12px 12px; }
+    .skin-card .label { font-size: 13.5px; }
+    .line-card .name  { font-size: 16px; }
+
+    /* 選択チェックボックス: 96px グリッドに対して 44px は視覚的に過大。
+       skin-card は本体タップで toggle、champ/line-card は本体タップで詳細遷移なので
+       Material/Apple のタッチ最小ガイドラインを厳守する必要は無い。32px に圧縮 */
+    .sel-checkbox {
+      width: 32px; height: 32px; padding: 0;
+      min-width: 32px; max-width: 32px;
+      min-height: 32px; max-height: 32px;
+      top: 8px; left: 8px; font-size: 12px;
+    }
+    .champ-card.partial .sel-checkbox,
+    .line-card.partial .sel-checkbox { width: auto; min-width: 32px; max-width: none; padding: 0 8px; }
+    .skin-card.selected .sel-checkbox::before,
+    .champ-card.selected .sel-checkbox::before,
+    .line-card.selected .sel-checkbox::before { font-size: 22px; }
+
+    /* lightbox: 画像領域を優先、close/nav は 48px に拡大、サイドナビは
+       下端に寄せて片手親指で届く位置へ。slideshow-controls は :hover が効かない
+       touch で永久に隠れる長年のバグ (line 725) を opacity: 1 で解消 */
+    .lb-overlay { padding: 56px 16px 18px; }
+    .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
+    .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
+    .lb-close, .lb-nav { width: 48px; height: 48px; font-size: 24px; }
+    .lb-close   { top: var(--safe-top); right: 12px; }
+    .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }
+    .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
+    .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
+    .lb-prev { left: 12px; }
+    .lb-next { right: 12px; }
+    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上へ。
+       96px は (下隅ナビ 64px + 余白 12px) を超えつつ、2 行になり得る lb-overlay 内の
+       skin name (例: "K/DA ALL OUT Akali Prestige Edition") に被らない高さ。
+       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
+    .slideshow-controls { bottom: 96px; }
+
+    /* pack-bar: 320px でも収まる padding/gap に絞る。
+       既存 ≤780px の hint: display:none (L876) はそのまま活きる */
+    .pack-bar {
+      padding: 10px 12px; gap: 8px; bottom: 12px;
+      max-width: calc(100vw - 16px);
+    }
+    .pack-bar .count { font-size: 13px; padding-right: 10px; margin-right: 6px; }
+    .pack-bar .btn   { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
+
+    /* lang menu: 画面右端からはみ出さない max-width 制約 */
+    .lang-menu {
+      min-width: 200px;
+      max-width: calc(100vw - 16px);
+      right: -4px;
+      max-height: 70vh;
+    }
+    .lang-menu button { padding: 12px 16px; font-size: 11px; }
+
+    /* 進捗ダイアログ: 320px でも h3/Cancel が収まる幅へ */
+    .progress-box {
+      padding: 22px 18px 18px;
+      width: calc(100vw - 24px);
+      max-width: 460px;
+    }
+    .progress-box h3   { font-size: 19px; }
+    .progress-box .desc { font-size: 11.5px; }
+    .progress-stats     { font-size: 10px; letter-spacing: 0.12em; }
+  }
+
+  /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
+     skin/line は 1 列、champ は 3 列固定にする */
+  @media (max-width: 400px) {
+    :root { --frame-cut: 8px; --container-pad: 10px; }
+    main { padding: 16px var(--container-pad) 96px; }
+    .skin-grid, .line-grid { grid-template-columns: 1fr; }
+    .champ-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* 320px 級では es_es / fr_fr / pt_br の長ラベルが 600px 設定でもキツいので
+       letter-spacing を切って 9.5px に落とす。ellipsis は親側で既に効くので
+       入りきらない分は "..." に倒れる */
+    header { column-gap: 4px; }
+    header .btn,
+    header .view-tabs .tab,
+    .champ-header-controls .ctrl-select {
+      padding-left: 6px; padding-right: 6px;
+      letter-spacing: 0;
+      font-size: 9.5px;
+    }
+    .champ-header-controls .ctrl-select { padding-right: 20px; }
+    header .view-tabs .tab { max-width: 36vw; }
+  }
