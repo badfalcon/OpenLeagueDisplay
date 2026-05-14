@@ -496,6 +496,10 @@
   }
 
   /* === CHAMP / LINE HEADER ========================================= */
+  /* author の .champ-header { display: grid } が UA の [hidden] { display: none } を
+     同 specificity (0,1,0) で覆って勝つ仕様。永続 #primary-header に setPrimaryHeader
+     前の hidden 状態が残ると空 header がレイアウトを占有するので、明示的に殺す */
+  .champ-header[hidden] { display: none; }
   .champ-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
