@@ -2346,6 +2346,14 @@ function render() {
   const showBack = isDetail || hasSearch;
   $("tab-home").classList.toggle("active", !isLines);
   $("nav-lines").classList.toggle("active", isLines);
+  // 検索入力は .champ-header-controls (= root の子) に居るので、render() で
+  // root.innerHTML を書き換えると親が破棄されて appendChild で再配置するたびに
+  // フォーカスが外れる。debounce 経由で 1 文字ごとに render が走る経路では
+  // 致命的なので、ここでフォーカスとカーソル位置を退避して Phase 3 直後に復元
+  const searchEl = $("search");
+  const searchFocused = document.activeElement === searchEl;
+  const searchSelStart = searchFocused ? searchEl.selectionStart : null;
+  const searchSelEnd   = searchFocused ? searchEl.selectionEnd   : null;
   // back-btn / search / sort-select は dom-stash と .champ-header-controls の間を
   // 行き来する。Phase 1: innerHTML 再生成前に保管庫へ退避 (前回 render のスロット
   // 破棄で event listener ごと消えるのを防ぐ)
@@ -2370,6 +2378,14 @@ function render() {
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
+  // フォーカス復元: appendChild がフォーカスを奪うため、入力中なら必ず戻す。
+  // setSelectionRange で input 内のカーソル位置 (1 文字入れた直後の末尾) も保持
+  if (searchFocused) {
+    searchEl.focus();
+    if (searchSelStart !== null) {
+      try { searchEl.setSelectionRange(searchSelStart, searchSelEnd); } catch (_) {}
+    }
+  }
   renderPackBar();
 }
 
