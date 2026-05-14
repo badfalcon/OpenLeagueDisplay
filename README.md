@@ -12,14 +12,16 @@
 
 ![screenshot](./screenshot.png)
 
-A League of Legends splash art viewer aiming to be a replacement for
-LeagueDisplays (Riot's official app, abandoned in 2020). Browse every champion
-× every skin in your browser, and bulk-download the ones you like as a ZIP to
-use locally as a wallpaper slideshow.
+Riot's official LeagueDisplays app has been sitting abandoned since 2020, and
+they're clearly not coming back to it. OpenLeagueDisplay is a community
+stand-in for the people who still want that experience — a League of Legends
+splash art viewer where you can browse every champion × every skin in the
+browser and bulk-download the ones you like as a ZIP for a local wallpaper
+slideshow.
 
 It is a fully static site. Images are loaded directly from the
 **Community Dragon CDN**. New skins are picked up automatically every week by a
-GitHub Actions job.
+GitHub Actions job, so the catalog stays current without anyone babysitting it.
 
 ---
 
