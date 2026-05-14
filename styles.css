@@ -884,16 +884,16 @@
     margin-right: 10px;
     padding-right: 18px;
   }
+  /* ヒントは 3節構成 (操作 · ホームの挙動 · 壁紙スライドショー用途) で、
+     CJK/Cyrillic だと nowrap + 380px では3節目が ellipsis で切れていた。
+     折り返しを許可して 2-3 行で全部見せる方針に変更。max-width も少し広げる */
   .pack-bar .hint {
     color: var(--ink-soft);
     font-size: 11px;
     letter-spacing: 0.02em;
-    max-width: 380px; line-height: 1.45;
+    max-width: 460px; line-height: 1.45;
     flex: 0 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   @media (max-width: 780px) {
     .pack-bar .hint { display: none; }
