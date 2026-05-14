@@ -19,8 +19,19 @@ jobs:
         with:
           python-version: '3.x'
 
-      # === DEBUG MODE (一時) ===
-      # universe-meeps の 403 切り分け中。data.json 生成はスキップして --probe
-      # だけ走らせる。終わったらこのコミットを revert する。
-      - name: PROBE (universe-meeps + CDragon)
-        run: python generate_data.py --probe
+      - name: Generate data.json + i18n
+        # 20 locale ぶんの per-champion JSON 取得が走るので 10〜30 分程度かかる。
+        # GitHub Actions の job timeout (デフォ6時間) には十分収まる
+        run: python generate_data.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json i18n/
+          if git diff --cached --quiet; then
+            echo "No changes to data.json or i18n/"
+          else
+            git commit -m "chore: auto-update data.json + i18n"
+            git push
+          fi

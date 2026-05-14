@@ -24,17 +24,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CDRAGON = "https://raw.communitydragon.org"
-# 地域(出身)データは CDragon の lol-game-data には無いので Riot の Universe API を
-# 補助的に叩く。CDragon の方針からは少しズレるが、これだけ別ソースで取らないと
-# Demacia/Noxus/Ionia 等での横断検索が組めない。
-#
-# TODO: 現状 universe-meeps からは 0 件しか返ってこない (2026-05 時点、PR #2 で
-# 確認)。エンドポイントの schema 仮定が外れているか、URL パスが違う可能性が高い。
-# `champions/index.json` と `factions/index.json` で 200 が返ってるか、レスポンスの
-# トップレベル shape は何か、を GitHub Actions のログで実際の出力を見て確認する。
-# 修正前は data.json/i18n の `regions` フィールドが空のままになる (検索の地域軸が
-# 効かないだけで他は影響なし)。
-UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
@@ -153,89 +142,209 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
-def _norm_slug(s: str) -> str:
-    """champion slug 比較用に lowercase + 英数だけに正規化。
+# 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
+# が、サーバ側の S3 IAM 設定が壊れていて永続的に 403 を返すことが probe で確定
+# (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
+# not authori...` の AccessDenied)。CDragon にも champion→region のマッピングは
+# 無いため、やむを得ずハードコードで持つ。新チャンピオンが追加された時はここに
+# 1 行足す。新地域なら REGION_NAMES と index.html の REGION_LABELS にも追加する。
+REGION_NAMES: dict[str, str] = {
+    "demacia": "Demacia",
+    "noxus": "Noxus",
+    "ionia": "Ionia",
+    "piltover": "Piltover",
+    "zaun": "Zaun",
+    "bilgewater": "Bilgewater",
+    "bandle-city": "Bandle City",
+    "freljord": "Freljord",
+    "shadow-isles": "Shadow Isles",
+    "shurima": "Shurima",
+    "targon": "Mount Targon",
+    "ixtal": "Ixtal",
+    "void": "Void",
+    "runeterra": "Runeterra",  # 無所属/汎用 (Bard, Ryze, Kindred 等)
+    "camavor": "Camavor",
+    "icathia": "Icathia",
+}
 
-    CDragon の alias は "MonkeyKing" / "AurelionSol" / "KSante" など PascalCase。
-    universe-meeps の slug は "wukong" / "aurelionsol" / "ksante" などで、
-    片方を正規化 (lowercase + alphanumeric のみ) すれば突き合わせやすい。
-    ただし Wukong のように alias と universe slug が別単語のケースがあるので、
-    呼び出し側で「alias 正規化」と「name 正規化」両方で当てる。
-    """
-    return "".join(ch for ch in s.lower() if ch.isalnum())
-
-
-def _cdragon_to_universe_locale(code: str) -> str:
-    """CDragon locale コード → universe-meeps の locale コード。
-
-    CDragon は `default` を英語に使うが universe は `en_us`。他は基本一致。
-    universe 側に未対応の locale もある (該当 fetch が 404 になるだけなので
-    呼び出し側は失敗時に空辞書扱いにする)。
-    """
-    return "en_us" if code == "default" else code
-
-
-def _fetch_universe_factions(locale_universe: str) -> dict[str, str]:
-    """{region_slug: localized_name} を universe-meeps から取得。失敗時は空辞書。"""
-    region_names: dict[str, str] = {}
-    try:
-        facs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/factions/index.json")
-    except Exception as e:
-        print(f"   [警告] universe factions ({locale_universe}): {e}", flush=True)
-        return region_names
-    if not isinstance(facs_doc, dict):
-        return region_names
-    for f in facs_doc.get("factions") or []:
-        if not isinstance(f, dict):
-            continue
-        slug = (f.get("slug") or "").strip().lower()
-        name = f.get("name")
-        if slug and isinstance(name, str) and name:
-            region_names[slug] = name
-    return region_names
-
-
-def fetch_universe_champion_regions(locale_universe: str) -> dict[str, list[str]]:
-    """{champ_slug: [region_slug, ...]} を universe-meeps から取得。失敗時は空辞書。
-
-    universe 側の schema にバリアントが観測される (associated-faction-slug 単数 と
-    associated-faction-slugs 複数 / factions が dict 配列など) ため複数の
-    フィールド名を試す。default (build_manifest) からのみ呼び出す想定で、
-    locale 切替時 (build_locale_index) は地域名の翻訳だけ要るので
-    _fetch_universe_factions() を直接使う。
-    """
-    champ_to_regions: dict[str, list[str]] = {}
-    try:
-        champs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/champions/index.json")
-    except Exception as e:
-        print(f"   [警告] universe champions ({locale_universe}): {e}", flush=True)
-        return champ_to_regions
-    if not isinstance(champs_doc, dict):
-        return champ_to_regions
-    for c in champs_doc.get("champions") or []:
-        if not isinstance(c, dict):
-            continue
-        slug = (c.get("slug") or "").strip().lower()
-        if not slug:
-            continue
-        regs: list[str] = []
-        # 複数地域フィールドの可能性。universe は slug 文字列の配列、
-        # または {slug, name} dict の配列、どちらの場合も観測例がある。
-        multi = c.get("associated-faction-slugs") or c.get("factions")
-        if isinstance(multi, list):
-            for x in multi:
-                if isinstance(x, str):
-                    regs.append(x)
-                elif isinstance(x, dict) and x.get("slug"):
-                    regs.append(x["slug"])
-        if not regs:
-            single = c.get("associated-faction-slug")
-            if isinstance(single, str) and single:
-                regs = [single]
-        if regs:
-            # dict.fromkeys で挿入順を保ったまま重複を落とす
-            champ_to_regions[slug] = list(dict.fromkeys(regs))
-    return champ_to_regions
+# CDragon の alias を lowercase したものをキーにする (例: MonkeyKing → monkeyking)。
+# Riot/Fandom Wiki の "primary region" を基準に、複数地域に深く関わるキャラ
+# (Lucian/Senna/Viego 等) は両方持たせる。空配列は「未調査」として残してOK
+# (regions 軸で検索ヒットしないだけで他は影響なし)。
+CHAMPION_REGIONS: dict[str, list[str]] = {
+    "aatrox": ["runeterra"],
+    "ahri": ["ionia"],
+    "akali": ["ionia"],
+    "akshan": ["shurima"],
+    "alistar": ["runeterra"],
+    "ambessa": ["noxus"],
+    "amumu": ["shurima"],
+    "anivia": ["freljord"],
+    "annie": ["noxus"],
+    "aphelios": ["targon"],
+    "ashe": ["freljord"],
+    "aurelionsol": ["targon"],
+    "aurora": ["freljord"],
+    "azir": ["shurima"],
+    "bard": ["runeterra"],
+    "belveth": ["void"],
+    "blitzcrank": ["zaun"],
+    "brand": ["runeterra"],
+    "braum": ["freljord"],
+    "briar": ["noxus"],
+    "caitlyn": ["piltover"],
+    "camille": ["piltover"],
+    "cassiopeia": ["noxus"],
+    "chogath": ["void"],
+    "corki": ["bandle-city"],
+    "darius": ["noxus"],
+    "diana": ["targon"],
+    "draven": ["noxus"],
+    "drmundo": ["zaun"],
+    "ekko": ["zaun"],
+    "elise": ["shadow-isles"],
+    "evelynn": ["runeterra"],
+    "ezreal": ["piltover"],
+    "fiddlesticks": ["runeterra"],
+    "fiora": ["demacia"],
+    "fizz": ["bilgewater"],
+    "galio": ["demacia"],
+    "gangplank": ["bilgewater"],
+    "garen": ["demacia"],
+    "gnar": ["freljord"],
+    "gragas": ["freljord"],
+    "graves": ["bilgewater"],
+    "gwen": ["shadow-isles"],
+    "hecarim": ["shadow-isles"],
+    "heimerdinger": ["piltover", "bandle-city"],
+    "hwei": ["ionia"],
+    "illaoi": ["bilgewater"],
+    "irelia": ["ionia"],
+    "ivern": ["ionia"],
+    "janna": ["zaun"],
+    "jarvaniv": ["demacia"],
+    "jax": ["icathia"],
+    "jayce": ["piltover"],
+    "jhin": ["ionia"],
+    "jinx": ["zaun"],
+    "kaisa": ["void"],
+    "kalista": ["shadow-isles"],
+    "karma": ["ionia"],
+    "karthus": ["shadow-isles"],
+    "kassadin": ["void", "shurima"],
+    "katarina": ["noxus"],
+    "kayle": ["demacia"],
+    "kayn": ["ionia"],
+    "kennen": ["ionia"],
+    "khazix": ["void"],
+    "kindred": ["runeterra"],
+    "kled": ["noxus"],
+    "kogmaw": ["void"],
+    "ksante": ["shurima"],
+    "leblanc": ["noxus"],
+    "leesin": ["ionia"],
+    "leona": ["targon"],
+    "lillia": ["ionia"],
+    "lissandra": ["freljord"],
+    "lucian": ["demacia", "shadow-isles"],
+    "lulu": ["bandle-city"],
+    "lux": ["demacia"],
+    "malphite": ["ixtal"],
+    "malzahar": ["void", "shurima"],
+    "maokai": ["shadow-isles"],
+    "masteryi": ["ionia"],
+    "mel": ["noxus", "piltover"],
+    "milio": ["ixtal"],
+    "missfortune": ["bilgewater"],
+    "mordekaiser": ["noxus"],
+    "morgana": ["demacia"],
+    "naafiri": ["shurima"],
+    "nami": ["runeterra"],
+    "nasus": ["shurima"],
+    "nautilus": ["bilgewater"],
+    "neeko": ["ixtal"],
+    "nidalee": ["ixtal"],
+    "nilah": ["bilgewater"],
+    "nocturne": ["runeterra"],
+    "nunu": ["freljord"],
+    "olaf": ["freljord"],
+    "orianna": ["piltover"],
+    "ornn": ["freljord"],
+    "pantheon": ["targon"],
+    "poppy": ["demacia", "bandle-city"],
+    "pyke": ["bilgewater"],
+    "qiyana": ["ixtal"],
+    "quinn": ["demacia"],
+    "rakan": ["ionia"],
+    "rammus": ["shurima"],
+    "reksai": ["void"],
+    "rell": ["noxus"],
+    "renata": ["zaun"],
+    "renekton": ["shurima"],
+    "rengar": ["ixtal"],
+    "riven": ["noxus"],
+    "rumble": ["bandle-city"],
+    "ryze": ["runeterra"],
+    "samira": ["noxus", "shurima"],
+    "sejuani": ["freljord"],
+    "senna": ["demacia", "shadow-isles"],
+    "seraphine": ["piltover"],
+    "sett": ["ionia"],
+    "shaco": ["runeterra"],
+    "shen": ["ionia"],
+    "shyvana": ["demacia"],
+    "singed": ["zaun"],
+    "sion": ["noxus"],
+    "sivir": ["shurima"],
+    "skarner": ["shurima"],
+    "smolder": ["camavor"],
+    "sona": ["demacia"],
+    "soraka": ["targon"],
+    "swain": ["noxus"],
+    "sylas": ["demacia"],
+    "syndra": ["ionia"],
+    "tahmkench": ["runeterra"],
+    "taliyah": ["shurima"],
+    "talon": ["noxus"],
+    "taric": ["targon"],
+    "teemo": ["bandle-city"],
+    "thresh": ["shadow-isles"],
+    "tristana": ["bandle-city"],
+    "trundle": ["freljord"],
+    "tryndamere": ["freljord"],
+    "twistedfate": ["bilgewater"],
+    "twitch": ["zaun"],
+    "udyr": ["freljord"],
+    "urgot": ["zaun"],
+    "varus": ["ionia"],
+    "vayne": ["demacia"],
+    "veigar": ["bandle-city"],
+    "velkoz": ["void"],
+    "vex": ["shadow-isles"],
+    "vi": ["piltover"],
+    "viego": ["camavor", "shadow-isles"],
+    "viktor": ["zaun"],
+    "vladimir": ["noxus"],
+    "volibear": ["freljord"],
+    "warwick": ["zaun"],
+    "monkeyking": ["ionia"],  # CDragon alias は MonkeyKing (Wukong)
+    "xayah": ["ionia"],
+    "xerath": ["shurima"],
+    "xinzhao": ["demacia"],
+    "yasuo": ["ionia"],
+    "yone": ["ionia"],
+    "yorick": ["shadow-isles"],
+    "yuumi": ["bandle-city"],
+    "yunara": ["ionia"],
+    "zac": ["zaun"],
+    "zed": ["ionia"],
+    "zeri": ["zaun"],
+    "ziggs": ["bandle-city"],
+    "zilean": ["runeterra"],
+    "zaahen": ["shurima", "ionia"],
+    "zoe": ["targon"],
+    "zyra": ["ixtal"],
+}
 
 
 def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
@@ -380,18 +489,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
             if detail is not None:
                 details[cid] = detail
 
-    # 地域 (Demacia, Noxus, ...) は CDragon の lol-game-data に無いので universe
-    # から取る。失敗してもここでは止めず、地域情報なしで続行する
-    print("==> universe-meeps から地域 (faction) 情報を取得...", flush=True)
-    universe_default = _cdragon_to_universe_locale("default")
-    champ_regions_map = fetch_universe_champion_regions(universe_default)
-    region_names = _fetch_universe_factions(universe_default)
-    if region_names or champ_regions_map:
-        print(f"    {len(region_names)} factions / {len(champ_regions_map)} 体マッピング", flush=True)
-    else:
-        # silent failure を見つけやすくする目的で目立たせる。
-        # universe-meeps の URL/schema を実 response 起点で見直す必要あり (TODO 参照)
-        print("    [警告] universe-meeps から 0 件。URL/schema 要確認 (検索の地域軸はオフ)", flush=True)
+    # 地域は CHAMPION_REGIONS / REGION_NAMES に hardcode (universe-meeps が
+    # 永続的に 403 を返すため、外部 fetch なし)
+    print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
 
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
@@ -424,13 +524,8 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
         roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
 
-        # universe-meeps の slug は概ね alias.lower() に一致するが、Wukong/MonkeyKing
-        # のように別語のケースがあるので alias と name 両方の正規化で当てに行く
-        regions: list[str] = []
-        for key in (_norm_slug(alias), _norm_slug(name)):
-            if key in champ_regions_map:
-                regions = champ_regions_map[key]
-                break
+        # CHAMPION_REGIONS は CDragon alias を lowercase したものをキーにしてる
+        regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
 
         entry = {
             "name": name,
@@ -460,7 +555,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     for ch in out_champs:
         for slug in ch.get("regions") or []:
             used_region_slugs.add(slug)
-    filtered_regions = {s: region_names[s] for s in used_region_slugs if s in region_names}
+    filtered_regions = {s: REGION_NAMES[s] for s in used_region_slugs if s in REGION_NAMES}
 
     print(
         f"==> 完了: {len(out_champs)} チャンピオン, {total} スキン, "
@@ -496,10 +591,9 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
-    # 地域名は universe-meeps の locale ファイル経由 (CDragon には無いため)。
-    # champion→region のマッピングは default の build_manifest 側で済ませているので
-    # locale 側は factions/index.json (= slug→翻訳名) だけ取れば十分。
-    regions_map = _fetch_universe_factions(_cdragon_to_universe_locale(locale))
+    # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
+    # i18n ファイルには含めない (フィールド自体を出さなくても index.html 側は
+    # `state.i18n.regions || {}` でフォールバック済み)。
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
@@ -543,116 +637,10 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
         "champions": champs_map,
         "skins": skins_map,
         "lines": lines_map,
-        "regions": regions_map,
     }
-
-
-def _probe_raw_get(url: str, timeout: int = 15, headers: dict[str, str] | None = None) -> tuple[int | None, bytes, str]:
-    """fetch_json は 4xx/5xx を例外として握り潰すので、probe では status を素で見たい。
-
-    戻り値: (status_code or None, body_first_300_bytes, error_str_or_empty)
-    headers を渡せば既定 UA を上書きできる (UA/Referer/Origin の影響切り分け用)
-    """
-    try:
-        req = urllib.request.Request(url, headers=headers or UA)
-        ctx = ssl._create_unverified_context() if SSL_INSECURE else SSL_CTX
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
-            return r.getcode(), r.read(300), ""
-    except urllib.error.HTTPError as e:
-        # HTTPError は status を持ってる (e.code) ので拾い分ける
-        try:
-            body = e.read(300) if hasattr(e, "read") else b""
-        except Exception:
-            body = b""
-        return e.code, body, f"{type(e).__name__}: {e}"
-    except Exception as e:
-        return None, b"", f"{type(e).__name__}: {e}"
-
-
-def run_probe() -> int:
-    """ネットワーク疎通と schema を 1 分くらいで確認するモード。
-
-    通常実行 (data.json 生成) を走らせず、universe-meeps と CDragon の
-    universes.json / 代表 champion JSON だけを叩く。GitHub Actions の log に
-    [PROBE] プレフィックスで出力するので、universe-meeps を捨てて CDragon
-    一本化できるか (= CDragon 側に region/faction フィールドがあるか) を
-    判別するのが目的。
-    """
-    print("[PROBE] === universe-meeps: header variant matrix ===", flush=True)
-    # 既存実装は 403 を喰らうことが update.yml のログで確定してる。
-    # UA / Referer / Origin / Accept のうちどれが効くかを切り分ける。
-    chrome_ua = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
-    header_variants = {
-        "current (OpenLeagueDisplay-Generator)": dict(UA),
-        "chrome ua only": {"User-Agent": chrome_ua},
-        "chrome ua + referer + origin (universe.lol)": {
-            "User-Agent": chrome_ua,
-            "Referer": "https://universe.leagueoflegends.com/",
-            "Origin": "https://universe.leagueoflegends.com",
-            "Accept": "application/json, text/plain, */*",
-        },
-        "chrome ua + referer (universe-meeps own)": {
-            "User-Agent": chrome_ua,
-            "Referer": "https://universe-meeps.leagueoflegends.com/",
-            "Accept": "application/json, text/plain, */*",
-        },
-    }
-    for path in ("en_us/champions/index.json", "en_us/factions/index.json"):
-        url = f"{UNIVERSE}/{path}"
-        print(f"[PROBE]   {url}", flush=True)
-        for label, hdrs in header_variants.items():
-            status, body, err = _probe_raw_get(url, headers=hdrs)
-            head = body[:160].decode("utf-8", errors="replace").replace("\n", "\\n")
-            print(f"[PROBE]     [{label}] status={status} head={head!r}", flush=True)
-
-    base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/v1"
-
-    print("[PROBE] === CDragon universes.json ===", flush=True)
-    try:
-        universes = fetch_json(f"{base}/universes.json")
-    except Exception as e:
-        print(f"[PROBE]   取得失敗: {e}", flush=True)
-        universes = None
-    if isinstance(universes, list) and universes:
-        print(f"[PROBE]   list, len={len(universes)}", flush=True)
-        sample = universes[0] if isinstance(universes[0], dict) else {}
-        print(f"[PROBE]   first keys: {sorted(sample.keys())}", flush=True)
-        for u in universes[:3]:
-            if isinstance(u, dict):
-                print(f"[PROBE]   sample: {json.dumps(u, ensure_ascii=False)[:300]}", flush=True)
-    elif isinstance(universes, dict):
-        print(f"[PROBE]   dict, top keys: {sorted(universes.keys())}", flush=True)
-
-    print("[PROBE] === CDragon champion JSON: region/faction/universe keys ===", flush=True)
-    # Aatrox=266, Annie=1, Garen=86, Ahri=103, Sett=875 — 地域がはっきりしてる代表
-    sample_ids = [266, 1, 86, 103, 875]
-    needle = ("region", "faction", "universe", "home", "lore", "associated")
-    for cid in sample_ids:
-        try:
-            detail = fetch_json(f"{base}/champions/{cid}.json")
-        except Exception as e:
-            print(f"[PROBE]   {cid}: 取得失敗 {e}", flush=True)
-            continue
-        if not isinstance(detail, dict):
-            continue
-        matched = {k: detail[k] for k in detail if any(n in k.lower() for n in needle)}
-        alias = detail.get("alias") or detail.get("name") or str(cid)
-        print(f"[PROBE]   {alias} ({cid}): matched fields = {list(matched.keys()) or '(none)'}", flush=True)
-        for k, v in matched.items():
-            preview = json.dumps(v, ensure_ascii=False)[:200]
-            print(f"[PROBE]     {k} = {preview}", flush=True)
-
-    print("[PROBE] === done ===", flush=True)
-    return 0
 
 
 def main() -> int:
-    if "--probe" in sys.argv[1:]:
-        return run_probe()
-
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "data.json"
     # i18n の出力先は data.json と同じディレクトリの `i18n/` 配下に固定。
     # CLI 引数で data.json のパスを変えた場合も追従するので、custom path 指定時も

@@ -1800,6 +1800,39 @@ const RARITY_LABELS = {
   pt_br:   { Epic: "Épico", Legendary: "Lendário", Mythic: "Mítico", Ultimate: "Definitivo" },
   ru_ru:   { Epic: "Эпический", Legendary: "Легендарный", Mythic: "Мифический", Ultimate: "Великий" },
 };
+// 地域名は本来 universe-meeps API から取る予定だったが、Riot 側の S3 IAM 設定が
+// 壊れていて永続的に 403 を返す (2026-05 確認)。代わりに ROLE/RARITY 同様に
+// ハードコード。slug は generate_data.py の REGION_NAMES と必ず一致させること。
+const REGION_LABELS = {
+  default: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Shadow Isles", "shurima": "Shurima",
+    "targon": "Mount Targon", "ixtal": "Ixtal", "void": "Void", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  ja_jp: {
+    "demacia": "デマーシア", "noxus": "ノクサス", "ionia": "アイオニア", "piltover": "ピルトーヴァー",
+    "zaun": "ゾウン", "bilgewater": "ビルジウォーター", "bandle-city": "バンドルシティ",
+    "freljord": "フレヨルド", "shadow-isles": "シャドウアイル", "shurima": "シュリーマ",
+    "targon": "ターゴン", "ixtal": "イシュタル", "void": "ヴォイド", "runeterra": "ルーンテラ",
+    "camavor": "カマヴォール", "icathia": "イカシア",
+  },
+  ko_kr: {
+    "demacia": "데마시아", "noxus": "녹서스", "ionia": "아이오니아", "piltover": "필트오버",
+    "zaun": "자운", "bilgewater": "빌지워터", "bandle-city": "밴들 시티",
+    "freljord": "프렐요드", "shadow-isles": "그림자 군도", "shurima": "슈리마",
+    "targon": "타곤", "ixtal": "익스탈", "void": "공허", "runeterra": "룬테라",
+    "camavor": "카마보르", "icathia": "이카시아",
+  },
+  zh_cn: {
+    "demacia": "德玛西亚", "noxus": "诺克萨斯", "ionia": "艾欧尼亚", "piltover": "皮尔特沃夫",
+    "zaun": "祖安", "bilgewater": "比尔吉沃特", "bandle-city": "班德尔城",
+    "freljord": "弗雷尔卓德", "shadow-isles": "暗影岛", "shurima": "恕瑞玛",
+    "targon": "塔贡", "ixtal": "伊克斯塔尔", "void": "虚空", "runeterra": "符文之地",
+    "camavor": "卡玛弗", "icathia": "伊卡西亚",
+  },
+};
 
 // locale コード ("ja_jp", "default" 等) から国旗 SVG の URL を返す。
 // Unicode の国旗絵文字は Windows (Segoe UI Emoji) では 2文字の地域識別子に
@@ -2121,8 +2154,7 @@ function renderHome(root) {
   // 英語キーと並べてチェックするので、ユーザがどちらの言語で打っても拾える。
   const localeRoles = ROLE_LABELS[state.locale] || {};
   const localeRarities = RARITY_LABELS[state.locale] || {};
-  const dataRegions = DATA.regions || {};
-  const i18nRegions = state.i18n.regions || {};
+  const localeRegions = REGION_LABELS[state.locale] || {};
   const hit = (s) => typeof s === "string" && s.toLowerCase().includes(q);
   const list = DATA.champions.filter(c => {
     if (!q) return true;
@@ -2133,7 +2165,7 @@ function renderHome(root) {
       return false;
     })) return true;
     if ((c.roles || []).some(r => hit(r) || hit(localeRoles[r]) || hit(ROLE_LABELS.default[r]))) return true;
-    if ((c.regions || []).some(slug => hit(slug) || hit(dataRegions[slug]) || hit(i18nRegions[slug]))) return true;
+    if ((c.regions || []).some(slug => hit(slug) || hit(localeRegions[slug]) || hit(REGION_LABELS.default[slug]))) return true;
     return false;
   });
   // 並び替え: "default" は data.json の順 (リリース順) をそのまま使うので何もしない。

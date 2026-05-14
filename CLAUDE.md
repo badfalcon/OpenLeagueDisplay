@@ -53,14 +53,19 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   `champion-summary.json` の `roles` 配列、rarity は per-champion JSON の
   `skins[].rarity` で、UI の翻訳マップとズレないよう `KNOWN_RARITIES`
   (`kEpic/kLegendary/kMythic/kUltimate`) ホワイトリストで絞り、`k` 接頭辞を
-  剥がして格納。**地域だけ CDragon に無いので** Riot Universe API
-  (`universe-meeps.leagueoflegends.com`) を generate_data.py の
-  `fetch_universe_champion_regions()` (default のみ) と `_fetch_universe_factions()`
-  (各 locale) で補助的に叩く (build-time のみ; ブラウザは触らない)。universe slug は
-  alias.lower() / name.lower() の正規化で CDragon と突き合わせ (Wukong=name vs
-  MonkeyKing=alias のケースを両方で当てる)。ロール/rarity の翻訳は有限セット
-  (6 + 4 キー) なので index.html 内の `ROLE_LABELS` / `RARITY_LABELS` に
-  ハードコード、地域名は i18n/<locale>.json の `regions` フィールド。
+  剥がして格納。
+- **地域 (Demacia/Noxus/Ionia 等) は generate_data.py に hardcode**: 当初は Riot の
+  Universe API (`universe-meeps.leagueoflegends.com`) を補助的に叩く設計だったが、
+  probe で「サーバ側の S3 IAM が壊れていて永続的に 403 (`AccessDenied: User
+  arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is not authori...`)」
+  と確定。CDragon にも champion→region のマッピングが無いため、Riot 側が直すのを
+  待たず `generate_data.py` の `CHAMPION_REGIONS` (alias.lower()→[slug,...]) と
+  `REGION_NAMES` (slug→英名) で持つ。新チャンピオンが追加された時はここに 1 行
+  追記する (data.json regenerate で `missing` チェックが走ると整合不一致は気付ける)。
+  ロール/rarity と同じく翻訳も有限セット (~14 地域) なので index.html の
+  `REGION_LABELS` (default + ja_jp/ko_kr/zh_cn の主要 locale) にハードコード。
+  i18n/<locale>.json には regions フィールドを出さない (index.html 側は
+  `state.i18n.regions || {}` でフォールバックするので壊れない)。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
@@ -114,15 +119,11 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [ ] キーボードショートカット一覧モーダル (? キーで表示)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
-- [ ] **universe-meeps から地域データが取れていない**: generate_data.py の
-  `fetch_universe_champion_regions()` / `_fetch_universe_factions()` が
-  常に 0 件を返している (2026-05 時点)。URL/schema の仮定が外れている可能性。
-  GitHub Actions の最新 run の log で `[警告] universe-meeps から 0 件`
-  を出力した直後の挙動を見て、`champions/index.json` / `factions/index.json`
-  への GET が HTTP 200 で返ってるか、レスポンス JSON のトップレベル shape を
-  実物で確認する。データが取れるようになると検索の地域軸 (Demacia/Noxus 等) が
-  自動で有効化される (data.json/i18n の `regions` フィールドは schema として
-  既に存在しているので index.html 側の変更不要)
+- [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
+  (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
+- [ ] REGION_LABELS の locale を増やす (現状 default/ja_jp/ko_kr/zh_cn のみ。
+  zh_tw/fr_fr/de_de/es_es/pt_br/ru_ru も ROLE_LABELS / RARITY_LABELS と同じく
+  揃えると 9 locale 一貫する)
 
 ## ローカル開発
 
