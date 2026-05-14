@@ -63,6 +63,9 @@
     /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
        header / content-toolbar / main / footer の「中身」をこの幅で中央寄せする */
     --container-max: 1760px;
+    /* 上記 4 要素の左右パディング。これを共通化することで画面端の縦線が揃う。
+       breakpoint ごとに :root で上書きする */
+    --container-pad: 56px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -115,7 +118,7 @@
   header {
     display: flex; align-items: center;
     gap: 18px;
-    padding: 16px 36px;
+    padding: 16px var(--container-pad);
     border-bottom: 1px solid var(--rule);  /* header と toolbar の境界 */
     flex-wrap: wrap;  /* 極端に狭い時だけ折返す */
     max-width: var(--container-max);
@@ -136,7 +139,7 @@
   .content-toolbar {
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: 14px 56px;
+    padding: 14px var(--container-pad);
     display: flex; gap: 10px;
     align-items: center;
     justify-content: center;
@@ -373,7 +376,7 @@
   main {
     /* topbar (sticky) の下に来るので上に少し余白を取り、コンテンツが
        バーの真下にぴったり張り付かないようにする */
-    padding: 28px 56px 100px;
+    padding: 28px var(--container-pad) 100px;
     max-width: var(--container-max); margin: 0 auto;
     animation: fadeIn 0.5s ease;
     position: relative;
@@ -760,7 +763,7 @@
      border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
      テキストは .footer-inner で --container-max に絞って中央寄せ */
   footer {
-    padding: 56px 36px 40px;
+    padding: 56px var(--container-pad) 40px;
     text-align: center;
     font-family: var(--font-eyebrow);
     font-size: 10.5px; font-weight: 500;
@@ -1062,11 +1065,12 @@
   /* ヘッダは元から flex-column で縦に積んでいるので、狭幅でも基本構造は崩れない。
      padding と font-size だけを縮めればよい */
   @media (max-width: 900px) {
-    header { padding: 14px 18px; gap: 10px 14px; }
+    :root { --container-pad: 20px; }
+    header { padding: 14px var(--container-pad); gap: 10px 14px; }
     header h1 { font-size: 20px; }
-    .content-toolbar { padding: 10px 20px; flex-wrap: wrap; }
+    .content-toolbar { padding: 10px var(--container-pad); flex-wrap: wrap; }
     .content-toolbar > #search { max-width: none; flex: 1 1 200px; }
-    main { padding: 20px 20px 100px; }
+    main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
     .skin-grid { grid-template-columns: repeat(auto-fill, 260px); }
     .line-grid { grid-template-columns: repeat(auto-fill, 260px); }
@@ -1090,11 +1094,11 @@
        タッチで操作できる形へ作り直す */
   @media (max-width: 600px) {
     /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有 */
-    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); }
+    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; }
 
     .topbar { padding-top: env(safe-area-inset-top); }
 
-    header { padding: 10px 12px; gap: 8px; }
+    header { padding: 10px var(--container-pad); gap: 8px; }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
     /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
@@ -1122,7 +1126,7 @@
       grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
       grid-auto-rows: auto;
       row-gap: 8px; column-gap: 6px;
-      padding: 10px 12px;
+      padding: 10px var(--container-pad);
       flex-wrap: initial;
       justify-content: stretch;
     }
@@ -1149,7 +1153,7 @@
        検索バーが消えるのを防ぐ。短いタブ ("シリーズ" 等) は max-content 通りで縮まない */
     .content-toolbar .view-tabs .tab { max-width: 40vw; }
 
-    main { padding: 24px 16px 100px; }
+    main { padding: 24px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
     .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
@@ -1223,15 +1227,15 @@
   /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
      skin/line は 1 列、champ は 3 列固定にする */
   @media (max-width: 400px) {
-    :root { --frame-cut: 8px; }
-    main { padding: 16px 10px 96px; }
+    :root { --frame-cut: 8px; --container-pad: 10px; }
+    main { padding: 16px var(--container-pad) 96px; }
     .skin-grid, .line-grid { grid-template-columns: 1fr; }
     .champ-grid { grid-template-columns: repeat(3, 1fr); }
 
     /* 320px 級では es_es / fr_fr / pt_br の長ラベルが上の 600px 設定でもキツいので
        letter-spacing を切って 9.5px に落とす。ellipsis は親側で既に効くので
        入りきらない分は "..." に倒れる */
-    .content-toolbar { column-gap: 4px; padding: 10px 8px; }
+    .content-toolbar { column-gap: 4px; padding: 10px var(--container-pad); }
     .content-toolbar .btn,
     .content-toolbar .ctrl-select,
     .content-toolbar .view-tabs .tab {
