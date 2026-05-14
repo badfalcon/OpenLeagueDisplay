@@ -884,9 +884,8 @@
     margin-right: 10px;
     padding-right: 18px;
   }
-  /* ヒントは 3節構成 (操作 · ホームの挙動 · 壁紙スライドショー用途) で、
-     CJK/Cyrillic だと nowrap + 380px では3節目が ellipsis で切れていた。
-     折り返しを許可して 2-3 行で全部見せる方針に変更。max-width も少し広げる */
+  /* ヒントは「LD化用途」1節に絞った。CJK/Cyrillic では 460px でも 2 行に
+     折り返すことがあるが、ellipsis で消すよりは折り返して全文見せる方が良い */
   .pack-bar .hint {
     color: var(--ink-soft);
     font-size: 11px;
@@ -895,6 +894,11 @@
     flex: 0 1 auto;
     min-width: 0;
   }
+  /* pack-bar 内の .btn は .btn 共通の min-width: 0 + overflow: hidden +
+     text-overflow: ellipsis でラベルが ellipsis されがち (例: "⬇ ギャラリーをDL"
+     が "⬇ ギャラリーを..." で切れる)。hint 側を縮めて buttons は natural width で
+     残す。flex-shrink: 0 で固定、必要なら hint が折り返して縦に伸びる */
+  .pack-bar .btn { flex-shrink: 0; }
   @media (max-width: 780px) {
     .pack-bar .hint { display: none; }
     .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
