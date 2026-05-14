@@ -272,6 +272,10 @@
   }
   .btn:hover { background: rgba(212, 168, 87, 0.10); border-color: var(--gold); color: var(--gold-hi); }
   .btn:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
+  /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
+     author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
+     (#primary-action を home/lines で消すのに必要) */
+  .btn[hidden] { display: none; }
 
   /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
      ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
