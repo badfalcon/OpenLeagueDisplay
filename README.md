@@ -8,114 +8,129 @@
 [![Powered by Community Dragon](https://img.shields.io/badge/data-Community%20Dragon-010a13?style=flat&labelColor=c89b3c)](https://www.communitydragon.org/)
 [![Not affiliated with Riot Games](https://img.shields.io/badge/Riot%20Games-not%20affiliated-555?style=flat)](https://www.riotgames.com/en/legal)
 
-> **<https://badfalcon.github.io/OpenLeagueDisplay/>** — ブラウザで開けばすぐ使えます
+> **<https://badfalcon.github.io/OpenLeagueDisplay/>** — open it in a browser and it just works.
 
 ![screenshot](./screenshot.png)
 
-LeagueDisplays (Riot公式、2020年に更新停止) の代替を目指す、League of Legends
-のスプラッシュアートビューア。LoL の全チャンピオン × 全スキンをブラウザで眺め、
-好きな分だけ ZIP でまとめてダウンロードしてローカルの壁紙スライドショーに使えます。
+Riot's official LeagueDisplays app has been sitting abandoned since 2021, and
+they're clearly not coming back to it. OpenLeagueDisplay is a community
+stand-in for the people who still want that experience — a League of Legends
+splash art viewer where you can browse every champion × every skin in the
+browser and bulk-download the ones you like as a ZIP for a local wallpaper
+slideshow.
 
-完全静的サイトで、画像は **Community Dragon CDN** から直接読み込みます。
-新スキンは GitHub Actions が週次で自動追従します。
+It is a fully static site. Images are loaded directly from the
+**Community Dragon CDN**. New skins are picked up automatically every week by a
+GitHub Actions job, so the catalog stays current without anyone babysitting it.
 
 ---
 
-## できること
+## Features
 
-- **全スキン閲覧**: チャンピオン別 / シリーズ別 (PROJECT, Star Guardian, K/DA など)
-- **ZIPまとめDL**: 選択したスキン / チャンピオン1体分 / シリーズ1個分を一括取得
-  → ローカル展開して Windows の「背景 → スライドショー」で LeagueDisplays 相当の
-  壁紙ローテーションに使える
-- **スライドショー**: Ken Burns + クロスフェードでフル画面再生
-- **検索 / フィルタ**: チャンピオン名・スキン名・ロール (メイジ/タンク等)・出身地域
-  (Demacia/Noxus 等)・rarity (Legendary/Ultimate 等) を横断キーワード検索
-- **20言語対応**: 国旗ピッカーで日本語 / 한국어 / 简体中文 / Français / Deutsch
-  ほか (チャンピオン名・スキン名・UI 文字列がローカライズ、選択は永続化)
-- **モバイル対応**: スマホでも崩れずに閲覧可
+- **Browse every skin**: by champion, or by skin line (PROJECT, Star Guardian, K/DA, ...)
+- **Bulk ZIP download**: grab the skins you selected, every skin of a champion,
+  or every skin in a skin line in one shot. Extract locally and point Windows'
+  "Background → Slideshow" at the folder for a LeagueDisplays-style wallpaper
+  rotation.
+- **Slideshow**: full-screen playback with Ken Burns + crossfade
+- **Search / filter**: cross-keyword search over champion name, skin name, role
+  (Mage / Tank / ...), region of origin (Demacia / Noxus / ...) and rarity
+  (Legendary / Ultimate / ...)
+- **20 locales**: flag picker for English, 日本語, 한국어, 简体中文, Français,
+  Deutsch and more (champion names, skin names and UI strings are localized;
+  the choice is persisted)
+- **Mobile-friendly**: responsive layout for phones
 
-## 操作
+## Controls
 
-| キー / 操作 | 動作 |
+| Key / action | What it does |
 |---|---|
-| クリック | チャンピオン → スキン → 全画面 |
-| `←` / `→` | 前後のスプラッシュ |
-| `Esc` | 戻る / 全画面解除 |
-| `Space` | スライドショー一時停止 |
-| 検索バー | チャンピオン名 / スキン名 / ロール / 地域 / rarity でフィルタ (例: 「メイジ」「Demacia」「Legendary」) |
-| シリーズ | ヘッダーのボタンからシリーズ一覧へ |
-| 言語切替 | ヘッダーの国旗ボタンから 20 言語を選択 (次回起動時も保持) |
-| 選択モード | チェックボックスでスキン選択 → ヘッダー「⬇ 選択分をZIP」で一括DL |
-| チャンピオンページ | 「⬇ 全スキンをZIP」ボタンでそのチャンピオン分まとめてDL |
-| シリーズページ | 「⬇ このシリーズをZIP」ボタンでそのシリーズ全部DL |
+| Click | champion → skin → fullscreen |
+| `←` / `→` | previous / next splash |
+| `Esc` | back / exit fullscreen |
+| `Space` | pause the slideshow |
+| Search bar | filter by champion / skin name, role, region, rarity (e.g. "Mage", "Demacia", "Legendary") |
+| Skin lines | header button opens the skin-line index |
+| Language | header flag button picks one of 20 locales (remembered next time) |
+| Selection mode | tick skins, then header "⬇ ZIP selected" downloads them in one ZIP |
+| Champion page | "⬇ ZIP all skins" downloads every skin for that champion |
+| Skin-line page | "⬇ ZIP this line" downloads every skin in that skin line |
 
-### ZIP DLの仕様
+### About the ZIP download
 
-- ファイル構造: `<チャンピオン名>/<スキン名>.jpg`
-- JPEG は元々圧縮済みのため ZIP 内は無圧縮格納 (時間短縮優先)
-- 並列度6で CDragon から直接取得。CDragon 側で 404 になっているスキンは
-  完了時にカウントだけ表示してスキップ
+- File layout inside the ZIP: flat — `<Champion>_<Skin>.jpg` at the root, no
+  per-champion subfolder. This is intentional: Windows' wallpaper slideshow
+  only scans the folder you point it at, not subfolders, so a flat layout
+  makes the extracted ZIP drop-in usable.
+- Stored uncompressed (JPEGs are already compressed; this keeps zipping fast)
+- Fetched directly from CDragon with a concurrency of 6. Skins that return 404
+  on CDragon are silently skipped and counted in the final summary.
 
 ---
 
-## 開発者向け
+## For developers
 
-### 仕組み
+### How it works
 
-- `data.json` は Community Dragon の `champion-summary.json` と各
-  `champions/{id}.json` から構築される (~1.1MB / gzip後 ~300KB)
-- 画像URL (`splash`, `tile`, `loading`) は `https://raw.communitydragon.org/latest/...`
-  を直接指す。Repo に画像は保存されない
-- ブラウザは初回読み込み時に `data.json` を fetch、サムネは
-  `<img loading="lazy">` で必要時に CDN から取得
-- 多言語: `data.json` は英語 (CDragon の `default`) のみを保持し、各 LoL クライアント
-  locale (`ja_jp`, `ko_kr`, `zh_cn` 等の 19 翻訳、英語と合わせて計 20 言語) は
-  `i18n/<locale>.json` に分離。ブラウザは選択時にだけ該当ファイルを fetch するので、
-  英語利用者の追加帯域はゼロ
+- `data.json` is built from Community Dragon's `champion-summary.json` and the
+  per-champion `champions/{id}.json` files (~1.1 MB / ~75 KB gzipped).
+- Image URLs (`splash`, `tile`, `loading`) point directly at
+  `https://raw.communitydragon.org/latest/...`. No images are stored in the
+  repo.
+- The browser fetches `data.json` once on load; thumbnails are pulled from the
+  CDN on demand via `<img loading="lazy">`.
+- i18n: `data.json` only carries the English names (CDragon's `default`
+  locale). The 19 other LoL client locales (`ja_jp`, `ko_kr`, `zh_cn`, ... —
+  20 languages total with English) live in `i18n/<locale>.json` and are
+  fetched only when the user picks that language, so English users pay zero
+  extra bandwidth.
 
-設計判断の詳細 (なぜ画像を repo に置かないか、なぜ Data Dragon でなく CDragon を
-使うか、など) は [`CLAUDE.md`](./CLAUDE.md) を参照。
+For the rationale behind the design decisions (why images aren't kept in the
+repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md).
 
-### ファイル構成
+### Repository layout
 
 ```
 .
-├── index.html                       # ビューア本体 (HTML + CSS + JS、単一ファイル)
-├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB)
-├── i18n/<locale>.json               # 言語別の名前辞書 (19 locales、各 100-200KB)
-├── generate_data.py                 # data.json + i18n 生成スクリプト (標準ライブラリのみ)
-├── serve.py                         # ローカル配信ラッパー (http.server の薄い包み)
-├── .github/workflows/update.yml     # 週次自動更新 (毎週月曜 9:00 JST)
-├── .idea/runConfigurations/         # PyCharm 用の Run Configuration 同梱
-├── CLAUDE.md                        # 設計判断・コンベンションのメモ (開発者向け)
-├── LICENSE                          # MIT (リポジトリのコードに対して)
-├── screenshot.png                   # README 用キャプチャ
+├── index.html                       # The viewer (HTML + CSS + JS, single file)
+├── data.json                        # Champion / skin manifest (~1.1 MB)
+├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
+├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
+├── serve.py                         # Thin wrapper around http.server for local serving
+├── .github/workflows/update.yml     # Weekly auto-update (Mondays 09:00 JST)
+├── .idea/runConfigurations/         # PyCharm Run Configurations, checked in
+├── CLAUDE.md                        # Design notes & conventions (developer-facing)
+├── LICENSE                          # MIT (covers the repository's code)
+├── screenshot.png                   # README screenshot
 └── README.md
 ```
 
-### ローカルで動かす
+### Running locally
 
 ```bash
-# 初回 or マニフェスト更新時のみ (data.json と i18n/*.json をビルド)
+# Only needed the first time, or to refresh the manifest
+# (builds data.json and i18n/*.json)
 python generate_data.py
 
-# 配信テスト (Python 標準ライブラリだけで動く)
+# Serve it (uses only the Python standard library)
 python serve.py
 # → http://127.0.0.1:8000
 ```
 
-ビルドステップや依存パッケージはありません。フロントは vanilla JS + JSZip (CDN) のみ。
-PyCharm では `.idea/runConfigurations/` に "Generate data.json" と
-"Serve (http.server :8000)" を同梱しているので Run ▸ から選べます。
+There is no build step and no package dependency. The front-end is plain
+vanilla JS plus JSZip (loaded from a CDN). PyCharm users get the
+"Generate data.json" and "Serve (http.server :8000)" Run Configurations under
+`.idea/runConfigurations/` for free.
 
-社内プロキシ等で CDragon への接続が `CERTIFICATE_VERIFY_FAILED` で落ちる場合は
-`LOL_INSECURE=1 python generate_data.py` (PowerShell では
-`$env:LOL_INSECURE=1; python generate_data.py`) で証明書検証を回避できます。
+If a corporate proxy makes CDragon fail with `CERTIFICATE_VERIFY_FAILED`, you
+can bypass certificate verification with
+`LOL_INSECURE=1 python generate_data.py` (or
+`$env:LOL_INSECURE=1; python generate_data.py` in PowerShell).
 
-### 自分のアカウントでデプロイ (Python 導入済みなら 5 分)
+### Deploying it to your own account (≈5 minutes if you have Python)
 
-1. **新規 Repo を作る** (例: `OpenLeagueDisplay`)
-2. このフォルダの中身を全部 push:
+1. **Create a new repo** (e.g. `OpenLeagueDisplay`).
+2. Push the contents of this folder:
    ```bash
    git init
    git add .
@@ -124,30 +139,33 @@ PyCharm では `.idea/runConfigurations/` に "Generate data.json" と
    git remote add origin https://github.com/<your-username>/<repo>.git
    git push -u origin main
    ```
-3. **初回の data.json を生成**:
+3. **Generate the first `data.json`**:
    ```bash
    python generate_data.py
    git add data.json && git commit -m "initial data" && git push
    ```
-   (もしくは Actions タブから "Update splash data" → "Run workflow" で手動実行)
-4. **GitHub Pages 有効化**: Repo の Settings → Pages → Source を "Deploy from a branch"
-   にして、Branch を `main` / Folder を `/ (root)` に設定 → Save
-5. 1〜2分待つと `https://<your-username>.github.io/<repo>/` で公開される
+   (Or trigger it from the Actions tab: "Update splash data" → "Run workflow".)
+4. **Enable GitHub Pages**: repo Settings → Pages → Source = "Deploy from a
+   branch", Branch = `main`, Folder = `/ (root)` → Save.
+5. After a minute or two it's live at
+   `https://<your-username>.github.io/<repo>/`.
 
-### 自動更新を止めたい
+### Disabling the auto-update
 
-`.github/workflows/update.yml` を削除するか、`schedule:` セクションをコメントアウト。
-手動で `python generate_data.py` を流して `data.json` を更新するだけでも OK。
+Delete `.github/workflows/update.yml`, or comment out its `schedule:` section.
+You can always refresh `data.json` manually by running
+`python generate_data.py`.
 
 ---
 
-## ライセンス
+## License
 
-リポジトリ内のソースコードは **MIT License** で配布しています ([`LICENSE`](./LICENSE))。
-ただし実行時に Community Dragon から取得する画像/データの著作権は
-**Riot Games, Inc.** に帰属し、MIT の範囲外です。個人利用の範囲を超える
-再配布や商用利用は避けてください。
+The source code in this repository is distributed under the **MIT License**
+([`LICENSE`](./LICENSE)). The images and game data fetched at runtime from
+Community Dragon are **copyright Riot Games, Inc.** and are *not* covered by
+the MIT license — please avoid redistribution or commercial use beyond
+personal use.
 
-このプロジェクトは Riot Games 公認ではありません。
-Riot Games の "Legal Jibber Jabber" ポリシーの下で Community Dragon が公開している
-アセットを参照しているだけで、Riot のクライアントや API に直接アクセスはしていません。
+This project is not endorsed by Riot Games. It only references assets that
+Community Dragon publishes under Riot's "Legal Jibber Jabber" policy; it does
+not talk to Riot's client or API directly.

@@ -71,14 +71,19 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
-- **デザイン**: LoLクライアント風ダークブルー (#010a13) × ゴールド (#c89b3c)、
-  見出しは Google Fonts の Cinzel
+- **デザイン**: 深い黒紫 (`--bg: #07060b` / `--bg-1: #0c0b14`) × 落ち着いた
+  ゴールド (`--gold: #d4a857`)。Google Fonts は Cinzel (eyebrow / 見出し) +
+  Fraunces (本文) + JetBrains Mono (等幅) の 3 系統。色は CSS 変数 (`--bg`,
+  `--gold`, `--gold-hi`, `--gold-deep`, ...) で集約しているので、テーマ
+  変更は :root の宣言を触るだけで済む
 - **多言語表示 (i18n)**: `data.json` 本体は CDragon の `default` ロケール (英語) を
   そのまま持ち、各 LoL クライアント locale (ja_jp, ko_kr, zh_cn, ... の20言語) の
   翻訳名は `i18n/<locale>.json` に分離して持つ。ブラウザは初回 default で起動して
   必要時にだけ locale ファイルを fetch するので、英語利用者は追加帯域ゼロ。
   画像URLは locale 非依存 (CDragon の global asset は1セットのみ) なので i18n
-  ファイルは「名前マップだけ」。1 locale 約 130KB。
+  ファイルは「名前マップだけ」。1 locale あたり ~15-160KB
+  (大半は ~110KB 前後、id_id/th_th はそもそも CDragon 側のスキン翻訳が
+  170-180 件しか無く 14KB 程度に縮む。el_gr/ru_ru は 150KB 超え)。
 - **i18n キーは英語の `<alias>//<skin label>`**: SELECT_KEY と同じ命名。ブラウザは
   `state.i18n.skins[key] || s.label` のフォールバックで、翻訳が無いキー (新スキンで
   未訳など) は英語にフォールバックして表示が壊れない。skins[] は locale 間で
@@ -165,8 +170,10 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 
 ## このプロジェクトの背景 (チャット履歴サマリ)
 
-ユーザーは League Displays (Riot の公式スプラッシュ閲覧アプリ、2020年のパッチ10.19
-で更新停止) のファン。代替を作る過程で以下を辿った:
+ユーザーは League Displays (Riot の公式スプラッシュ閲覧アプリ、2020年の Spirit
+Blossom 以降ほぼ放置 → 2021年5月に一度だけキャッチアップ更新が入ったあと、
+2021年7月以降に追加されたスキンが一切入らないまま実質凍結) のファン。代替を作る
+過程で以下を辿った:
 
 1. **CLI ダウンローダー** (`lol_splash_downloader.py`): 当初は Riot の Data Dragon
    を使ったが Wild Rift 等の幽霊エントリで失敗率76%。CDragon に切り替えて失敗率0%へ。
