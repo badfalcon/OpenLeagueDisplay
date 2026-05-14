@@ -113,10 +113,10 @@
     opacity: 0.55; pointer-events: none;
   }
 
-  /* 1 行構成: [brand] [view-tabs] (auto-spacer) [select] [slideshow] [lang]
-     select-toggle に margin-left: auto を付けて「左クラスタ (brand+tabs)」と
-     「右クラスタ (actions+lang)」を分離する。topbar の背景 (blur) は全幅のまま、
-     中身だけ --container-max で中央寄せ */
+  /* 1 行構成: [brand] [view-tabs] (auto-spacer) [actions=select+slideshow] [lang]
+     header-actions に margin-left: auto を付けて「左クラスタ (brand+tabs)」と
+     「右クラスタ (actions+lang)」を分離。select-toggle と slideshow-btn は
+     .header-actions で 1 つの flex 群にまとめ、狭幅で折返す時もセットで動く */
   header {
     display: flex; align-items: center;
     gap: 12px;
@@ -126,7 +126,10 @@
     max-width: var(--container-max);
     margin: 0 auto;
   }
-  header > #select-toggle { margin-left: auto; }
+  header > .header-actions { margin-left: auto; }
+  .header-actions {
+    display: flex; align-items: center; gap: 12px;
+  }
   .header-brand {
     display: flex; flex-direction: column;
     gap: 4px;
@@ -1293,8 +1296,10 @@
       <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
       <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
     </div>
-    <button class="btn" id="select-toggle" aria-label="Select">Select</button>
-    <button class="btn" id="slideshow-btn">Slideshow</button>
+    <div class="header-actions">
+      <button class="btn" id="select-toggle" aria-label="Select">Select</button>
+      <button class="btn" id="slideshow-btn">Slideshow</button>
+    </div>
     <div class="lang-picker" id="lang-picker">
       <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
         <img class="lang-flag" id="lang-flag" alt="" decoding="async">
