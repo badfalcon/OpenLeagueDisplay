@@ -1085,7 +1085,26 @@
      padding と font-size を詰める */
   @media (max-width: 900px) {
     :root { --container-pad: 20px; }
-    header { padding: 12px var(--container-pad); gap: 10px 14px; }
+    /* header 幅不足対応:
+       - lang-picker を position: absolute で右上に固定 (padding-right に確保した
+         スペースに浮かせる)
+       - .header-brand を flex-basis: 100% にして row 1 を占有 → 残り
+         (view-tabs / select-toggle / slideshow-btn) は自動的に row 2 へ折返す
+       - row 2 では既存の `#select-toggle { margin-left: auto }` が効き、
+         tabs が左、select+slideshow が右に分かれる */
+    header {
+      position: relative;
+      padding: 12px var(--container-pad);
+      padding-right: calc(var(--container-pad) + 64px);  /* absolute lang 用 */
+      gap: 10px 14px;
+    }
+    header > .lang-picker {
+      position: absolute;
+      top: 12px;
+      right: var(--container-pad);
+      margin-left: 0;
+    }
+    .header-brand { flex: 1 1 100%; min-width: 0; }
     header h1 { font-size: 20px; }
     main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
@@ -1115,7 +1134,12 @@
 
     .topbar { padding-top: env(safe-area-inset-top); }
 
-    header { padding: 10px var(--container-pad); gap: 6px 8px; }
+    header {
+      padding: 10px var(--container-pad);
+      padding-right: calc(var(--container-pad) + 64px);  /* 900px から継承する absolute lang 用余白 */
+      gap: 6px 8px;
+    }
+    header > .lang-picker { top: 10px; right: var(--container-pad); }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
     /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
