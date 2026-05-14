@@ -801,7 +801,13 @@
   .sel-checkbox {
     position: absolute; top: 12px; left: 12px; z-index: 5;
     width: 28px; height: 28px; padding: 0;
+    /* ✓ (::before) は font-size 20px の JetBrains Mono Bold で line-height 1 でも
+       グリフが上下に染み出して箱を視覚的に長方形化する。min/max で寸法を完全固定し、
+       overflow:hidden で滲み出しを切る。partial 状態は max-width を解除して横に伸ばす */
+    min-width: 28px; max-width: 28px;
+    min-height: 28px; max-height: 28px;
     box-sizing: border-box;
+    overflow: hidden;
     background: rgba(7, 6, 11, 0.88);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--gold);
@@ -839,7 +845,7 @@
   /* "3/14" など数字を入れる時だけ横方向に伸ばす。デフォルトは正方形固定で、
      ✓ (::before) が padding と相互作用して箱を太らせるのを防ぐ */
   .champ-card.partial .sel-checkbox,
-  .line-card.partial .sel-checkbox { width: auto; min-width: 28px; padding: 0 7px; }
+  .line-card.partial .sel-checkbox { width: auto; min-width: 28px; max-width: none; padding: 0 7px; }
   /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
      親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
   .skin-card.selected .sel-checkbox::before,
@@ -1149,10 +1155,12 @@
        Material/Apple のタッチ最小ガイドラインを厳守する必要は無い。32px に圧縮 */
     .sel-checkbox {
       width: 32px; height: 32px; padding: 0;
+      min-width: 32px; max-width: 32px;
+      min-height: 32px; max-height: 32px;
       top: 8px; left: 8px; font-size: 12px;
     }
     .champ-card.partial .sel-checkbox,
-    .line-card.partial .sel-checkbox { width: auto; min-width: 32px; padding: 0 8px; }
+    .line-card.partial .sel-checkbox { width: auto; min-width: 32px; max-width: none; padding: 0 8px; }
     .skin-card.selected .sel-checkbox::before,
     .champ-card.selected .sel-checkbox::before,
     .line-card.selected .sel-checkbox::before { font-size: 22px; }
