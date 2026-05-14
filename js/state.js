@@ -35,6 +35,9 @@ export const state = {
     timer: null, interval: 7000, paused: false, frontIsA: true,
     seq: 0, lastFocus: null,
   },
+  // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた
+  // 要素 (閉じた時に戻すため)。state.lb と同じ形に揃える
+  tut: { step: 1, lastFocus: null },
 };
 
 export const SELECT_KEY = (alias, label) => `${alias}//${label}`;

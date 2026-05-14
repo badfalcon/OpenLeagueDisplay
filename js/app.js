@@ -141,7 +141,6 @@ function wireEvents() {
   $("tut-skip").addEventListener("click", closeTutorial);
   $("tut-next").addEventListener("click", tutNext);
   $("tut-back").addEventListener("click", tutPrev);
-  // オーバーレイ背景 (= 自分自身) をクリックしたら閉じる。内側の box は止める
   $("tutorial-overlay").addEventListener("click", (e) => {
     if (e.target === $("tutorial-overlay")) closeTutorial();
   });
@@ -254,7 +253,7 @@ function wireEvents() {
     if (!$("lightbox").classList.contains("open")) {
       if (e.key === "Escape" && state.view !== "home") goBack();
       // ? (Shift+/) でいつでもチュートリアル再表示。検索 input にフォーカス中は
-      // ユーザーが文字入力で ? を打ちたいケースが想定されるので無効化
+      // 文字入力として ? を打ちたいケースが想定されるので無効化
       else if (e.key === "?" && document.activeElement !== $("search")) {
         e.preventDefault();
         openTutorial();

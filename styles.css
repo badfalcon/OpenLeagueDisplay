@@ -1111,8 +1111,8 @@
     line-height: 1.7;
     letter-spacing: 0.01em;
     margin-bottom: 26px;
-    /* ステップ間で高さが揺れるのを抑える。ja_jp/ko_kr/ru_ru で行数が違うが
-       実測 4-6 行なので 7em 確保すれば最も多いケースを吸収して残りは余白 */
+    /* ステップ間で高さが揺れるのを抑える。最も多い ja_jp/ko_kr/ru_ru の本文
+       (6 行前後 × line-height 1.7) を吸収する 11.5em で固定 */
     min-height: 11.5em;
   }
   .tut-body strong { color: var(--gold-hi); font-weight: 600; }

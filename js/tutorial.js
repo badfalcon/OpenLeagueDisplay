@@ -1,17 +1,15 @@
 // 初回訪問チュートリアル: 3 ステップの簡易オンボーディングモーダル。
 // 既読フラグは localStorage (LS_TUTORIAL_KEY) で持ち、ヘッダの ? ボタンと
 // ? キーから何度でも再表示できる (フラグは変わらない)。閉じる経路 (Skip / Done /
-// Esc / 外側クリック) はどれも最初の表示時のみフラグを立てる。
+// Esc / 外側クリック) はどれも初回表示時にフラグを立てる。
 //
 // 本文 (tut_s*_body) は i18n テーブルに <strong>/<em>/<code>/<br> を埋め込んだ
 // 信頼済み文字列なので innerHTML に直接流す。ユーザー入力経路は無いので XSS シンクは無い。
 
-import { $, lsGet, lsSet, LS_TUTORIAL_KEY } from "./state.js";
+import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY } from "./state.js";
 import { t } from "./i18n.js";
 
 const TOTAL_STEPS = 3;
-let currentStep = 1;
-let prevFocus = null;
 
 export function isTutorialOpen() {
   const ov = $("tutorial-overlay");
@@ -21,14 +19,17 @@ export function isTutorialOpen() {
 export function openTutorial() {
   const ov = $("tutorial-overlay");
   if (!ov) return;
-  currentStep = 1;
-  prevFocus = document.activeElement;
+  state.tut.step = 1;
+  state.tut.lastFocus = document.activeElement;
   renderTutorial();
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
   document.body.classList.add("tutorial-open");
   // 主操作 (Next) にフォーカスを移して Enter / 矢印で進めるように
-  requestAnimationFrame(() => $("tut-next") && $("tut-next").focus());
+  requestAnimationFrame(() => {
+    const next = $("tut-next");
+    if (next) next.focus();
+  });
 }
 
 export function closeTutorial() {
@@ -38,30 +39,28 @@ export function closeTutorial() {
   ov.setAttribute("aria-hidden", "true");
   document.body.classList.remove("tutorial-open");
   lsSet(LS_TUTORIAL_KEY, "1");
-  // 直前にフォーカスがあった要素 (help-btn など) に戻す
-  if (prevFocus && typeof prevFocus.focus === "function") {
-    try { prevFocus.focus(); } catch (_) {}
+  const prev = state.tut.lastFocus;
+  if (prev && typeof prev.focus === "function") {
+    try { prev.focus(); } catch (_) {}
   }
-  prevFocus = null;
+  state.tut.lastFocus = null;
 }
 
 export function tutNext() {
-  if (currentStep >= TOTAL_STEPS) {
+  if (state.tut.step >= TOTAL_STEPS) {
     closeTutorial();
     return;
   }
-  currentStep++;
+  state.tut.step++;
   renderTutorial();
 }
 
 export function tutPrev() {
-  if (currentStep <= 1) return;
-  currentStep--;
+  if (state.tut.step <= 1) return;
+  state.tut.step--;
   renderTutorial();
 }
 
-// locale 切替時に開いたままだと文言が古いままになるので、app.js から呼び戻す。
-// 直接 textContent / innerHTML を更新し、表示中ステップ自体は維持する
 export function renderTutorial() {
   const counter = $("tut-step-counter");
   const titleEl = $("tut-title");
@@ -72,36 +71,37 @@ export function renderTutorial() {
   const skipBtn = $("tut-skip");
   if (!counter || !titleEl || !bodyEl) return;
 
-  counter.textContent = t("tut_step", currentStep, TOTAL_STEPS);
-  titleEl.textContent = t(`tut_s${currentStep}_title`);
-  bodyEl.innerHTML = t(`tut_s${currentStep}_body`);
+  const step = state.tut.step;
+  counter.textContent = t("tut_step", step, TOTAL_STEPS);
+  titleEl.textContent = t(`tut_s${step}_title`);
+  bodyEl.innerHTML = t(`tut_s${step}_body`);
 
   if (dotsEl) {
     let dots = "";
     for (let i = 1; i <= TOTAL_STEPS; i++) {
-      dots += `<span class="tut-dot${i === currentStep ? " active" : ""}" aria-hidden="true"></span>`;
+      dots += `<span class="tut-dot${i === step ? " active" : ""}" aria-hidden="true"></span>`;
     }
     dotsEl.innerHTML = dots;
   }
 
   if (backBtn) {
     backBtn.textContent = t("tut_back");
-    backBtn.disabled = currentStep === 1;
+    backBtn.disabled = step === 1;
   }
   if (nextBtn) {
-    nextBtn.textContent = currentStep === TOTAL_STEPS ? t("tut_done") : t("tut_next");
+    nextBtn.textContent = step === TOTAL_STEPS ? t("tut_done") : t("tut_next");
   }
   if (skipBtn) {
     skipBtn.textContent = t("tut_skip");
-    // 最終ステップでは Next が "Done" になるので Skip は隠す (重複動線を消す)
-    skipBtn.style.visibility = currentStep === TOTAL_STEPS ? "hidden" : "visible";
+    // 最終ステップでは Next が "Done" を兼ねるので Skip は隠す (重複動線を消す)
+    skipBtn.style.visibility = step === TOTAL_STEPS ? "hidden" : "visible";
   }
 }
 
-// 初回訪問時のみ自動表示。他のオーバーレイ (進捗 / lightbox) が出ているケースは
-// 譲って、次回起動で再試行させる
+// 初回訪問時のみ自動表示。他のオーバーレイ (進捗 / lightbox) が先に出ている
+// レアケースでは譲って、次回起動で再試行させる
 export function maybeAutoOpenTutorial() {
-  if (lsGet(LS_TUTORIAL_KEY)) return;
+  if (lsGet(LS_TUTORIAL_KEY) === "1") return;
   // .champ-grid の fadeIn 0.5s が落ち着いた頃に出すと体感が穏やか
   setTimeout(() => {
     const prog = $("progress-overlay");
