@@ -726,6 +726,11 @@
     pointer-events: auto;
   }
   .lightbox:hover .slideshow-controls { opacity: 1; }
+  /* hover が無いデバイス (touch / pen) では再生コントロールを常時表示。
+     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う */
+  @media (hover: none) {
+    .slideshow-controls { opacity: 1; }
+  }
   .ss-btn {
     padding: 11px 18px;
     background: rgba(12, 11, 20, 0.7);
@@ -1129,7 +1134,9 @@
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
     .lb-next { right: 12px; }
-    .slideshow-controls { bottom: 76px; opacity: 1; }
+    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上に逃がす。
+       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ調整 */
+    .slideshow-controls { bottom: 76px; }
 
     /* pack-bar: 320px でも収まる padding/gap に絞る。
        既存 ≤780px の hint: display:none (L876) はそのまま活きる */
