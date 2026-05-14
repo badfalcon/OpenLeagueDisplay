@@ -1132,10 +1132,12 @@
     .skin-card .label { font-size: 13.5px; }
     .line-card .name  { font-size: 16px; }
 
-    /* 選択チェックボックス: 28px は touch 最小未満。44px に拡大 (Material 48dp / Apple 44pt) */
+    /* 選択チェックボックス: 96px グリッドに対して 44px は視覚的に過大。
+       skin-card は本体タップで toggle、champ/line-card は本体タップで詳細遷移なので
+       Material/Apple のタッチ最小ガイドラインを厳守する必要は無い。32px に圧縮 */
     .sel-checkbox {
-      min-width: 44px; height: 44px; padding: 0 12px;
-      top: 8px; left: 8px; font-size: 13px;
+      min-width: 32px; height: 32px; padding: 0 8px;
+      top: 8px; left: 8px; font-size: 12px;
     }
 
     /* lightbox: 画像領域を優先、close/nav は 48px に拡大、サイドナビは
