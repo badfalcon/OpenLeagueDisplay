@@ -120,19 +120,10 @@
      行全体を justify-content: center でまとめて中央寄せにするため */
   .content-toolbar > #search { flex: 0 1 520px; min-width: 0; }
 
-  /* グリッド上の独立ツールバー。並び替えなど「コンテンツ一覧専用」の操作を、
-     ページ最上部の topbar とは分離して main の真上に置く。home view 以外では
-     hidden 属性で消える (display:none で main がそのまま topbar 直下に来る) */
-  .grid-toolbar {
-    max-width: 1760px;
-    margin: 0 auto;
-    padding: 24px 56px 0;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-  }
-  .grid-toolbar[hidden] { display: none; }
+  /* sort-select の保管庫。home view では champ-header 内のスロットに transplant
+     されるため、本体は常に非表示でよい。home 以外では select 自体が DOM 上ここに
+     居るだけで描画されない */
+  .grid-toolbar { display: none; }
 
   /* ページのアクション専用バー。topbar の一部として header の真下に積まれ、
      スクロール時も header と一緒に追従する。main と同じ max-width で中央寄せ */
@@ -543,6 +534,14 @@
   .champ-header.is-list h2 {
     font-size: clamp(26px, 3.4vw, 44px);
     font-variation-settings: "opsz" 72, "SOFT" 100, "wght" 400;
+  }
+  /* h2 と並び替えセレクタを同じ行に並べるためのスロット。is-list で h2 を col 1
+     に縛り直し、col 2 を controls 用に空けておく (詳細画面の champ-header は
+     既存通り h2 が全幅 = grid-column 1/-1 のまま) */
+  .champ-header.is-list h2 { grid-column: 1; }
+  .champ-header-controls {
+    grid-column: 2; grid-row: 1;
+    justify-self: end; align-self: center;
   }
   .champ-header .count {
     grid-column: 1;
@@ -1114,9 +1113,6 @@
     .content-toolbar > #select-toggle,
     .content-toolbar > #slideshow-btn { grid-row: 2; min-width: 0; }
 
-    /* grid-toolbar の左右余白は main と同じ 20px に合わせる */
-    .grid-toolbar { padding: 16px 20px 0; }
-
     .content-toolbar .btn,
     .content-toolbar .ctrl-select,
     .content-toolbar .view-tabs .tab {
@@ -1134,7 +1130,6 @@
     .content-toolbar .view-tabs .tab { max-width: 40vw; }
 
     main { padding: 24px 16px 100px; }
-    .grid-toolbar { padding: 12px 16px 0; }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
     .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
@@ -2297,13 +2292,22 @@ function render() {
   $("nav-lines").classList.toggle("active", isLines);
   document.querySelector(".view-tabs").style.display = showBack ? "none" : "";
   $("back-btn").style.display = showBack ? "" : "none";
-  // 並び順セレクタ (grid-toolbar) はホーム (チャンピオン一覧) でのみ意味があるので、
-  // それ以外では隠す。main の直上に独立行で居るので、消しても topbar 側のレイアウトは動かない
-  $("grid-toolbar").hidden = state.view !== "home";
+  // 並び順セレクタは home (チャンピオン一覧) ヘッダ右端に居る。innerHTML を
+  // 書き換える前に保管庫 (#grid-toolbar) に退避しておかないと event listener ごと
+  // 消える。home 以外では保管庫が display:none なので select も自動的に隠れる
+  const sortSel = $("sort-select");
+  if (sortSel && sortSel.parentNode !== $("grid-toolbar")) {
+    $("grid-toolbar").appendChild(sortSel);
+  }
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
+  // home の Champions ヘッダにスロットを描いた後、退避してあった select を transplant
+  if (state.view === "home" && sortSel) {
+    const slot = root.querySelector(".champ-header-controls");
+    if (slot) slot.appendChild(sortSel);
+  }
   renderPackBar();
 }
 
@@ -2341,6 +2345,7 @@ function renderHome(root) {
     root.innerHTML = `
       <div class="champ-header is-list">
         <h2>${t("nav_home")}</h2>
+        <div class="champ-header-controls"></div>
         <span class="count">${t("champs_count", list.length)}</span>
       </div>
       <div class="champ-grid">${renderChampCards(list)}</div>`;
@@ -2377,14 +2382,19 @@ function renderHome(root) {
     parts.push(`
       <div class="champ-header is-list">
         <h2>${t("nav_home")}</h2>
+        <div class="champ-header-controls"></div>
         <span class="count">${t("champs_count", champMatches.length)}</span>
       </div>
       <div class="champ-grid">${renderChampCards(champMatches)}</div>`);
   }
   if (skinMatches.length > 0) {
+    // 並び順スロットは原則 Champions ヘッダ側に置くが、検索ヒットが skin だけだった
+    // 場合は Champions ヘッダ自体が描かれないので、その時だけ Skins 側を受け皿にする
+    const ctrlSlot = champMatches.length === 0 ? `<div class="champ-header-controls"></div>` : "";
     parts.push(`
       <div class="champ-header is-list">
         <h2>${t("section_skins")}</h2>
+        ${ctrlSlot}
         <span class="count">${t("skins_count", skinMatches.length)}</span>
       </div>
       <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
