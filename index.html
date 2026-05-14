@@ -2336,56 +2336,64 @@ async function init() {
   render();
 }
 
+// view-content の上に居る永続的な champ-header。h2 / count / primary は
+// renderXxx 側から setPrimaryHeader() で書き換える。.champ-header-controls
+// (back-btn / search / sort-select) は一度ここに住んだら二度と動かさない。
+// これで search input の親が render() ごとに壊されることが無くなり、入力中の
+// フォーカスやカーソル位置・IME composition が保たれる
+function ensureLayout(root) {
+  if ($("view-content")) return;
+  root.innerHTML = `
+    <div class="champ-header" id="primary-header" hidden>
+      <h2 id="primary-title"></h2>
+      <div class="champ-header-controls"></div>
+      <span class="count" id="primary-count"></span>
+      <button class="btn primary" id="primary-action" hidden></button>
+    </div>
+    <div id="view-content"></div>`;
+  const slot = root.querySelector(".champ-header-controls");
+  slot.appendChild($("back-btn"));
+  slot.appendChild($("search"));
+  slot.appendChild($("sort-select"));
+}
+
+// 永続 champ-header の中身を更新する唯一の窓口。renderXxx は innerHTML を
+// 触らず、ここに値を渡すだけにする
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null }) {
+  const ph = $("primary-header");
+  ph.hidden = false;
+  ph.classList.toggle("is-list", !!isList);
+  $("primary-title").textContent = title;
+  $("primary-count").textContent = count;
+  const btn = $("primary-action");
+  if (primaryLabel) {
+    btn.hidden = false;
+    btn.textContent = primaryLabel;
+    // onclick への代入で前回の handler は自動破棄される (addEventListener と違って重複しない)
+    btn.onclick = primaryClick;
+  } else {
+    btn.hidden = true;
+    btn.onclick = null;
+  }
+}
+
 function render() {
   const root = $("root");
-  // タブはトップレベル切替。back-btn は詳細 (champion / line) または検索中に表示。
-  // ライン/ホーム同士の往復はタブ自身でやる
+  ensureLayout(root);
+  // タブはトップレベル切替。back-btn は詳細 (champion / line) または検索中に表示
   const isLines = (state.view === "lines" || state.view === "line");
   const isDetail = (state.view === "champion" || state.view === "line");
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
   $("tab-home").classList.toggle("active", !isLines);
   $("nav-lines").classList.toggle("active", isLines);
-  // 検索入力は .champ-header-controls (= root の子) に居るので、render() で
-  // root.innerHTML を書き換えると親が破棄されて appendChild で再配置するたびに
-  // フォーカスが外れる。debounce 経由で 1 文字ごとに render が走る経路では
-  // 致命的なので、ここでフォーカスとカーソル位置を退避して Phase 3 直後に復元
-  const searchEl = $("search");
-  const searchFocused = document.activeElement === searchEl;
-  const searchSelStart = searchFocused ? searchEl.selectionStart : null;
-  const searchSelEnd   = searchFocused ? searchEl.selectionEnd   : null;
-  // back-btn / search / sort-select は dom-stash と .champ-header-controls の間を
-  // 行き来する。Phase 1: innerHTML 再生成前に保管庫へ退避 (前回 render のスロット
-  // 破棄で event listener ごと消えるのを防ぐ)
-  const stash = $("dom-stash");
-  for (const id of ["back-btn", "search", "sort-select"]) {
-    const el = $(id);
-    if (el && el.parentNode !== stash) stash.appendChild(el);
-  }
-  // Phase 2: ビュー固有テンプレを root.innerHTML に書き出す
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
-  // Phase 3: 再生成された .champ-header-controls スロットへ transplant。
-  // 順序 (DOM 順 = 視覚順): back → search → sort
-  const slot = root.querySelector(".champ-header-controls");
-  if (slot) {
-    slot.appendChild($("back-btn"));
-    slot.appendChild($("search"));
-    if (state.view === "home") slot.appendChild($("sort-select"));
-  }
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
-  // フォーカス復元: appendChild がフォーカスを奪うため、入力中なら必ず戻す。
-  // setSelectionRange で input 内のカーソル位置 (1 文字入れた直後の末尾) も保持
-  if (searchFocused) {
-    searchEl.focus();
-    if (searchSelStart !== null) {
-      try { searchEl.setSelectionRange(searchSelStart, searchSelEnd); } catch (_) {}
-    }
-  }
   renderPackBar();
 }
 
@@ -2420,13 +2428,8 @@ function renderHome(root) {
   if (!q) {
     const list = DATA.champions.slice();
     sortChamps(list);
-    root.innerHTML = `
-      <div class="champ-header is-list">
-        <h2>${t("nav_home")}</h2>
-        <div class="champ-header-controls"></div>
-        <span class="count">${t("champs_count", list.length)}</span>
-      </div>
-      <div class="champ-grid">${renderChampCards(list)}</div>`;
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
+    $("view-content").innerHTML = `<div class="champ-grid">${renderChampCards(list)}</div>`;
     wireChampCards(root);
     return;
   }
@@ -2451,41 +2454,31 @@ function renderHome(root) {
   sortSkins(skinMatches);
 
   if (champMatches.length === 0 && skinMatches.length === 0) {
-    // 検索結果ゼロでも search/back を出せるよう、空状態にも champ-header-controls
-    // スロットを残す
-    root.innerHTML = `
-      <div class="champ-header is-list">
-        <h2>${t("no_results_title")}</h2>
-        <div class="champ-header-controls"></div>
-        <span class="count">${esc(state.searchQuery)}</span>
-      </div>
-      <div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
+    $("view-content").innerHTML = `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     return;
   }
 
+  // primary header はトップセクションを担当 (champions が居れば Champions、
+  // skins だけなら Skins)。両方ある場合の二段目見出しは view-content 内に
+  // 通常の champ-header として innerHTML で書き出す (controls スロット無し)
   const parts = [];
   if (champMatches.length > 0) {
-    parts.push(`
-      <div class="champ-header is-list">
-        <h2>${t("nav_home")}</h2>
-        <div class="champ-header-controls"></div>
-        <span class="count">${t("champs_count", champMatches.length)}</span>
-      </div>
-      <div class="champ-grid">${renderChampCards(champMatches)}</div>`);
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length) });
+    parts.push(`<div class="champ-grid">${renderChampCards(champMatches)}</div>`);
+    if (skinMatches.length > 0) {
+      parts.push(`
+        <div class="champ-header is-list">
+          <h2>${t("section_skins")}</h2>
+          <span class="count">${t("skins_count", skinMatches.length)}</span>
+        </div>
+        <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
+    }
+  } else {
+    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length) });
+    parts.push(`<div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
   }
-  if (skinMatches.length > 0) {
-    // 並び順スロットは原則 Champions ヘッダ側に置くが、検索ヒットが skin だけだった
-    // 場合は Champions ヘッダ自体が描かれないので、その時だけ Skins 側を受け皿にする
-    const ctrlSlot = champMatches.length === 0 ? `<div class="champ-header-controls"></div>` : "";
-    parts.push(`
-      <div class="champ-header is-list">
-        <h2>${t("section_skins")}</h2>
-        ${ctrlSlot}
-        <span class="count">${t("skins_count", skinMatches.length)}</span>
-      </div>
-      <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
-  }
-  root.innerHTML = parts.join("");
+  $("view-content").innerHTML = parts.join("");
   wireChampCards(root);
   wireSearchSkinCards(root, skinMatches);
 }
@@ -2568,22 +2561,20 @@ function renderChampion(root) {
       <div class="label">${esc(lab)}</div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header">
-      <h2>${esc(champName(c))}</h2>
-      <div class="champ-header-controls"></div>
-      <span class="count">${t("skins_count", c.skins.length)}</span>
-      <button class="btn primary" id="dl-champ">${t("dl_champion")}</button>
-    </div>
-    <div class="skin-grid">${cards}</div>`;
-  root.querySelectorAll(".skin-card").forEach(el => {
+  setPrimaryHeader({
+    title: champName(c),
+    count: t("skins_count", c.skins.length),
+    primaryLabel: t("dl_champion"),
+    primaryClick: () => downloadChampion(c),
+  });
+  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
+  $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
       if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(buildChampList(c), idx, "manual");
     });
   });
-  $("dl-champ").addEventListener("click", () => downloadChampion(c));
 }
 
 function renderLines(root) {
@@ -2612,12 +2603,8 @@ function renderLines(root) {
     .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   if (entries.length === 0) {
-    root.innerHTML = `
-      <div class="champ-header is-list">
-        <h2>${t("no_results_title")}</h2>
-        <div class="champ-header-controls"></div>
-      </div>
-      <div class="loading"><p>${t("no_lines_msg")}</p></div>`;
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
+    $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
     return;
   }
   const cards = entries.map(e => {
@@ -2637,14 +2624,9 @@ function renderLines(root) {
       </div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header is-list">
-      <h2>${t("skin_lines_header")}</h2>
-      <div class="champ-header-controls"></div>
-      <span class="count">${t("lines_count", entries.length)}</span>
-    </div>
-    <div class="line-grid">${cards}</div>`;
-  root.querySelectorAll(".line-card").forEach(el => {
+  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
+  $("view-content").innerHTML = `<div class="line-grid">${cards}</div>`;
+  $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.addEventListener("click", () => openLine(el.dataset.line));
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
@@ -2675,23 +2657,21 @@ function renderLine(root) {
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
   }).join("");
-  root.innerHTML = `
-    <div class="champ-header">
-      <h2>${esc(lname)}</h2>
-      <div class="champ-header-controls"></div>
-      <span class="count">${t("skins_count", items.length)}</span>
-      <button class="btn primary" id="dl-line">${t("dl_line")}</button>
-    </div>
-    <div class="skin-grid">${cards}</div>`;
+  setPrimaryHeader({
+    title: lname,
+    count: t("skins_count", items.length),
+    primaryLabel: t("dl_line"),
+    primaryClick: () => downloadLine(lid, lname, items),
+  });
+  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash }));
-  root.querySelectorAll(".skin-card").forEach(el => {
+  $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
       if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(lbList, idx, "manual");
     });
   });
-  $("dl-line").addEventListener("click", () => downloadLine(lid, lname, items));
 }
 
 // 選択モード中、ヘッダー直下に「現在 N 件選択中 / DL / クリア」バーを出す
