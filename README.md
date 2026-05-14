@@ -1,5 +1,9 @@
 # OpenLeagueDisplay
 
+[![Update splash data](https://github.com/badfalcon/OpenLeagueDisplay/actions/workflows/update.yml/badge.svg)](https://github.com/badfalcon/OpenLeagueDisplay/actions/workflows/update.yml)
+[![Pages deploy](https://github.com/badfalcon/OpenLeagueDisplay/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/badfalcon/OpenLeagueDisplay/actions/workflows/pages/pages-build-deployment)
+[![Last commit](https://img.shields.io/github/last-commit/badfalcon/OpenLeagueDisplay?label=last%20update)](https://github.com/badfalcon/OpenLeagueDisplay/commits)
+
 > **<https://badfalcon.github.io/OpenLeagueDisplay/>** — ブラウザで開けばすぐ使えます
 
 ![screenshot](./screenshot.png)
