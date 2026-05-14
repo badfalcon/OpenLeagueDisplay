@@ -5,3 +5,6 @@ __pycache__/
 # .idea/ は基本無視するが、共有用のRun Configurationだけはチェックインする
 .idea/*
 !.idea/runConfigurations/
+# generate_data.py が新チャンプ漏れ検知時にだけ書き出す。update.yml の自動起票
+# ステップが読み取ったあとは消える運命なのでコミット対象外
+unmapped_regions.json

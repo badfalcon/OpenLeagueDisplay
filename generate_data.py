@@ -24,10 +24,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CDRAGON = "https://raw.communitydragon.org"
-# 地域(出身)データは CDragon の lol-game-data には無いので Riot の Universe API を
-# 補助的に叩く。CDragon の方針からは少しズレるが、これだけ別ソースで取らないと
-# Demacia/Noxus/Ionia 等での横断検索が組めない。
-UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
@@ -146,89 +142,209 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
-def _norm_slug(s: str) -> str:
-    """champion slug 比較用に lowercase + 英数だけに正規化。
+# 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
+# が、サーバ側の S3 IAM 設定が壊れていて永続的に 403 を返すことが probe で確定
+# (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
+# not authori...` の AccessDenied)。CDragon にも champion→region のマッピングは
+# 無いため、やむを得ずハードコードで持つ。新チャンピオンが追加された時はここに
+# 1 行足す。新地域なら REGION_NAMES と index.html の REGION_LABELS にも追加する。
+REGION_NAMES: dict[str, str] = {
+    "demacia": "Demacia",
+    "noxus": "Noxus",
+    "ionia": "Ionia",
+    "piltover": "Piltover",
+    "zaun": "Zaun",
+    "bilgewater": "Bilgewater",
+    "bandle-city": "Bandle City",
+    "freljord": "Freljord",
+    "shadow-isles": "Shadow Isles",
+    "shurima": "Shurima",
+    "targon": "Mount Targon",
+    "ixtal": "Ixtal",
+    "void": "Void",
+    "runeterra": "Runeterra",  # 無所属/汎用 (Bard, Ryze, Kindred 等)
+    "camavor": "Camavor",
+    "icathia": "Icathia",
+}
 
-    CDragon の alias は "MonkeyKing" / "AurelionSol" / "KSante" など PascalCase。
-    universe-meeps の slug は "wukong" / "aurelionsol" / "ksante" などで、
-    片方を正規化 (lowercase + alphanumeric のみ) すれば突き合わせやすい。
-    ただし Wukong のように alias と universe slug が別単語のケースがあるので、
-    呼び出し側で「alias 正規化」と「name 正規化」両方で当てる。
-    """
-    return "".join(ch for ch in s.lower() if ch.isalnum())
-
-
-def _cdragon_to_universe_locale(code: str) -> str:
-    """CDragon locale コード → universe-meeps の locale コード。
-
-    CDragon は `default` を英語に使うが universe は `en_us`。他は基本一致。
-    universe 側に未対応の locale もある (該当 fetch が 404 になるだけなので
-    呼び出し側は失敗時に空辞書扱いにする)。
-    """
-    return "en_us" if code == "default" else code
-
-
-def _fetch_universe_factions(locale_universe: str) -> dict[str, str]:
-    """{region_slug: localized_name} を universe-meeps から取得。失敗時は空辞書。"""
-    region_names: dict[str, str] = {}
-    try:
-        facs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/factions/index.json")
-    except Exception as e:
-        print(f"   [警告] universe factions ({locale_universe}): {e}", flush=True)
-        return region_names
-    if not isinstance(facs_doc, dict):
-        return region_names
-    for f in facs_doc.get("factions") or []:
-        if not isinstance(f, dict):
-            continue
-        slug = (f.get("slug") or "").strip().lower()
-        name = f.get("name")
-        if slug and isinstance(name, str) and name:
-            region_names[slug] = name
-    return region_names
-
-
-def fetch_universe_champion_regions(locale_universe: str) -> dict[str, list[str]]:
-    """{champ_slug: [region_slug, ...]} を universe-meeps から取得。失敗時は空辞書。
-
-    universe 側の schema にバリアントが観測される (associated-faction-slug 単数 と
-    associated-faction-slugs 複数 / factions が dict 配列など) ため複数の
-    フィールド名を試す。default (build_manifest) からのみ呼び出す想定で、
-    locale 切替時 (build_locale_index) は地域名の翻訳だけ要るので
-    _fetch_universe_factions() を直接使う。
-    """
-    champ_to_regions: dict[str, list[str]] = {}
-    try:
-        champs_doc = fetch_json(f"{UNIVERSE}/{locale_universe}/champions/index.json")
-    except Exception as e:
-        print(f"   [警告] universe champions ({locale_universe}): {e}", flush=True)
-        return champ_to_regions
-    if not isinstance(champs_doc, dict):
-        return champ_to_regions
-    for c in champs_doc.get("champions") or []:
-        if not isinstance(c, dict):
-            continue
-        slug = (c.get("slug") or "").strip().lower()
-        if not slug:
-            continue
-        regs: list[str] = []
-        # 複数地域フィールドの可能性。universe は slug 文字列の配列、
-        # または {slug, name} dict の配列、どちらの場合も観測例がある。
-        multi = c.get("associated-faction-slugs") or c.get("factions")
-        if isinstance(multi, list):
-            for x in multi:
-                if isinstance(x, str):
-                    regs.append(x)
-                elif isinstance(x, dict) and x.get("slug"):
-                    regs.append(x["slug"])
-        if not regs:
-            single = c.get("associated-faction-slug")
-            if isinstance(single, str) and single:
-                regs = [single]
-        if regs:
-            # dict.fromkeys で挿入順を保ったまま重複を落とす
-            champ_to_regions[slug] = list(dict.fromkeys(regs))
-    return champ_to_regions
+# CDragon の alias を lowercase したものをキーにする (例: MonkeyKing → monkeyking)。
+# Riot/Fandom Wiki の "primary region" を基準に、複数地域に深く関わるキャラ
+# (Lucian/Senna/Viego 等) は両方持たせる。空配列は「未調査」として残してOK
+# (regions 軸で検索ヒットしないだけで他は影響なし)。
+CHAMPION_REGIONS: dict[str, list[str]] = {
+    "aatrox": ["runeterra"],
+    "ahri": ["ionia"],
+    "akali": ["ionia"],
+    "akshan": ["shurima"],
+    "alistar": ["runeterra"],
+    "ambessa": ["noxus"],
+    "amumu": ["shurima"],
+    "anivia": ["freljord"],
+    "annie": ["noxus"],
+    "aphelios": ["targon"],
+    "ashe": ["freljord"],
+    "aurelionsol": ["targon"],
+    "aurora": ["freljord"],
+    "azir": ["shurima"],
+    "bard": ["runeterra"],
+    "belveth": ["void"],
+    "blitzcrank": ["zaun"],
+    "brand": ["runeterra"],
+    "braum": ["freljord"],
+    "briar": ["noxus"],
+    "caitlyn": ["piltover"],
+    "camille": ["piltover"],
+    "cassiopeia": ["noxus"],
+    "chogath": ["void"],
+    "corki": ["bandle-city"],
+    "darius": ["noxus"],
+    "diana": ["targon"],
+    "draven": ["noxus"],
+    "drmundo": ["zaun"],
+    "ekko": ["zaun"],
+    "elise": ["shadow-isles"],
+    "evelynn": ["runeterra"],
+    "ezreal": ["piltover"],
+    "fiddlesticks": ["runeterra"],
+    "fiora": ["demacia"],
+    "fizz": ["bilgewater"],
+    "galio": ["demacia"],
+    "gangplank": ["bilgewater"],
+    "garen": ["demacia"],
+    "gnar": ["freljord"],
+    "gragas": ["freljord"],
+    "graves": ["bilgewater"],
+    "gwen": ["shadow-isles"],
+    "hecarim": ["shadow-isles"],
+    "heimerdinger": ["piltover", "bandle-city"],
+    "hwei": ["ionia"],
+    "illaoi": ["bilgewater"],
+    "irelia": ["ionia"],
+    "ivern": ["ionia"],
+    "janna": ["zaun"],
+    "jarvaniv": ["demacia"],
+    "jax": ["icathia"],
+    "jayce": ["piltover"],
+    "jhin": ["ionia"],
+    "jinx": ["zaun"],
+    "kaisa": ["void"],
+    "kalista": ["shadow-isles"],
+    "karma": ["ionia"],
+    "karthus": ["shadow-isles"],
+    "kassadin": ["shurima", "void"],
+    "katarina": ["noxus"],
+    "kayle": ["demacia"],
+    "kayn": ["ionia"],
+    "kennen": ["ionia"],
+    "khazix": ["void"],
+    "kindred": ["runeterra"],
+    "kled": ["noxus"],
+    "kogmaw": ["void"],
+    "ksante": ["shurima"],
+    "leblanc": ["noxus"],
+    "leesin": ["ionia"],
+    "leona": ["targon"],
+    "lillia": ["ionia"],
+    "lissandra": ["freljord"],
+    "lucian": ["demacia", "shadow-isles"],
+    "lulu": ["bandle-city"],
+    "lux": ["demacia"],
+    "malphite": ["ixtal"],
+    "malzahar": ["shurima", "void"],
+    "maokai": ["shadow-isles"],
+    "masteryi": ["ionia"],
+    "mel": ["noxus", "piltover"],
+    "milio": ["ixtal"],
+    "missfortune": ["bilgewater"],
+    "mordekaiser": ["noxus"],
+    "morgana": ["demacia"],
+    "naafiri": ["shurima"],
+    "nami": ["runeterra"],
+    "nasus": ["shurima"],
+    "nautilus": ["bilgewater"],
+    "neeko": ["ixtal"],
+    "nidalee": ["ixtal"],
+    "nilah": ["bilgewater"],
+    "nocturne": ["runeterra"],
+    "nunu": ["freljord"],
+    "olaf": ["freljord"],
+    "orianna": ["piltover"],
+    "ornn": ["freljord"],
+    "pantheon": ["targon"],
+    "poppy": ["demacia", "bandle-city"],
+    "pyke": ["bilgewater"],
+    "qiyana": ["ixtal"],
+    "quinn": ["demacia"],
+    "rakan": ["ionia"],
+    "rammus": ["shurima"],
+    "reksai": ["void"],
+    "rell": ["noxus"],
+    "renata": ["zaun"],
+    "renekton": ["shurima"],
+    "rengar": ["ixtal"],
+    "riven": ["noxus"],
+    "rumble": ["bandle-city"],
+    "ryze": ["runeterra"],
+    "samira": ["noxus", "shurima"],
+    "sejuani": ["freljord"],
+    "senna": ["demacia", "shadow-isles"],
+    "seraphine": ["piltover", "zaun"],
+    "sett": ["ionia"],
+    "shaco": ["runeterra"],
+    "shen": ["ionia"],
+    "shyvana": ["demacia"],
+    "singed": ["zaun"],
+    "sion": ["noxus"],
+    "sivir": ["shurima"],
+    "skarner": ["shurima"],
+    "smolder": ["camavor"],
+    "sona": ["demacia"],
+    "soraka": ["targon"],
+    "swain": ["noxus"],
+    "sylas": ["demacia"],
+    "syndra": ["ionia"],
+    "tahmkench": ["runeterra"],
+    "taliyah": ["shurima"],
+    "talon": ["noxus"],
+    "taric": ["targon"],
+    "teemo": ["bandle-city"],
+    "thresh": ["shadow-isles"],
+    "tristana": ["bandle-city"],
+    "trundle": ["freljord"],
+    "tryndamere": ["freljord"],
+    "twistedfate": ["bilgewater"],
+    "twitch": ["zaun"],
+    "udyr": ["freljord"],
+    "urgot": ["zaun", "noxus"],
+    "varus": ["ionia"],
+    "vayne": ["demacia"],
+    "veigar": ["bandle-city"],
+    "velkoz": ["void"],
+    "vex": ["shadow-isles", "bandle-city"],
+    "vi": ["piltover"],
+    "viego": ["camavor", "shadow-isles"],
+    "viktor": ["zaun"],
+    "vladimir": ["noxus", "camavor"],
+    "volibear": ["freljord"],
+    "warwick": ["zaun"],
+    "monkeyking": ["ionia"],  # CDragon alias は MonkeyKing (Wukong)
+    "xayah": ["ionia"],
+    "xerath": ["shurima"],
+    "xinzhao": ["demacia"],
+    "yasuo": ["ionia"],
+    "yone": ["ionia"],
+    "yorick": ["shadow-isles"],
+    "yuumi": ["bandle-city"],
+    "yunara": ["ionia"],
+    "zaahen": ["shurima", "runeterra"],
+    "zac": ["zaun"],
+    "zed": ["ionia"],
+    "zeri": ["zaun"],
+    "ziggs": ["bandle-city"],
+    "zilean": ["runeterra"],
+    "zoe": ["targon"],
+    "zyra": ["ixtal"],
+}
 
 
 def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
@@ -373,16 +489,23 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
             if detail is not None:
                 details[cid] = detail
 
-    # 地域 (Demacia, Noxus, ...) は CDragon の lol-game-data に無いので universe
-    # から取る。失敗してもここでは止めず、地域情報なしで続行する
-    print("==> universe-meeps から地域 (faction) 情報を取得...", flush=True)
-    universe_default = _cdragon_to_universe_locale("default")
-    champ_regions_map = fetch_universe_champion_regions(universe_default)
-    region_names = _fetch_universe_factions(universe_default)
-    if region_names or champ_regions_map:
-        print(f"    {len(region_names)} factions / {len(champ_regions_map)} 体マッピング", flush=True)
-    else:
-        print("    地域データなし (universe-meeps 取得失敗 or スキーマ不一致)", flush=True)
+    # 地域は CHAMPION_REGIONS / REGION_NAMES に hardcode (universe-meeps が
+    # 永続的に 403 を返すため、外部 fetch なし)
+    print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
+    # 新チャンピオン追加時の漏れ検知。CDragon 側の alias が CHAMPION_REGIONS に
+    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)。
+    # `unmapped_regions.json` を書き出すので update.yml がそれを読んで @claude
+    # 宛て issue を自動起票する (なければ書かない = 後段の hashFiles で no-op)
+    unmapped = sorted(
+        ch.get("alias", "").lower()
+        for ch in champions
+        if ch.get("alias") and ch["alias"].lower() not in CHAMPION_REGIONS
+    )
+    if unmapped:
+        print(f"   [警告] CHAMPION_REGIONS 未登録: {unmapped}", flush=True)
+        (Path(__file__).parent / "unmapped_regions.json").write_text(
+            json.dumps(unmapped), encoding="utf-8"
+        )
 
     out_champs = []
     align_meta: list[tuple[int, str, list]] = []
@@ -415,13 +538,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
         roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
 
-        # universe-meeps の slug は概ね alias.lower() に一致するが、Wukong/MonkeyKing
-        # のように別語のケースがあるので alias と name 両方の正規化で当てに行く
-        regions: list[str] = []
-        for key in (_norm_slug(alias), _norm_slug(name)):
-            if key in champ_regions_map:
-                regions = champ_regions_map[key]
-                break
+        regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
 
         entry = {
             "name": name,
@@ -446,16 +563,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
                 used_line_ids.add(int(lid))
     filtered_lines = {str(lid): skin_lines[lid] for lid in used_line_ids if lid in skin_lines}
 
-    # 同様に、実際にチャンピオンに使われた地域だけを top-level に残す
-    used_region_slugs: set[str] = set()
-    for ch in out_champs:
-        for slug in ch.get("regions") or []:
-            used_region_slugs.add(slug)
-    filtered_regions = {s: region_names[s] for s in used_region_slugs if s in region_names}
-
     print(
         f"==> 完了: {len(out_champs)} チャンピオン, {total} スキン, "
-        f"{len(filtered_lines)} スキンライン, {len(filtered_regions)} 地域",
+        f"{len(filtered_lines)} スキンライン",
         flush=True,
     )
 
@@ -464,7 +574,6 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         "champion_count": len(out_champs),
         "skin_count": total,
         "skin_lines": filtered_lines,  # {"100": "PROJECT", ...}
-        "regions": filtered_regions,   # {"demacia": "Demacia", ...}
         "champions": out_champs,
         # locale 一覧と表示ラベルは data.json に同梱しておく。i18n/<locale>.json は
         # ここに載っている locale だけが切替候補。ブラウザ側はファイルの存在を
@@ -487,10 +596,8 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
-    # 地域名は universe-meeps の locale ファイル経由 (CDragon には無いため)。
-    # champion→region のマッピングは default の build_manifest 側で済ませているので
-    # locale 側は factions/index.json (= slug→翻訳名) だけ取れば十分。
-    regions_map = _fetch_universe_factions(_cdragon_to_universe_locale(locale))
+    # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
+    # i18n ファイルには含めない。index.html 側も state.i18n.regions は参照しない。
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
@@ -534,7 +641,6 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
         "champions": champs_map,
         "skins": skins_map,
         "lines": lines_map,
-        "regions": regions_map,
     }
 
 
