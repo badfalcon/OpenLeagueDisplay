@@ -1532,6 +1532,11 @@ export function skinLabel(c, s) {
   if (s.label.endsWith("_Classic")) return champName(c);
   return state.i18n.skins[SELECT_KEY(c.alias, s.label)] || s.label;
 }
+// スキンの説明文 (lore/flavor)。大半のスキンには無いので空文字を返すケースが多い。
+// 翻訳が無い locale では英語 (data.json の s.desc) にフォールバック
+export function skinDescription(c, s) {
+  return state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc || "";
+}
 export function lineName(lid) {
   return state.i18n.lines[String(lid)] || (DATA && DATA.skin_lines || {})[String(lid)] || `Line ${lid}`;
 }
@@ -1560,7 +1565,7 @@ export function pickInitialLocale(available) {
 export async function loadLocale(code) {
   if (code === "default") {
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
     return;
   }
   try {
@@ -1571,12 +1576,13 @@ export async function loadLocale(code) {
     state.i18n = {
       champions: json.champions || {},
       skins: json.skins || {},
+      skin_descriptions: json.skin_descriptions || {},
       lines: json.lines || {},
     };
   } catch (e) {
     // i18n ファイルが無い/壊れている時は静かに英語にフォールバック。UI は動く
     console.warn(`i18n: ${code} の読み込み失敗、英語にフォールバック`, e);
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
   }
 }

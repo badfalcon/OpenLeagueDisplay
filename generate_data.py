@@ -414,6 +414,13 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     if isinstance(rarity, str) and rarity in KNOWN_RARITIES:
         entry["rarity"] = rarity[1:]
 
+    # スキンの説明文 (ライトボックスでだけ使う lore/flavor text)。
+    # 大半の skin/quest tier には null だが、Legendary/Ultimate や questSkinInfo
+    # の各ティアには短い説明が入っていることがある。空文字は落とす。
+    desc = skin_obj.get("description")
+    if isinstance(desc, str) and desc.strip():
+        entry["desc"] = desc.strip()
+
     # 画像URLが1つも無い場合はスキップ
     if "splash" not in entry:
         return []
@@ -521,12 +528,14 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         # スキン entry を作りつつ、同じ path 情報を i18n 用に控える。
         # collect_skins_from_skin_obj が画像URL不在で空リストを返した場合は
         # entry にも入らないし path にも残さない (browser 側で参照されない)。
-        paths_for_locale: list[tuple[tuple[int, int | None], str]] = []
+        # 3要素目に英語版 description を持たせて locale 取得時の「未訳=英語と同じ」
+        # 判定に使う (英語と同じ説明文を locale ファイルに重複して書かないため)。
+        paths_for_locale: list[tuple[tuple[int, int | None], str, str | None]] = []
         for path, skin_obj in _walk_skins_with_index(detail):
             made = collect_skins_from_skin_obj(alias, skin_obj)
             if made:
                 skin_entries.extend(made)
-                paths_for_locale.append((path, made[0]["label"]))
+                paths_for_locale.append((path, made[0]["label"], made[0].get("desc")))
 
         if not skin_entries:
             continue
@@ -604,6 +613,10 @@ def build_locale_index(
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/{locale}/v1"
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
+    # スキンの説明文 (lore/flavor) の翻訳。default ファイル側に存在する説明文と
+    # 文字列一致した場合は「未訳」扱いで省略 — ブラウザは data.json 側の英語に
+    # 自動フォールバックするので i18n ファイルが小さくなる
+    skin_descs_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
     # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
     # i18n ファイルには含めない。index.html 側も state.i18n.regions は参照しない。
@@ -632,18 +645,27 @@ def build_locale_index(
             if cname:
                 champs_map[alias] = cname
             skins_arr = d.get("skins", []) or []
-            for (top_idx, q_idx), english_label in paths:
+            for (top_idx, q_idx), english_label, english_desc in paths:
                 try:
                     obj = skins_arr[top_idx]
                     if q_idx is not None:
                         obj = (obj.get("questSkinInfo") or {}).get("tiers", [])[q_idx]
-                    local_name = obj.get("name") if isinstance(obj, dict) else None
                 except (IndexError, AttributeError, TypeError, KeyError):
                     continue
+                if not isinstance(obj, dict):
+                    continue
+                local_name = obj.get("name")
                 if local_name and local_name != english_label:
                     # english_label と一致するなら locale でも英語のまま (= 未訳)。
                     # この場合エントリを省略すれば i18n ファイルが小さくなる
                     skins_map[f"{alias}//{english_label}"] = local_name
+                local_desc = obj.get("description")
+                if (
+                    isinstance(local_desc, str)
+                    and local_desc.strip()
+                    and local_desc.strip() != (english_desc or "")
+                ):
+                    skin_descs_map[f"{alias}//{english_label}"] = local_desc.strip()
 
     if fail:
         print(f"   [警告] {locale}: {fail} 体の champion JSON 取得に失敗", flush=True)
@@ -651,6 +673,7 @@ def build_locale_index(
         "locale": locale,
         "champions": champs_map,
         "skins": skins_map,
+        "skin_descriptions": skin_descs_map,
         "lines": lines_map,
     }
 
@@ -708,7 +731,8 @@ def main() -> int:
             kb = fp.stat().st_size / 1024
             print(
                 f"   {fp.name} ({kb:.1f} KB): "
-                f"champ {len(idx['champions'])} / skin {len(idx['skins'])} / line {len(idx['lines'])}",
+                f"champ {len(idx['champions'])} / skin {len(idx['skins'])} / "
+                f"desc {len(idx['skin_descriptions'])} / line {len(idx['lines'])}",
                 flush=True,
             )
     return 0
