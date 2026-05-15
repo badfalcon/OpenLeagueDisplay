@@ -585,12 +585,21 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     return manifest, align_meta
 
 
-def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> dict:
+def build_locale_index(
+    locale: str,
+    align_meta: list[tuple[int, str, list]],
+    keep_line_ids: set[str] | None = None,
+) -> dict:
     """1 locale ぶんの { champions, skins, lines } 辞書を作る。
 
     各 champion JSON を取得して、default パス情報 (align_meta) と同じ index で
     skins[] / questSkinInfo.tiers[] を辿り、locale の name だけ拾う。失敗は静かに
     スキップして可能な範囲で辞書を返す (ブラウザ側は欠損キーを default 名で表示)。
+
+    `keep_line_ids` が渡された場合、`skinlines.json` のうちその ID 集合に含まれる
+    エントリだけを残す。CDragon の locale 別 `skinlines.json` は default より
+    多くのライン (どの実在スキンからも参照されていない孤児) を返すことがあり、
+    data.json 側の `skin_lines` と件数が食い違う原因になる。
     """
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/{locale}/v1"
     champs_map: dict[str, str] = {}
@@ -601,6 +610,8 @@ def build_locale_index(locale: str, align_meta: list[tuple[int, str, list]]) -> 
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
+        if keep_line_ids is not None:
+            lines_map = {k: v for k, v in lines_map.items() if k in keep_line_ids}
     except Exception as e:
         print(f"   [警告] {locale} skinlines.json 失敗: {e}", flush=True)
 
@@ -679,10 +690,13 @@ def main() -> int:
     target_locales = LOCALES if locales_filter is None else [l for l in LOCALES if l in locales_filter]
     if target_locales:
         i18n_dir.mkdir(parents=True, exist_ok=True)
+        # data.json 側で実際に使われているライン ID 集合。locale 別 skinlines.json
+        # にはこれ以外の孤児エントリも混ざるので、ここに無い ID は捨てる
+        keep_line_ids = set(manifest.get("skin_lines", {}).keys())
         for li, locale in enumerate(target_locales, 1):
             print(f"==> [{li}/{len(target_locales)}] {locale} を生成中...", flush=True)
             try:
-                idx = build_locale_index(locale, align_meta)
+                idx = build_locale_index(locale, align_meta, keep_line_ids=keep_line_ids)
             except Exception as e:
                 print(f"   [警告] {locale} 全体失敗: {e}", flush=True)
                 continue
