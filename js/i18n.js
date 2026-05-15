@@ -1443,8 +1443,8 @@ export const REGION_LABELS = {
   es_es: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Jonia", "piltover": "Piltóver",
     "zaun": "Zaun", "bilgewater": "Aguasturbias", "bandle-city": "Ciudad de Bandle",
-    "freljord": "Fréljord", "shadow-isles": "Islas de las Sombras", "shurima": "Shurima",
-    "targon": "Monte Targon", "ixtal": "Ixtal", "void": "Vacío", "runeterra": "Runaterra",
+    "freljord": "Fréljord", "shadow-isles": "Islas de la Sombra", "shurima": "Shurima",
+    "targon": "Monte Targón", "ixtal": "Ixtal", "void": "Vacío", "runeterra": "Runaterra",
     "camavor": "Camavor", "icathia": "Icathia",
   },
   pt_br: {
