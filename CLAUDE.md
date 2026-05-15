@@ -147,7 +147,9 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 
 - [x] ~~コレクション別フィルタ (PROJECT, Star Guardian 等)~~ → スキンラインビューで対応
 - [x] ~~お気に入り機能~~ → 選択モード + ZIPまとめDLで実用上カバー
-- [ ] OGP/Twitter Card メタタグ追加 (シェア時のサムネ) ※テキストのみ済、画像は未
+- [x] ~~OGP/Twitter Card メタタグ追加 (シェア時のサムネ)~~ → `ogp.png`
+  (1200x630 ブランドカード) を追加、`twitter:card` を `summary_large_image`
+  に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
 - [ ] PWAマニフェスト追加してスマホでホーム画面追加可能に
 - [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
