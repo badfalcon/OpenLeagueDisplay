@@ -2,7 +2,7 @@
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
 import { state, $, SKIN_BY_KEY, DATA } from "./state.js";
-import { t, champName, skinLabel } from "./i18n.js";
+import { t, champName, skinLabel, skinDescription } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -10,7 +10,7 @@ function buildSelectedList() {
   for (const k of state.selected) {
     const hit = SKIN_BY_KEY.get(k);
     if (hit && hit.s.splash) {
-      list.push({ champ: champName(hit.c), skin: skinLabel(hit.c, hit.s), src: hit.s.splash });
+      list.push({ champ: champName(hit.c), skin: skinLabel(hit.c, hit.s), src: hit.s.splash, desc: skinDescription(hit.c, hit.s) });
     }
   }
   return list;
@@ -83,6 +83,13 @@ function updateMeta() {
   if (!item) return;
   $("lb-champ").textContent = item.champ;
   $("lb-skin").textContent = item.skin;
+  // 説明文はめったに付いていないので、無いときは要素ごと畳む (CSS でなく hidden 属性で)
+  const descEl = $("lb-desc");
+  if (descEl) {
+    const desc = item.desc || "";
+    descEl.textContent = desc;
+    descEl.hidden = !desc;
+  }
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
 }
 function showCurrent() {

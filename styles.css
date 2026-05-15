@@ -695,6 +695,19 @@
     letter-spacing: -0.015em; line-height: 1.0;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
   }
+  /* description を持つスキンはごく少数 (Legendary/Ultimate や questSkinInfo の
+     一部のみ)。本文サイズで読みやすい幅にクランプし、長文でも崩れないよう
+     2行程度を想定した line-height にしておく */
+  .lb-desc {
+    margin-top: 14px;
+    max-width: min(720px, 70vw);
+    font-family: var(--font-body);
+    font-size: clamp(13px, 1.05vw, 15px);
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.55;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.75);
+  }
   .lb-champ {
     font-family: var(--font-eyebrow);
     font-size: 11px; font-weight: 500;
@@ -1293,6 +1306,7 @@
     .lb-overlay { padding: 56px 16px 18px; }
     .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
     .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
+    .lb-desc    { margin-top: 10px; max-width: 92vw; font-size: 13px; line-height: 1.5; }
     .lb-close, .lb-nav { width: 48px; height: 48px; font-size: 24px; }
     .lb-close   { top: var(--safe-top); right: 12px; }
     .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }

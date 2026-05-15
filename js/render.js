@@ -9,7 +9,7 @@ import {
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
-  champName, skinLabel, lineName,
+  champName, skinLabel, skinDescription, lineName,
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox } from "./lightbox.js";
@@ -256,7 +256,7 @@ function wireChampCards(root) {
 // 検索結果のスキンタイル: クリックでライトボックスを開く (lines view と同じ流儀)。
 // 選択モード時は当該スキンだけを toggle (チャンピオン一括ではなく per-skin)
 function wireSearchSkinCards(root, matches) {
-  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash }));
+  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
   root.querySelectorAll(".skin-grid.is-flat .skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
@@ -383,7 +383,7 @@ function renderLine(root) {
     primaryClick: () => downloadLine(lid, lname, items),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash }));
+  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, desc: skinDescription(it.champ, it.skin) }));
   $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
@@ -468,7 +468,7 @@ export function openLines() {
 }
 
 function buildChampList(c) {
-  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash }));
+  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
 }
 
 export function openChampion(alias) {
