@@ -25,12 +25,22 @@
 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
+<!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
+     できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
+     summary_large_image の推奨比 1.91:1)、リポジトリ直下の静的アセット。
+     差し替え時は og:image:width/height も合わせること -->
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://badfalcon.github.io/OpenLeagueDisplay/">
 <meta property="og:title" content="OpenLeagueDisplay">
 <meta property="og:description" content="Static splash viewer aiming to replace LeagueDisplays. Download by champion / skin line / selection as ZIP.">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenLeagueDisplay — splash viewer for every League of Legends champion and skin">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="OpenLeagueDisplay">
 <meta name="twitter:description" content="Static splash viewer aiming to replace LeagueDisplays">
+<meta name="twitter:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
 <title>OpenLeagueDisplay</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
