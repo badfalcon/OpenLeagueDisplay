@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- maskable 用: favicon.svg の L を中央 ~60% に縮めて safe zone に収め、
+       背景は角丸無しの全面塗り (OS 側が円/角丸に切り抜く前提) -->
+  <rect width="64" height="64" fill="#07060b"/>
+  <g transform="translate(32,32) scale(0.62) translate(-31,-35)">
+    <path d="M20 12 L20 52 L48 52"
+          fill="none" stroke="#d4a857" stroke-width="7"
+          stroke-linecap="square" stroke-linejoin="miter"/>
+    <line x1="14" y1="12" x2="26" y2="12" stroke="#d4a857" stroke-width="3"/>
+    <line x1="48" y1="46" x2="48" y2="58" stroke="#d4a857" stroke-width="3"/>
+  </g>
+</svg>

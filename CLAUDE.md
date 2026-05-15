@@ -18,6 +18,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ```
 .
 ├── index.html                       # マークアップ本体 (styles.css と js/app.js を読み込む、~7KB)
+├── manifest.webmanifest             # PWA マニフェスト (ホーム画面追加 / インストール用)
+├── favicon.svg                      # サイトアイコン (manifest の purpose:any アイコンも兼ねる)
+├── icon-maskable.svg                # PWA maskable アイコン (L を safe zone に縮めた版)
 ├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
 ├── js/                              # ES Modules
 │   ├── app.js                       #   エントリ: data.json fetch + イベント配線
@@ -148,7 +151,9 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~コレクション別フィルタ (PROJECT, Star Guardian 等)~~ → スキンラインビューで対応
 - [x] ~~お気に入り機能~~ → 選択モード + ZIPまとめDLで実用上カバー
 - [ ] OGP/Twitter Card メタタグ追加 (シェア時のサムネ) ※テキストのみ済、画像は未
-- [ ] PWAマニフェスト追加してスマホでホーム画面追加可能に
+- [x] ~~PWAマニフェスト追加してスマホでホーム画面追加可能に~~ → `manifest.webmanifest` +
+  `icon-maskable.svg` で実装済み。アイコンは SVG (リポジトリにバイナリを置かない方針)。
+  Service Worker は未導入なのでオフライン動作は無し (ホーム画面追加は SW 無しでも可)
 - [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)

@@ -22,8 +22,9 @@
     body::after ノイズ) を表示するために必要。blob: は生成していないので付けない。
     CDragon + 国旗 CDN を外部画像として許可
   - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self
+  - manifest-src: PWA の manifest.webmanifest は同一オリジン
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="OpenLeagueDisplay">
@@ -33,6 +34,15 @@
 <meta name="twitter:description" content="Static splash viewer aiming to replace LeagueDisplays">
 <title>OpenLeagueDisplay</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- PWA: ホーム画面追加 / インストール用。アイコンは SVG (リポジトリにバイナリを
+     置かない方針を維持)。theme-color はサイトの --bg に揃える。
+     apple-* メタは iOS の standalone 表示と非透過ステータスバー指定用 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#07060b">
+<link rel="apple-touch-icon" href="favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OpenLeague">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://raw.communitydragon.org">

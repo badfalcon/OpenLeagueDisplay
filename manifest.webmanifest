@@ -1,0 +1,36 @@
+{
+  "name": "OpenLeagueDisplay",
+  "short_name": "OpenLeague",
+  "description": "A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07060b",
+  "theme_color": "#07060b",
+  "categories": ["entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot.png",
+      "type": "image/png",
+      "sizes": "1111x818",
+      "form_factor": "wide"
+    }
+  ]
+}
