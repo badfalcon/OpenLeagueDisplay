@@ -265,6 +265,19 @@
   }
   .btn:hover { background: rgba(212, 168, 87, 0.10); border-color: var(--gold); color: var(--gold-hi); }
   .btn:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
+  /* アイコン専用の正方形ボタン (現状はヘッダの ? のみ)。長ラベル locale でも
+     場所を取らないよう正方形に固定し、文字は Cinzel ではなく Fraunces で
+     「?」のグリフを大きく出す */
+  .btn-icon {
+    width: var(--ctrl-h);
+    min-width: var(--ctrl-h);
+    padding: 0;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-style: italic;
+    font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
+    letter-spacing: 0;
+  }
   /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
      author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
      (#primary-action を home/lines で消すのに必要) */
@@ -1045,6 +1058,103 @@
   }
   .progress-actions { margin-top: 22px; }
 
+  /* === TUTORIAL OVERLAY ===========================================
+     初回訪問時の 3 ステップ onboarding モーダル。progress-overlay と同じ
+     clip-path フレームを踏襲し、世界観 (黒紫 × ゴールド) を保つ。
+     z-index は lightbox (100) より上、progress-overlay (200) より下。
+     チュートリアル中にユーザーが DL を開始することは想定しないので競合は無い */
+  body.tutorial-open { overflow: hidden; }
+  .tutorial-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(7, 6, 11, 0.88);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .tutorial-overlay.open {
+    display: flex;
+    animation: fadeIn 0.35s ease;
+  }
+  .tutorial-box {
+    width: 100%;
+    max-width: 560px;
+    padding: 40px 44px 28px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold);
+    position: relative;
+    clip-path: polygon(
+      16px 0%, calc(100% - 16px) 0%,
+      100% 16px, 100% calc(100% - 16px),
+      calc(100% - 16px) 100%, 16px 100%,
+      0% calc(100% - 16px), 0% 16px
+    );
+  }
+  .tut-step-counter {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .tut-title {
+    margin: 0 0 18px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
+    font-size: 38px;
+    font-weight: 400;
+    color: var(--gold-hi);
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+  }
+  .tut-body {
+    font-family: var(--font-body);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+    margin-bottom: 26px;
+    /* ステップ間で高さが揺れるのを抑える。最も多い ja_jp/ko_kr/ru_ru の本文
+       (6 行前後 × line-height 1.7) を吸収する 11.5em で固定 */
+    min-height: 11.5em;
+  }
+  .tut-body strong { color: var(--gold-hi); font-weight: 600; }
+  .tut-body em { color: var(--gold); font-style: italic; }
+  .tut-body code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--gold-hi);
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    padding: 1px 6px;
+    margin: 0 2px;
+    letter-spacing: 0;
+  }
+  .tut-dots {
+    display: flex; gap: 8px; justify-content: center;
+    margin: 0 0 22px;
+  }
+  .tut-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--ink-mute);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .tut-dot.active {
+    background: var(--gold);
+    transform: scale(1.35);
+  }
+  .tut-actions {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px;
+  }
+  .tut-nav { display: flex; gap: 10px; }
+  .tutorial-box .btn:disabled {
+    /* 最初のステップで Back を出しっぱなしにしつつ無効化。グレーで存在感を残す */
+    opacity: 0.35;
+  }
+
   /* === RESPONSIVE ================================================= */
   /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
      champ-header の controls スロットを row 2 に落とす。h2 と controls が
@@ -1216,6 +1326,14 @@
     .progress-box h3   { font-size: 19px; }
     .progress-box .desc { font-size: 11.5px; }
     .progress-stats     { font-size: 10px; letter-spacing: 0.12em; }
+
+    /* チュートリアル: 320-430px でも本文と操作行が収まる詰めへ */
+    .tutorial-overlay { padding: 12px; }
+    .tutorial-box { padding: 26px 22px 20px; }
+    .tut-title { font-size: 26px; margin-bottom: 14px; }
+    .tut-body  { font-size: 13px; line-height: 1.65; min-height: 13em; margin-bottom: 20px; }
+    .tut-actions .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
+    .tut-nav { gap: 6px; }
   }
 
   /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため

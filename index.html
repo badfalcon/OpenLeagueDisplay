@@ -69,6 +69,7 @@
     <div class="header-actions">
       <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
       <button class="btn" id="slideshow-btn">Slideshow</button>
+      <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
     </div>
     <div class="lang-picker" id="lang-picker">
       <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
@@ -132,6 +133,24 @@
   </div>
   <div class="slideshow-controls" id="ss-controls">
     <button class="ss-btn" id="ss-pause">⏸ Pause</button>
+  </div>
+</div>
+
+<!-- tutorial overlay: 初回訪問時に自動表示 / ヘッダ ? ボタンと ? キーから再表示。
+     本文は tutorial.js が i18n テーブルから innerHTML で流す (信頼済み文字列のみ) -->
+<div class="tutorial-overlay" id="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tut-title" aria-hidden="true">
+  <div class="tutorial-box">
+    <div class="tut-step-counter" id="tut-step-counter"></div>
+    <h2 class="tut-title" id="tut-title"></h2>
+    <div class="tut-body" id="tut-body"></div>
+    <div class="tut-dots" id="tut-dots" aria-hidden="true"></div>
+    <div class="tut-actions">
+      <button class="btn" id="tut-skip" type="button">Skip</button>
+      <div class="tut-nav">
+        <button class="btn" id="tut-back" type="button">Back</button>
+        <button class="btn primary" id="tut-next" type="button">Next</button>
+      </div>
+    </div>
   </div>
 </div>
 

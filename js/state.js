@@ -35,6 +35,9 @@ export const state = {
     timer: null, interval: 7000, paused: false, frontIsA: true,
     seq: 0, lastFocus: null,
   },
+  // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた
+  // 要素 (閉じた時に戻すため)。state.lb と同じ形に揃える
+  tut: { step: 1, lastFocus: null },
 };
 
 export const SELECT_KEY = (alias, label) => `${alias}//${label}`;
@@ -44,6 +47,9 @@ export const SELECT_KEY = (alias, label) => `${alias}//${label}`;
 export const LS_SELECTED_KEY = "old.selected";
 export const LS_LOCALE_KEY = "old.locale";
 export const LS_SORT_KEY = "old.sort";
+// 初回訪問チュートリアルの既読フラグ。値は "1" (見せたら立てる) で、未設定なら未読扱い。
+// ヘッダの ? ボタン / ? キーから再表示する場合はこのフラグを変更しない (既読のまま)
+export const LS_TUTORIAL_KEY = "old.tutorial.seen";
 
 // QuotaExceeded / プライベートブラウジング / 読み込み専用環境では落ちることがあるので
 // 失敗は無視して fallback を返す best-effort 永続化

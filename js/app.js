@@ -25,6 +25,10 @@ import {
   closeLightbox, nextSlide, prevSlide, scheduleNext,
   startSlideshow, stopSlideshow, startGlobalSlideshow,
 } from "./lightbox.js";
+import {
+  openTutorial, closeTutorial, tutNext, tutPrev,
+  renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
+} from "./tutorial.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -119,6 +123,9 @@ async function init() {
   }
 
   render();
+
+  // 初回訪問なら少し遅らせてチュートリアルを自動表示 (UI フェードイン後)
+  maybeAutoOpenTutorial();
 }
 
 function wireEvents() {
@@ -133,6 +140,13 @@ function wireEvents() {
     $("select-toggle").classList.toggle("primary", state.selectMode);
     $("select-toggle").textContent = state.selectMode ? t("select_mode_on") : t("select_mode");
     render();
+  });
+  $("help-btn").addEventListener("click", openTutorial);
+  $("tut-skip").addEventListener("click", closeTutorial);
+  $("tut-next").addEventListener("click", tutNext);
+  $("tut-back").addEventListener("click", tutPrev);
+  $("tutorial-overlay").addEventListener("click", (e) => {
+    if (e.target === $("tutorial-overlay")) closeTutorial();
   });
   $("lang-btn").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -156,6 +170,8 @@ function wireEvents() {
     setLangButton(state.locale);
     // UI chrome (ボタン/プレースホルダ/aria) も locale 切替に追従させる
     applyStaticUIStrings();
+    // チュートリアルが開きっぱなしの時は本文も新 locale で塗り直す
+    if (isTutorialOpen()) renderTutorial();
     render();
   });
   // メニュー外クリック / Escape で閉じる
@@ -226,6 +242,13 @@ function wireEvents() {
   }, { passive: true });
 
   document.addEventListener("keydown", (e) => {
+    // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)
+    if (isTutorialOpen()) {
+      if (e.key === "Escape") closeTutorial();
+      else if (e.key === "ArrowRight" || e.key === "Enter") tutNext();
+      else if (e.key === "ArrowLeft") tutPrev();
+      return;
+    }
     // 進捗オーバーレイ表示中はEsc=中止のみ受け付ける
     if ($("progress-overlay").classList.contains("open")) {
       if (e.key === "Escape") { state.packAbort = true; hideProgress(); }
@@ -233,6 +256,12 @@ function wireEvents() {
     }
     if (!$("lightbox").classList.contains("open")) {
       if (e.key === "Escape" && state.view !== "home") goBack();
+      // ? (Shift+/) でいつでもチュートリアル再表示。検索 input にフォーカス中は
+      // 文字入力として ? を打ちたいケースが想定されるので無効化
+      else if (e.key === "?" && document.activeElement !== $("search")) {
+        e.preventDefault();
+        openTutorial();
+      }
       return;
     }
     if (e.key === "Escape") closeLightbox();
