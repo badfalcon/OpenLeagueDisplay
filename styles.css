@@ -1175,6 +1175,25 @@
     opacity: 0.35;
   }
 
+  /* === OFFLINE BANNER ==============================================
+     オフライン時に画面下部へ出す告知ピル。app.js が online/offline
+     イベントで hidden 属性をトグルする。z-index は topbar (30) より上、
+     lightbox (100) より下 — オフラインでもライトボックス操作は妨げない */
+  .offline-banner {
+    position: fixed; z-index: 90;
+    left: 50%; bottom: 16px; transform: translateX(-50%);
+    max-width: calc(100vw - 32px);
+    padding: 9px 18px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold-deep);
+    border-radius: 999px;
+    color: var(--ink-soft);
+    font-size: 13px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  }
+  .offline-banner[hidden] { display: none; }
+
   /* === RESPONSIVE ================================================= */
   /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
      champ-header の controls スロットを row 2 に落とす。h2 と controls が

@@ -167,6 +167,14 @@
   </div>
 </div>
 
+<!-- オフライン検知バナー: navigator.onLine と online/offline イベントで開閉。
+     CDragon のスプラッシュ画像はキャッシュ対象外なので、オフラインでは画像が
+     出ない。「壊れている」ように見えないよう理由を明示する。
+     文言は applyStaticUIStrings() が i18n テーブルから流す -->
+<div class="offline-banner" id="offline-banner" role="status" aria-live="polite" hidden>
+  <span id="offline-banner-text">You are offline — splash images may not load.</span>
+</div>
+
 <footer>
   <div class="footer-inner">
     <div class="footer-attribution">

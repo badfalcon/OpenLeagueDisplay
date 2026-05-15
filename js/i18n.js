@@ -56,6 +56,7 @@ export const UI_STRINGS = {
     ss_pause: "⏸ Pause",
     ss_resume: "▶ Resume",
     jszip_load_failed: "Failed to load JSZip CDN (10s).",
+    offline_banner: "You are offline — splash images may not load.",
     slideshow_empty: "Add skins to My Gallery first to use the slideshow.",
     sort_aria: "Sort order",
     sort_default: "Default",
@@ -122,6 +123,7 @@ export const UI_STRINGS = {
     ss_pause: "⏸ 一時停止",
     ss_resume: "▶ 再開",
     jszip_load_failed: "JSZip CDN の読込に失敗しました (10秒)",
+    offline_banner: "オフラインです — スプラッシュ画像は表示されないことがあります",
     slideshow_empty: "先にマイギャラリーにスキンを追加してください",
     sort_aria: "並び順",
     sort_default: "デフォルト",
@@ -188,6 +190,7 @@ export const UI_STRINGS = {
     ss_pause: "⏸ 일시정지",
     ss_resume: "▶ 재개",
     jszip_load_failed: "JSZip CDN 로드 실패 (10초).",
+    offline_banner: "오프라인 상태입니다 — 스플래시 이미지가 표시되지 않을 수 있습니다",
     slideshow_empty: "먼저 마이 갤러리에 스킨을 추가해 주세요.",
     sort_aria: "정렬 순서",
     sort_default: "기본",
@@ -254,6 +257,7 @@ export const UI_STRINGS = {
     ss_pause: "⏸ 暂停",
     ss_resume: "▶ 继续",
     jszip_load_failed: "JSZip CDN 加载失败 (10秒)。",
+    offline_banner: "您已离线 — 原画图片可能无法加载",
     slideshow_empty: "请先将皮肤添加到我的画廊。",
     sort_aria: "排序方式",
     sort_default: "默认",
@@ -1512,6 +1516,8 @@ export function applyStaticUIStrings() {
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
+  const offText = $("offline-banner-text");
+  if (offText) offText.textContent = t("offline_banner");
   if ($("lightbox").classList.contains("open")) {
     $("lb-mode").textContent = state.lb.mode === "slideshow" ? t("mode_slideshow") : t("mode_viewer");
   }

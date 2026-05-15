@@ -224,6 +224,14 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
+  // オフライン検知: CDragon のスプラッシュ画像はキャッシュ対象外なので、
+  // オフラインだと画像が一斉に出ない。「壊れている」誤解を避けるため理由を告知する
+  const offlineBanner = $("offline-banner");
+  const syncOnlineState = () => { offlineBanner.hidden = navigator.onLine; };
+  window.addEventListener("online", syncOnlineState);
+  window.addEventListener("offline", syncOnlineState);
+  syncOnlineState();
+
   // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
   let tStartX = 0, tStartY = 0;
   const lbEl = $("lightbox");
