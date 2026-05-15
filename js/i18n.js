@@ -1419,6 +1419,48 @@ export const REGION_LABELS = {
     "targon": "塔贡", "ixtal": "伊克斯塔尔", "void": "虚空", "runeterra": "符文之地",
     "camavor": "卡玛弗", "icathia": "伊卡西亚",
   },
+  zh_tw: {
+    "demacia": "德瑪西亞", "noxus": "諾克薩斯", "ionia": "愛歐尼亞", "piltover": "皮爾托福",
+    "zaun": "佐恩", "bilgewater": "比爾吉沃特", "bandle-city": "班德爾城",
+    "freljord": "符雷爾約德", "shadow-isles": "暗影島嶼", "shurima": "蘇瑞瑪",
+    "targon": "鈦坦山", "ixtal": "伊薩萊", "void": "虛空", "runeterra": "符文大陸",
+    "camavor": "卡瑪佛", "icathia": "伊卡西亞",
+  },
+  fr_fr: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Îles Obscures", "shurima": "Shurima",
+    "targon": "Mont Targon", "ixtal": "Ixtal", "void": "Néant", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  de_de: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Schatteninseln", "shurima": "Shurima",
+    "targon": "Targon", "ixtal": "Ixtal", "void": "Leere", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  es_es: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Aguasturbias", "bandle-city": "Ciudad de Bandle",
+    "freljord": "Aguasestancadas", "shadow-isles": "Islas de las Sombras", "shurima": "Shurima",
+    "targon": "Monte Targon", "ixtal": "Ixtal", "void": "Vacío", "runeterra": "Runaterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  pt_br: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Cidade de Bandle",
+    "freljord": "Freljord", "shadow-isles": "Ilhas das Sombras", "shurima": "Shurima",
+    "targon": "Monte Targon", "ixtal": "Ixtal", "void": "Vazio", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  ru_ru: {
+    "demacia": "Демасия", "noxus": "Ноксус", "ionia": "Иония", "piltover": "Пилтовер",
+    "zaun": "Заун", "bilgewater": "Бильджвотер", "bandle-city": "Бандл-Сити",
+    "freljord": "Фрельйорд", "shadow-isles": "Сумрачные острова", "shurima": "Шурима",
+    "targon": "Гора Таргон", "ixtal": "Икстал", "void": "Бездна", "runeterra": "Рунтерра",
+    "camavor": "Камавор", "icathia": "Икатия",
+  },
 };
 
 // locale コード ("ja_jp", "default" 等) から国旗 SVG の URL を返す。
