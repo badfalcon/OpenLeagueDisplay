@@ -850,22 +850,11 @@
   @media (max-width: 780px) {
     body.select-mode { padding-bottom: 76px; }
   }
-  /* pack-bar: 2行 grid。row1 = count + actions、row2 = hint 全幅。
-     旧 flex 1行構成は CJK の hint が縦長スリットに潰されたので row 分割した。
-     row1 のレイアウト = "count | 1fr spacer | clear | dl"、row2 は hint を 4 列スパン。
-     狭幅 (≤780px) では hint を hide → grid auto rows なので 1 行に縮む */
   .pack-bar {
     position: fixed; left: 50%; bottom: 28px;
     transform: translateX(-50%);
     z-index: 25;
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    grid-template-areas:
-      "count .    clear dl"
-      "hint  hint hint  hint";
-    column-gap: 14px;
-    row-gap: 8px;
-    align-items: center;
+    display: flex; gap: 14px; align-items: center;
     padding: 14px 16px 14px 24px;
     background: rgba(12, 11, 20, 0.92);
     backdrop-filter: blur(20px) saturate(150%);
@@ -876,13 +865,13 @@
       0 0 0 4px rgba(212, 168, 87, 0.06);
     animation: packIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     max-width: calc(100vw - 32px);
+    flex-wrap: nowrap;
   }
   @keyframes packIn {
     from { opacity: 0; transform: translate(-50%, 24px); }
     to   { opacity: 1; transform: translate(-50%, 0); }
   }
   .pack-bar .count {
-    grid-area: count;
     font-family: var(--font-display);
     font-style: italic;
     font-variation-settings: "opsz" 18, "SOFT" 70, "wght" 500;
@@ -894,22 +883,9 @@
     padding-right: 18px;
     margin-right: 4px;
   }
-  /* row2 全幅で表示するので max-width 制約不要。中央寄せで pack-bar の
-     対称感を保つ。CJK でも 1 行で収まる長さに調整済み */
-  .pack-bar .hint {
-    grid-area: hint;
-    color: var(--ink-soft);
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    line-height: 1.45;
-    text-align: center;
-  }
-  .pack-bar #pack-clear { grid-area: clear; }
-  .pack-bar #pack-dl    { grid-area: dl; }
   @media (max-width: 780px) {
-    .pack-bar .hint { display: none; }
     .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
-    .pack-bar .count { font-size: 15px; padding-right: 14px; margin-right: 0; }
+    .pack-bar .count { font-size: 15px; padding-right: 14px; }
   }
 
   /* === SKIN LINES GRID ============================================ */
