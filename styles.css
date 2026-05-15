@@ -783,7 +783,14 @@
   .footer-inner {
     max-width: var(--container-max);
     margin: 0 auto;
+    display: flex; flex-direction: column; gap: 10px;
   }
+  /* footer-attribution は CDragon/Riot の出典 (主) で、footer-credits はプロジェクト
+     作者表記 (従)。意図的に作者表記を下段かつ一段薄くしてある。
+     `@badfalcon` 等の固有表記が footer 全体の uppercase / letter-spacing で
+     崩れないよう、credits 内のリンクだけ通常字形に戻す */
+  .footer-credits { opacity: 0.75; }
+  .footer-credits a { text-transform: none; letter-spacing: 0.04em; }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;
