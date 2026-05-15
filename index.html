@@ -49,7 +49,8 @@
 <body>
 
 <!-- topbar: brand + ナビ (view-tabs) + アクション (select / slideshow) + lang を
-     1 行にまとめた sticky バー。広い PC 幅では brand と lang の間に余裕があるので、
+     1 行にまとめた sticky バー (アクション = My Gallery トグル / Slideshow)。
+     広い PC 幅では brand と lang の間に余裕があるので、
      旧 content-toolbar 行は champ-header に降ろした。
      検索バー / 戻るボタン / ソートは下の dom-stash に置き、render() で
      .champ-header-controls スロットへ transplant する -->
@@ -66,7 +67,7 @@
       <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
     </div>
     <div class="header-actions">
-      <button class="btn" id="select-toggle" aria-label="Select">Select</button>
+      <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
       <button class="btn" id="slideshow-btn">Slideshow</button>
     </div>
     <div class="lang-picker" id="lang-picker">

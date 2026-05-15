@@ -404,7 +404,6 @@ function renderPackBar() {
   const html = `
     <div class="pack-bar" id="pack-bar">
       <span class="count">${t("selected_count", state.selected.size)}</span>
-      <span class="hint">${t("select_hint")}</span>
       <button class="btn" id="pack-clear">${t("clear")}</button>
       <button class="btn primary" id="pack-dl">${t("dl_selected")}</button>
     </div>`;

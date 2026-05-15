@@ -898,26 +898,13 @@
     font-size: 17px;
     letter-spacing: 0;
     white-space: nowrap;
-    padding-right: 4px;
     border-right: 1px solid var(--rule);
-    margin-right: 10px;
     padding-right: 18px;
-  }
-  .pack-bar .hint {
-    color: var(--ink-soft);
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    max-width: 380px; line-height: 1.45;
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    margin-right: 4px;
   }
   @media (max-width: 780px) {
-    .pack-bar .hint { display: none; }
     .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
-    .pack-bar .count { font-size: 15px; padding-right: 14px; margin-right: 8px; }
+    .pack-bar .count { font-size: 15px; padding-right: 14px; }
   }
 
   /* === SKIN LINES GRID ============================================ */
