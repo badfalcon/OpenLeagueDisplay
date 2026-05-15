@@ -783,7 +783,11 @@
   .footer-inner {
     max-width: var(--container-max);
     margin: 0 auto;
+    display: flex; flex-direction: column; gap: 10px;
   }
+  /* footer-attribution は CDragon/Riot の出典、footer-credits はプロジェクトの
+     作者表記。視覚的に主従が分かるよう作者表記を一段薄くする */
+  .footer-credits { color: var(--ink-mute); opacity: 0.75; }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;
