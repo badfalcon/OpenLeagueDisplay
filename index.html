@@ -1,6 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- i18n-loading: ES Modules は defer 相当で、保存 locale の applyStaticUIStrings()
+     が走る前に index.html の英語ハードコードが一瞬見えてしまう。styles.css 側で
+     対象要素を visibility:hidden にしておき、init() 内で外す。
+     JS が完全に失敗した時のための保険として 3 秒経過で自動解除する -->
+<html lang="en" class="i18n-loading">
 <head>
+<script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
@@ -13,10 +18,12 @@
     (event delegation 化までの暫定)。jsdelivr は JSZip の CDN ロード用
   - style-src: 'self' で styles.css をカバー。Google Fonts と一部 innerHTML 内の
     style="min-width:Nch" のような inline style 属性のため 'unsafe-inline'
-  - img-src: data:/blob: は付けない (生成していない)。CDragon + 国旗 CDN のみ
+  - img-src: data: は styles.css の inline SVG アイコン (検索虫眼鏡 / セレクト矢印 /
+    body::after ノイズ) を表示するために必要。blob: は生成していないので付けない。
+    CDragon + 国旗 CDN を外部画像として許可
   - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="OpenLeagueDisplay">
@@ -42,7 +49,8 @@
 <body>
 
 <!-- topbar: brand + ナビ (view-tabs) + アクション (select / slideshow) + lang を
-     1 行にまとめた sticky バー。広い PC 幅では brand と lang の間に余裕があるので、
+     1 行にまとめた sticky バー (アクション = My Gallery トグル / Slideshow)。
+     広い PC 幅では brand と lang の間に余裕があるので、
      旧 content-toolbar 行は champ-header に降ろした。
      検索バー / 戻るボタン / ソートは下の dom-stash に置き、render() で
      .champ-header-controls スロットへ transplant する -->
@@ -59,7 +67,7 @@
       <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
     </div>
     <div class="header-actions">
-      <button class="btn" id="select-toggle" aria-label="Select">Select</button>
+      <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
       <button class="btn" id="slideshow-btn">Slideshow</button>
       <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
     </div>

@@ -21,6 +21,21 @@
     --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
     --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
+    /* カード枠 (champ / skin / line で共通)。default / hover / selected の3段で、
+       それぞれ「vignette + 内枠1px (default は控えめ金、hover/selected は明るい金)」
+       の構成。skin/line の splash art を潰しすぎないよう vignette は champ 当時の
+       0.55 から 0.45 に抑えてある */
+    --card-frame-shadow:
+      inset 0 0 60px rgba(7, 6, 11, 0.45),
+      inset 0 0 0 1px rgba(212, 168, 87, 0.18);
+    --card-frame-shadow-hover:
+      inset 0 0 60px rgba(7, 6, 11, 0.45),
+      inset 0 0 0 1px var(--gold),
+      inset 0 0 30px rgba(212, 168, 87, 0.22);
+    --card-frame-shadow-selected:
+      inset 0 0 60px rgba(7, 6, 11, 0.45),
+      inset 0 0 0 3px var(--gold),
+      inset 0 0 50px rgba(212, 168, 87, 0.22);
     --ctrl-h: 40px;     /* 全コントロール (btn/search/lang/tab) 共通の高さ */
     /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
        header / main / footer の「中身」をこの幅で中央寄せする */
@@ -30,6 +45,12 @@
     --container-pad: 56px;
   }
   * { box-sizing: border-box; }
+  /* 初回ロード時の英語ラベルちらつき抑止。<html class="i18n-loading"> は
+     index.html 側で付与され、init() で applyStaticUIStrings() 完了後に外す。
+     visibility:hidden なのでレイアウトは確保したままテキストだけ消える */
+  html.i18n-loading .view-tabs .tab,
+  html.i18n-loading .header-actions .btn,
+  html.i18n-loading #loading-msg { visibility: hidden; }
   html, body {
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font-body);
@@ -411,11 +432,17 @@
     );
     counter-increment: champ;
   }
-  .champ-card::after {
+  /* カードの枠 (::after) は 3 種 (champ / skin / line) で同じスタイルに統一する。
+     - inset vignette で「フレームに収まった絵」感を出す
+     - 1px のゴールド内枠で全カードに最低限の縁取りを担保する
+     champ-card 以前は 0.55/0.12 で「厚いがほぼ見えない金線」、skin-card は 0.10
+     のみ、line-card は枠無しでバラついていた。共通変数 (--card-frame-shadow /
+     -hover/-selected) にまとめて、好みのトーンを 1 箇所で触れるようにする */
+  .champ-card::after,
+  .skin-card::after,
+  .line-card::after {
     content: ""; position: absolute; inset: 0; z-index: 3;
-    box-shadow:
-      inset 0 0 60px rgba(7, 6, 11, 0.55),
-      inset 0 0 0 1px rgba(212, 168, 87, 0.12);
+    box-shadow: var(--card-frame-shadow);
     pointer-events: none;
     transition: box-shadow 0.35s;
   }
@@ -449,11 +476,10 @@
   }
   .champ-card:hover { transform: translateY(-4px); }
   .champ-card:hover img { transform: scale(1.10); filter: saturate(1.1) contrast(1.08); }
-  .champ-card:hover::after {
-    box-shadow:
-      inset 0 0 60px rgba(7, 6, 11, 0.55),
-      inset 0 0 0 1px var(--gold),
-      inset 0 0 30px rgba(212, 168, 87, 0.22);
+  .champ-card:hover::after,
+  .skin-card:hover::after,
+  .line-card:hover::after {
+    box-shadow: var(--card-frame-shadow-hover);
   }
   .champ-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
@@ -586,12 +612,8 @@
     );
     counter-increment: skin;
   }
-  .skin-card::after {
-    content: ""; position: absolute; inset: 0; z-index: 3;
-    box-shadow: inset 0 0 0 1px rgba(212, 168, 87, 0.10);
-    pointer-events: none;
-    transition: box-shadow 0.35s;
-  }
+  /* skin-card / line-card の ::after フレームは champ-card と共有
+     (上の `.champ-card::after, .skin-card::after, .line-card::after` で定義) */
   .skin-card img {
     width: 100%; height: 100%; object-fit: cover;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s;
@@ -599,9 +621,6 @@
   }
   .skin-card:hover { transform: translateY(-3px); }
   .skin-card:hover img { transform: scale(1.06); }
-  .skin-card:hover::after {
-    box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 28px rgba(212, 168, 87, 0.16);
-  }
   .skin-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 18px 16px;
@@ -832,14 +851,14 @@
     background: var(--gold); color: #1a1208;
   }
   .skin-card.selected, .champ-card.selected, .line-card.selected { border-color: var(--gold); }
+  /* selected も 3 種共通: ベースの vignette を残しつつ内枠を 3px ゴールド + 光彩に
+     強める。ベース ::after (var(--card-frame-shadow)) より specificity が高いので
+     クラスが付いた瞬間に上書きされる */
   .skin-card.selected::after,
-  .champ-card.selected::after {
-    content: ""; position: absolute; inset: 0; z-index: 3;
-    box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 50px rgba(212, 168, 87, 0.22);
-    pointer-events: none;
+  .champ-card.selected::after,
+  .line-card.selected::after {
+    box-shadow: var(--card-frame-shadow-selected);
   }
-  /* line-card は ::after を既にグラデで使っているので、本体に box-shadow で枠を乗せる */
-  .line-card.selected { box-shadow: inset 0 0 0 3px var(--gold); }
   /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
      チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
   .champ-card.partial, .line-card.partial { border-color: var(--gold-deep); }
@@ -892,26 +911,13 @@
     font-size: 17px;
     letter-spacing: 0;
     white-space: nowrap;
-    padding-right: 4px;
     border-right: 1px solid var(--rule);
-    margin-right: 10px;
     padding-right: 18px;
-  }
-  .pack-bar .hint {
-    color: var(--ink-soft);
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    max-width: 380px; line-height: 1.45;
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    margin-right: 4px;
   }
   @media (max-width: 780px) {
-    .pack-bar .hint { display: none; }
     .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
-    .pack-bar .count { font-size: 15px; padding-right: 14px; margin-right: 8px; }
+    .pack-bar .count { font-size: 15px; padding-right: 14px; }
   }
 
   /* === SKIN LINES GRID ============================================ */
@@ -930,7 +936,7 @@
     overflow: hidden;
     background: var(--bg-1);
     border: 1px solid transparent;
-    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.4s;
+    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
     clip-path: polygon(
       var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
       100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
@@ -945,18 +951,16 @@
     position: relative; z-index: 1;
     filter: saturate(0.88) contrast(1.04);
   }
-  .line-card:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1px var(--gold); }
+  .line-card:hover { transform: translateY(-3px); }
   .line-card:hover img { transform: scale(1.06); filter: saturate(1) contrast(1.06); }
-  /* テキストの可読性確保 (skin-card と同じ手法だが、ライン名+件数の2行ぶん濃いめに) */
-  .line-card::after {
-    content: ""; position: absolute; inset: 0; z-index: 2;
-    background: linear-gradient(to top, rgba(7, 6, 11, 0.95) 0%, rgba(7, 6, 11, 0.4) 55%, rgba(7, 6, 11, 0) 75%);
-    pointer-events: none;
-  }
+  /* テキスト可読性のグラデは .meta の背景に持たせる (skin-card .label と同じパターン)。
+     ::after は他のカードと同じ枠用に解放。.meta は名前+件数の2行で skin-card より
+     縦に長いので、padding-top を 60px まで広げてグラデの「フェード上端」を上に伸ばす */
   .line-card .meta {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 22px 18px 18px;
-    z-index: 3;
+    padding: 60px 18px 18px;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.55) 55%, rgba(7, 6, 11, 0) 100%);
+    z-index: 2;
   }
   .line-card .name {
     font-family: var(--font-display);
