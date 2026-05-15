@@ -224,6 +224,14 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
+  // オフライン検知: CDragon のスプラッシュ画像はキャッシュ対象外なので、
+  // オフラインだと画像が一斉に出ない。「壊れている」誤解を避けるため理由を告知する
+  const offlineBanner = $("offline-banner");
+  const syncOnlineState = () => { offlineBanner.hidden = navigator.onLine; };
+  window.addEventListener("online", syncOnlineState);
+  window.addEventListener("offline", syncOnlineState);
+  syncOnlineState();
+
   // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
   let tStartX = 0, tStartY = 0;
   const lbEl = $("lightbox");
@@ -271,9 +279,20 @@ function wireEvents() {
   });
 }
 
+// Service Worker 登録: アプリシェルをキャッシュして再訪を高速化し、インストール可能
+// 要件を満たす。初回ロードの帯域と競合させないよう load 後に登録する。
+// 失敗 (file:// 直開き / 非対応ブラウザ) してもビューア本体の動作には影響しない
+function registerSW() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
 function bootstrap() {
   wireEvents();
   init();
+  registerSW();
 }
 
 // type="module" は defer 相当なので通常は DOMContentLoaded 後に評価されるが、

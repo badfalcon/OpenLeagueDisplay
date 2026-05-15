@@ -18,6 +18,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ```
 .
 ├── index.html                       # マークアップ本体 (styles.css と js/app.js を読み込む、~7KB)
+├── manifest.webmanifest             # PWA マニフェスト (ホーム画面追加 / インストール用)
+├── favicon.svg                      # サイトアイコン (manifest の purpose:any アイコンも兼ねる)
+├── icon-maskable.svg                # PWA maskable アイコン (L を safe zone に縮めた版)
 ├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
 ├── js/                              # ES Modules
 │   ├── app.js                       #   エントリ: data.json fetch + イベント配線
@@ -26,6 +29,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   └── lightbox.js                  #   ライトボックス + スライドショー
+├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
@@ -150,7 +154,11 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~OGP/Twitter Card メタタグ追加 (シェア時のサムネ)~~ → `ogp.png`
   (1200x630 ブランドカード) を追加、`twitter:card` を `summary_large_image`
   に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
-- [ ] PWAマニフェスト追加してスマホでホーム画面追加可能に
+- [x] ~~PWAマニフェスト追加してスマホでホーム画面追加可能に~~ → `manifest.webmanifest` +
+  `icon-maskable.svg` で実装済み。アイコンは SVG (リポジトリにバイナリを置かない方針)。
+  `sw.js` でアプリシェル (HTML/CSS/JS/アイコン) を stale-while-revalidate キャッシュ
+  し、`data.json` / `i18n/*.json` は network-first。スプラッシュ画像 (CDragon) は
+  キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応
 - [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
