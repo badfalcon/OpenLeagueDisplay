@@ -1420,10 +1420,10 @@ export const REGION_LABELS = {
     "camavor": "卡玛弗", "icathia": "伊卡西亚",
   },
   zh_tw: {
-    "demacia": "德瑪西亞", "noxus": "諾克薩斯", "ionia": "艾歐尼亞", "piltover": "皮爾特沃夫",
+    "demacia": "德瑪西亞", "noxus": "諾克薩斯", "ionia": "愛歐尼亞", "piltover": "皮爾特沃夫",
     "zaun": "祖安", "bilgewater": "比爾吉沃特", "bandle-city": "班德爾城",
     "freljord": "弗雷爾卓德", "shadow-isles": "暗影島", "shurima": "恕瑞瑪",
-    "targon": "塔貢", "ixtal": "伊克斯塔爾", "void": "虛空", "runeterra": "符文之地",
+    "targon": "巨石峰", "ixtal": "伊克斯塔爾", "void": "虛空", "runeterra": "符文之地",
     "camavor": "卡瑪弗", "icathia": "伊卡西亞",
   },
   fr_fr: {
@@ -1456,9 +1456,9 @@ export const REGION_LABELS = {
   },
   ru_ru: {
     "demacia": "Демасия", "noxus": "Ноксус", "ionia": "Иония", "piltover": "Пилтовер",
-    "zaun": "Заун", "bilgewater": "Бильджвотер", "bandle-city": "Бандл-Сити",
+    "zaun": "Заун", "bilgewater": "Билджвотер", "bandle-city": "Бандл Сити",
     "freljord": "Фрельйорд", "shadow-isles": "Сумрачные острова", "shurima": "Шурима",
-    "targon": "Гора Таргон", "ixtal": "Икстал", "void": "Бездна", "runeterra": "Рунтерра",
+    "targon": "Гора Таргон", "ixtal": "Ишталь", "void": "Бездна", "runeterra": "Рунтерра",
     "camavor": "Камавор", "icathia": "Икатия",
   },
 };
