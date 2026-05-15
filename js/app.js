@@ -271,9 +271,20 @@ function wireEvents() {
   });
 }
 
+// Service Worker 登録: アプリシェルをキャッシュして再訪を高速化し、インストール可能
+// 要件を満たす。初回ロードの帯域と競合させないよう load 後に登録する。
+// 失敗 (file:// 直開き / 非対応ブラウザ) してもビューア本体の動作には影響しない
+function registerSW() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
 function bootstrap() {
   wireEvents();
   init();
+  registerSW();
 }
 
 // type="module" は defer 相当なので通常は DOMContentLoaded 後に評価されるが、

@@ -29,6 +29,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   └── lightbox.js                  #   ライトボックス + スライドショー
+├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
@@ -153,7 +154,9 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [ ] OGP/Twitter Card メタタグ追加 (シェア時のサムネ) ※テキストのみ済、画像は未
 - [x] ~~PWAマニフェスト追加してスマホでホーム画面追加可能に~~ → `manifest.webmanifest` +
   `icon-maskable.svg` で実装済み。アイコンは SVG (リポジトリにバイナリを置かない方針)。
-  Service Worker は未導入なのでオフライン動作は無し (ホーム画面追加は SW 無しでも可)
+  `sw.js` でアプリシェル (HTML/CSS/JS/アイコン) を stale-while-revalidate キャッシュ
+  し、`data.json` / `i18n/*.json` は network-first。スプラッシュ画像 (CDragon) は
+  キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応
 - [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
