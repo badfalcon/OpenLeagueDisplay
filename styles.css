@@ -1176,23 +1176,35 @@
   }
 
   /* === OFFLINE BANNER ==============================================
-     オフライン時に画面下部へ出す告知ピル。app.js が online/offline
-     イベントで hidden 属性をトグルする。z-index は topbar (30) より上、
-     lightbox (100) より下 — オフラインでもライトボックス操作は妨げない */
+     オフライン時に画面下部へ出す告知バー。app.js が online/offline
+     イベントで hidden 属性をトグルする。floating な見た目は .pack-bar に
+     完全準拠 (半透明 + blur / ゴールド枠 / packIn 登場アニメ)。
+     z-index は topbar (30) より上、lightbox (100) より下。
+     選択モード中は pack-bar (bottom: 28px) と重なるので一段上へ逃がす */
   .offline-banner {
-    position: fixed; z-index: 90;
-    left: 50%; bottom: 16px; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 28px;
+    transform: translateX(-50%);
+    z-index: 90;
     max-width: calc(100vw - 32px);
-    padding: 9px 18px;
-    background: var(--bg-1);
-    border: 1px solid var(--gold-deep);
-    border-radius: 999px;
+    padding: 14px 24px;
+    background: rgba(12, 11, 20, 0.92);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--gold);
+    box-shadow:
+      0 28px 64px rgba(0, 0, 0, 0.7),
+      0 0 0 4px rgba(212, 168, 87, 0.06);
+    animation: packIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     color: var(--ink-soft);
-    font-size: 13px; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+    font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .offline-banner[hidden] { display: none; }
+  body.select-mode .offline-banner { bottom: 96px; }
+  @media (max-width: 780px) {
+    .offline-banner { bottom: 18px; padding: 12px 18px; }
+    body.select-mode .offline-banner { bottom: 76px; }
+  }
 
   /* === RESPONSIVE ================================================= */
   /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
