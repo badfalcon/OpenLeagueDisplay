@@ -83,9 +83,10 @@
   body { scrollbar-color: var(--bg-3) var(--bg); }
 
   /* === HEADER ====================================================== */
-  /* topbar = brand + view-tabs + アクション + lang を 1 行に並べる sticky バー。
-     背景・blur はラッパーが持ち、内側は構造のみ。検索バー/戻る/ソートは
-     dom-stash から render() で .champ-header-controls に transplant される */
+  /* topbar = 2 段構成の header (行1: brand + ?/lang / 行2: view-tabs + 操作
+     ボタン) を包む sticky バー。背景・blur はラッパーが持ち、内側は構造のみ。
+     検索バー/戻る/ソートは dom-stash から render() で
+     .champ-header-controls に transplant される */
   .topbar {
     position: sticky; top: 0; z-index: 30;
     background: linear-gradient(180deg, rgba(7, 6, 11, 0.96), rgba(7, 6, 11, 0.85));
@@ -99,25 +100,36 @@
     opacity: 0.55; pointer-events: none;
   }
 
-  /* 1 行構成: [brand] [view-tabs] (auto-spacer) [actions=select+slideshow] [lang]
-     header-actions に margin-left: auto を付けて「左クラスタ (brand+tabs)」と
-     「右クラスタ (actions+lang)」を分離。select-toggle と slideshow-btn は
-     .header-actions で 1 つの flex 群にまとめ、狭幅で折返す時もセットで動く */
+  /* 2 段構成。header は縦並びの flex で 2 行を積む:
+       行1 (.header-primary):   [brand] (auto-spacer) [.header-utils = ? + lang]
+       行2 (.header-secondary): [view-tabs] [.header-actions = select + slideshow]
+     行1 を識別情報 + 常設ユーティリティ、行2 を閲覧操作、と役割で段分けする。
+     select-toggle と slideshow-btn は .header-actions で 1 つの flex 群に
+     まとめ、狭幅で折返す時もセットで動く */
   header {
-    display: flex; align-items: center;
-    gap: 12px;
+    display: flex; flex-direction: column;
+    gap: 10px;
     padding: 12px var(--container-pad);
     border-bottom: 1px solid var(--rule);
-    flex-wrap: wrap;
     max-width: var(--container-max);
     margin: 0 auto;
   }
-  header > .header-actions { margin-left: auto; }
+  .header-primary,
+  .header-secondary {
+    display: flex; align-items: center;
+    gap: 12px;
+  }
+  /* 行2 は狭幅で view-tabs と操作ボタンが入りきらない時だけ折返す */
+  .header-secondary { flex-wrap: wrap; }
+  /* ? と言語ピッカーを行1の右端へ寄せるユーティリティ群 */
+  .header-utils {
+    display: flex; align-items: center; gap: 12px;
+    margin-left: auto;
+  }
   .header-actions {
     display: flex; align-items: center; gap: 12px;
   }
-  /* header-brand は info (h1+stats 縦積み) を包む薄いラッパ。lang-picker は
-     header の末尾 (右クラスタの一番右) に並ぶので brand には含めない */
+  /* header-brand は info (h1+stats 縦積み) を包む薄いラッパ。行1 の左端に置く */
   .header-brand {
     display: flex; align-items: center;
     gap: 18px;
@@ -1227,16 +1239,10 @@
       max-width: none;
     }
   }
-  /* 900px 以下: タブレット帯域。header の右クラスタが折返す可能性を許容しつつ、
-     padding と font-size を詰める */
+  /* 900px 以下: タブレット帯域。header の 2 段構成は維持したまま
+     padding と font-size を詰める (--container-pad で間隔調整) */
   @media (max-width: 900px) {
     :root { --container-pad: 20px; }
-    /* header 幅不足対応: brand を flex: 1 1 100% で row 1 を独占 → 残り
-       (view-tabs / .header-actions / .lang-picker) が自動的に row 2 へ折返す。
-       .header-actions の margin-left: auto (PC幅と共通の右クラスタ寄せ) が効くため、
-       row 2 では [view-tabs] (gap) [actions] [lang] の順で右に詰まる */
-    header { padding: 12px var(--container-pad); gap: 10px 14px; }
-    .header-brand { flex: 1 1 100%; min-width: 0; }
     header h1 { font-size: 20px; }
     main { padding: 20px var(--container-pad) 100px; }
     .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
@@ -1257,7 +1263,8 @@
   /* 600px 以下: スマホ全帯域 (320-430px) を一気に最適化。
      - グリッドは fluid (auto-fill + minmax) でカードはみ出しを解消
      - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
-     - header は flex-wrap の自然な折返しでナビ + アクション + lang が 2-3 段に
+     - header は 2 段固定 (行1: brand + ?/lang / 行2: tabs + 操作ボタン)。
+       行2 は入りきらない時だけ flex-wrap で折返す
      - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
        タッチで操作できる形へ作り直す */
   @media (max-width: 600px) {
@@ -1268,8 +1275,10 @@
 
     header {
       padding: 10px var(--container-pad);
-      gap: 6px 8px;
+      gap: 8px;
     }
+    .header-primary,
+    .header-secondary { gap: 8px; }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
     /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
@@ -1402,7 +1411,8 @@
     /* 320px 級では es_es / fr_fr / pt_br の長ラベルが 600px 設定でもキツいので
        letter-spacing を切って 9.5px に落とす。ellipsis は親側で既に効くので
        入りきらない分は "..." に倒れる */
-    header { column-gap: 4px; }
+    .header-primary,
+    .header-secondary { gap: 4px; }
     header .btn,
     header .view-tabs .tab,
     .champ-header-controls .ctrl-select {
