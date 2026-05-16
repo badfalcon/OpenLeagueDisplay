@@ -221,6 +221,10 @@ function renderChampCards(list) {
   }).join("");
 }
 
+// アニメーションスプラッシュ (video あり) を持つスキンに重ねる再生グリフ。
+// ライトボックスを開く前に「これは動く」と分かるようにする
+const animBadge = (s) => s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+
 function renderSkinCards(matches) {
   return matches.map((m, i) => {
     const { c, s } = m;
@@ -230,7 +234,7 @@ function renderSkinCards(matches) {
     const sl = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox"></div>
+      <div class="sel-checkbox"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -256,7 +260,7 @@ function wireChampCards(root) {
 // 検索結果のスキンタイル: クリックでライトボックスを開く (lines view と同じ流儀)。
 // 選択モード時は当該スキンだけを toggle (チャンピオン一括ではなく per-skin)
 function wireSearchSkinCards(root, matches) {
-  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
+  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
   root.querySelectorAll(".skin-grid.is-flat .skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
@@ -275,7 +279,7 @@ function renderChampion(root) {
     const lab = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox"></div>
+      <div class="sel-checkbox"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(lab)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(lab)}</div>
     </div>`;
@@ -371,7 +375,7 @@ function renderLine(root) {
     const sl = skinLabel(it.champ, it.skin);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox"></div>
+      <div class="sel-checkbox"></div>${animBadge(it.skin)}
       <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -383,7 +387,7 @@ function renderLine(root) {
     primaryClick: () => downloadLine(lid, lname, items),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, desc: skinDescription(it.champ, it.skin) }));
+  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin) }));
   $("view-content").querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
@@ -468,7 +472,7 @@ export function openLines() {
 }
 
 function buildChampList(c) {
-  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
+  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
 }
 
 export function openChampion(alias) {

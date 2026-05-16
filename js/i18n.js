@@ -1394,6 +1394,10 @@ export const RARITY_LABELS = {
 // 地域名は本来 universe-meeps API から取る予定だったが、Riot 側の S3 IAM 設定が
 // 壊れていて永続的に 403 を返す (2026-05 確認)。代わりに ROLE/RARITY 同様に
 // ハードコード。slug は generate_data.py の REGION_NAMES と必ず一致させること。
+// locale は ROLE_LABELS / RARITY_LABELS と揃えて全 20 種を持つ。検索キーワード
+// 専用 (表示には使わない) なので、未登録 locale でも default にフォールバックする。
+// el_gr / th_th は非ラテン文字で公式クライアント表記を確認できておらず音訳ベース
+// の best-effort。ズレても英語キーで検索ヒットするため実害は限定的。
 export const REGION_LABELS = {
   default: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
@@ -1444,7 +1448,21 @@ export const REGION_LABELS = {
     "targon": "Berg Targon", "ixtal": "Ixtal", "void": "Leere", "runeterra": "Runeterra",
     "camavor": "Camavor", "icathia": "Icathia",
   },
+  it_it: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Isole Ombra", "shurima": "Shurima",
+    "targon": "Monte Targon", "ixtal": "Ixtal", "void": "Vuoto", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
   es_es: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Jonia", "piltover": "Piltóver",
+    "zaun": "Zaun", "bilgewater": "Aguasturbias", "bandle-city": "Ciudad de Bandle",
+    "freljord": "Fréljord", "shadow-isles": "Islas de la Sombra", "shurima": "Shurima",
+    "targon": "Monte Targón", "ixtal": "Ixtal", "void": "Vacío", "runeterra": "Runaterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  es_mx: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Jonia", "piltover": "Piltóver",
     "zaun": "Zaun", "bilgewater": "Aguasturbias", "bandle-city": "Ciudad de Bandle",
     "freljord": "Fréljord", "shadow-isles": "Islas de la Sombra", "shurima": "Shurima",
@@ -1464,6 +1482,62 @@ export const REGION_LABELS = {
     "freljord": "Фрельйорд", "shadow-isles": "Сумрачные острова", "shurima": "Шурима",
     "targon": "Гора Таргон", "ixtal": "Ишталь", "void": "Бездна", "runeterra": "Рунтерра",
     "camavor": "Камавор", "icathia": "Икатия",
+  },
+  pl_pl: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Wyspy Cienia", "shurima": "Shurima",
+    "targon": "Góra Targon", "ixtal": "Ixtal", "void": "Pustka", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  tr_tr: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle Şehri",
+    "freljord": "Freljord", "shadow-isles": "Gölge Adaları", "shurima": "Shurima",
+    "targon": "Targon Dağı", "ixtal": "Ixtal", "void": "Boşluk", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  cs_cz: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Stinné ostrovy", "shurima": "Shurima",
+    "targon": "Hora Targon", "ixtal": "Ixtal", "void": "Prázdnota", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  el_gr: {
+    "demacia": "Ντημέισια", "noxus": "Νόξους", "ionia": "Ιόνια", "piltover": "Πιλτόβερ",
+    "zaun": "Ζάουν", "bilgewater": "Μπίλτζγουοτερ", "bandle-city": "Μπαντλ Σίτι",
+    "freljord": "Φρέλγιορντ", "shadow-isles": "Νησιά των Σκιών", "shurima": "Σουρίμα",
+    "targon": "Όρος Τάργκον", "ixtal": "Ιξτάλ", "void": "Κενό", "runeterra": "Ρουνετέρα",
+    "camavor": "Καμάβορ", "icathia": "Ικάθια",
+  },
+  hu_hu: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Árnyékszigetek", "shurima": "Shurima",
+    "targon": "Targon-hegy", "ixtal": "Ixtal", "void": "Űr", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  ro_ro: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Insulele Umbrei", "shurima": "Shurima",
+    "targon": "Muntele Targon", "ixtal": "Ixtal", "void": "Vidul", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
+  },
+  th_th: {
+    "demacia": "ดีมาเซีย", "noxus": "น็อกซัส", "ionia": "ไอโอเนีย", "piltover": "พิลโทเวอร์",
+    "zaun": "เซิน", "bilgewater": "บิลจ์วอเตอร์", "bandle-city": "แบนเดิลซิตี",
+    "freljord": "เฟรลยอร์ด", "shadow-isles": "หมู่เกาะเงา", "shurima": "ชูริมา",
+    "targon": "เขาทาร์กอน", "ixtal": "อิคซ์ทัล", "void": "ความว่างเปล่า", "runeterra": "รูนเทอร์รา",
+    "camavor": "คามาวอร์", "icathia": "อิคาเธีย",
+  },
+  id_id: {
+    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
+    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
+    "freljord": "Freljord", "shadow-isles": "Kepulauan Bayangan", "shurima": "Shurima",
+    "targon": "Gunung Targon", "ixtal": "Ixtal", "void": "Void", "runeterra": "Runeterra",
+    "camavor": "Camavor", "icathia": "Icathia",
   },
 };
 
