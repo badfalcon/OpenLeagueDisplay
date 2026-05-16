@@ -57,6 +57,9 @@
     min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* iOS Safari は viewport の user-scalable=no を無視するので、ダブルタップ
+       ズームだけは touch-action で抑える (通常のスクロール/タップは維持) */
+    touch-action: manipulation;
   }
   /* 背景: 二段の放射状ヴィネット + SVGノイズ。ベタ塗りだと「とりあえずダーク」感が強いので
      雰囲気のレイヤーを足す。z-index -1 で固定、ポインタイベント貫通 */
