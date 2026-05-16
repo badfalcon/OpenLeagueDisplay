@@ -68,34 +68,40 @@
 </head>
 <body>
 
-<!-- topbar: brand + ナビ (view-tabs) + アクション (select / slideshow) + lang を
-     1 行にまとめた sticky バー (アクション = My Gallery トグル / Slideshow)。
-     広い PC 幅では brand と lang の間に余裕があるので、
-     旧 content-toolbar 行は champ-header に降ろした。
+<!-- topbar: 2 段構成の sticky バー。
+     行1 (.header-primary):   brand (ロゴ + 件数) … ? + 言語ピッカー (.header-utils)
+     行2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
+     行1 に識別情報 + 常設ユーティリティ、行2 に閲覧操作、と役割で段を分ける。
      検索バー / 戻るボタン / ソートは下の dom-stash に置き、render() で
      .champ-header-controls スロットへ transplant する -->
 <div class="topbar">
   <header>
-    <div class="header-brand">
-      <div class="header-brand-info">
-        <h1 id="title">OpenLeagueDisplay</h1>
-        <span id="stats"></span>
+    <div class="header-primary">
+      <div class="header-brand">
+        <div class="header-brand-info">
+          <h1 id="title">OpenLeagueDisplay</h1>
+          <span id="stats"></span>
+        </div>
+      </div>
+      <div class="header-utils">
+        <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
+        <div class="lang-picker" id="lang-picker">
+          <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
+            <img class="lang-flag" id="lang-flag" alt="" decoding="async">
+          </button>
+          <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+        </div>
       </div>
     </div>
-    <div class="view-tabs" role="tablist">
-      <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
-      <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
-    </div>
-    <div class="header-actions">
-      <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
-      <button class="btn" id="slideshow-btn">Slideshow</button>
-      <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
-    </div>
-    <div class="lang-picker" id="lang-picker">
-      <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
-        <img class="lang-flag" id="lang-flag" alt="" decoding="async">
-      </button>
-      <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+    <div class="header-secondary">
+      <div class="view-tabs" role="tablist">
+        <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
+        <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
+        <button class="btn" id="slideshow-btn">Slideshow</button>
+      </div>
     </div>
   </header>
 </div>
