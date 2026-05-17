@@ -1394,10 +1394,11 @@ export const RARITY_LABELS = {
 // 地域名は本来 universe-meeps API から取る予定だったが、Riot 側の S3 IAM 設定が
 // 壊れていて永続的に 403 を返す (2026-05 確認)。代わりに ROLE/RARITY 同様に
 // ハードコード。slug は generate_data.py の REGION_NAMES と必ず一致させること。
-// locale は ROLE_LABELS / RARITY_LABELS と揃えて全 20 種を持つ。検索キーワード
-// 専用 (表示には使わない) なので、未登録 locale でも default にフォールバックする。
-// el_gr / th_th は非ラテン文字で公式クライアント表記を確認できておらず音訳ベース
-// の best-effort。ズレても英語キーで検索ヒットするため実害は限定的。
+// 検索キーワード専用 (表示には使わない)。地域名を実際に翻訳しているのを確認できた
+// locale だけ登録し、未登録 locale は default (ラテン/英語) にフォールバックする。
+// el_gr/th_th/id_id 等のクライアントは地域名をラテン文字のまま表示しているため
+// あえて登録しない (default フォールバックが実クライアント表記と一致する)。新しく
+// locale を足す時は公式クライアント表記を確認してから (推測の音訳は入れない)。
 export const REGION_LABELS = {
   default: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
@@ -1493,23 +1494,16 @@ export const REGION_LABELS = {
   tr_tr: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
     "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle Şehri",
-    "freljord": "Freljord", "shadow-isles": "Gölge Adaları", "shurima": "Shurima",
-    "targon": "Targon Dağı", "ixtal": "Ixtal", "void": "Boşluk", "runeterra": "Runeterra",
+    "freljord": "Freljord", "shadow-isles": "Gölge Adalar", "shurima": "Shurima",
+    "targon": "Targon Dağı", "ixtal": "Ixtal", "void": "Hiçlik", "runeterra": "Runeterra",
     "camavor": "Camavor", "icathia": "Icathia",
   },
   cs_cz: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
     "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
-    "freljord": "Freljord", "shadow-isles": "Stinné ostrovy", "shurima": "Shurima",
+    "freljord": "Freljord", "shadow-isles": "Stínové ostrovy", "shurima": "Shurima",
     "targon": "Hora Targon", "ixtal": "Ixtal", "void": "Prázdnota", "runeterra": "Runeterra",
     "camavor": "Camavor", "icathia": "Icathia",
-  },
-  el_gr: {
-    "demacia": "Ντημέισια", "noxus": "Νόξους", "ionia": "Ιόνια", "piltover": "Πιλτόβερ",
-    "zaun": "Ζάουν", "bilgewater": "Μπίλτζγουοτερ", "bandle-city": "Μπαντλ Σίτι",
-    "freljord": "Φρέλγιορντ", "shadow-isles": "Νησιά των Σκιών", "shurima": "Σουρίμα",
-    "targon": "Όρος Τάργκον", "ixtal": "Ιξτάλ", "void": "Κενό", "runeterra": "Ρουνετέρα",
-    "camavor": "Καμάβορ", "icathia": "Ικάθια",
   },
   hu_hu: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
@@ -1521,22 +1515,8 @@ export const REGION_LABELS = {
   ro_ro: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
     "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
-    "freljord": "Freljord", "shadow-isles": "Insulele Umbrei", "shurima": "Shurima",
+    "freljord": "Freljord", "shadow-isles": "Insulele Umbrelor", "shurima": "Shurima",
     "targon": "Muntele Targon", "ixtal": "Ixtal", "void": "Vidul", "runeterra": "Runeterra",
-    "camavor": "Camavor", "icathia": "Icathia",
-  },
-  th_th: {
-    "demacia": "ดีมาเซีย", "noxus": "น็อกซัส", "ionia": "ไอโอเนีย", "piltover": "พิลโทเวอร์",
-    "zaun": "เซิน", "bilgewater": "บิลจ์วอเตอร์", "bandle-city": "แบนเดิลซิตี",
-    "freljord": "เฟรลยอร์ด", "shadow-isles": "หมู่เกาะเงา", "shurima": "ชูริมา",
-    "targon": "เขาทาร์กอน", "ixtal": "อิคซ์ทัล", "void": "ความว่างเปล่า", "runeterra": "รูนเทอร์รา",
-    "camavor": "คามาวอร์", "icathia": "อิคาเธีย",
-  },
-  id_id: {
-    "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
-    "zaun": "Zaun", "bilgewater": "Bilgewater", "bandle-city": "Bandle City",
-    "freljord": "Freljord", "shadow-isles": "Kepulauan Bayangan", "shurima": "Shurima",
-    "targon": "Gunung Targon", "ixtal": "Ixtal", "void": "Void", "runeterra": "Runeterra",
     "camavor": "Camavor", "icathia": "Icathia",
   },
 };

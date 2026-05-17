@@ -94,13 +94,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   待たず `generate_data.py` の `CHAMPION_REGIONS` (alias.lower()→[slug,...]) と
   `REGION_NAMES` (slug→英名) で持つ。新チャンピオンが追加された時はここに 1 行
   追記する。漏れは `build_manifest()` の警告 (`[警告] CHAMPION_REGIONS 未登録: <alias>`)
-  で次回 regenerate 時に気付ける。ロール/rarity と同じく翻訳も有限セット
-  (16 地域) なので `js/i18n.js` の `REGION_LABELS` に全 20 locale
-  (ROLE_LABELS / RARITY_LABELS と同数) をハードコード。検索フィルタは
+  で次回 regenerate 時に気付ける。地域名は検索キーワード専用 (表示には使わない)
+  で、`js/i18n.js` の `REGION_LABELS` に「地域名を実際に翻訳していると確認できた
+  locale」だけハードコード (現状 17 locale)。検索フィルタは
   `REGION_LABELS[state.locale]` を見て、未登録 locale なら `REGION_LABELS.default`
-  (英語) にフォールバック (ROLE_LABELS / RARITY_LABELS と同じ二段当たり)。
-  el_gr/th_th は非ラテン文字で公式クライアント表記を確認できておらず音訳ベースの
-  best-effort (検索キーワード専用なのでズレても英語キーでヒットする)。
+  (ラテン/英語) にフォールバック (ROLE_LABELS / RARITY_LABELS と同じ二段当たり)。
+  el_gr/th_th/id_id 等は実クライアントが地域名をラテン文字のまま表示するため
+  あえて未登録 (default フォールバックが実クライアント表記と一致する)。新しく
+  locale を足す時は公式クライアント表記を確認してから (推測の音訳は入れない)。
   i18n/<locale>.json には regions フィールド自体を出さない。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
@@ -173,9 +174,10 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
-- [x] ~~REGION_LABELS の locale を増やす~~ → ROLE_LABELS / RARITY_LABELS と同じ
-  全 20 locale を揃えた。el_gr/th_th は非ラテン文字で公式表記が未確認のため
-  音訳ベースの best-effort (検索キーワード専用なのでズレても英語キーでヒットする)
+- [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で
+  裏どりできた 17 locale を登録 (it_it/es_mx/pl_pl/tr_tr/cs_cz/hu_hu/ro_ro を追加)。
+  el_gr/th_th/id_id 等は実クライアントが地域名をラテン文字表記なのであえて未登録
+  (default フォールバックで実表記と一致する)
 
 ## ローカル開発
 
