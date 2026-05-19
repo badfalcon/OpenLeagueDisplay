@@ -293,6 +293,14 @@
     font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
     letter-spacing: 0;
   }
+  /* 共有ボタンのコピー完了状態。チェックアイコンへ切り替わる短時間だけ
+     枠と色を強調し、コピー成功を視覚的に伝える */
+  .btn-icon.copied {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: rgba(212, 168, 87, 0.12);
+  }
+
   /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
      author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
      (#primary-action を home/lines で消すのに必要) */
