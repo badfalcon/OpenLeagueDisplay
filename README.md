@@ -13,19 +13,41 @@
 ![screenshot](./screenshot.png)
 
 Riot's official LeagueDisplays app has been sitting abandoned since 2021, and
-they're clearly not coming back to it. OpenLeagueDisplay is a community
+they're clearly not coming back to it. **OpenLeagueDisplay** is a community
 stand-in for the people who still want that experience — a League of Legends
 splash art viewer where you can browse every champion × every skin in the
 browser and bulk-download the ones you like as a ZIP for a local wallpaper
 slideshow.
 
 It is a fully static site. Images are loaded directly from the
-**Community Dragon CDN**. New skins are picked up automatically every week by a
-GitHub Actions job, so the catalog stays current without anyone babysitting it.
+**Community Dragon CDN** — none are stored in this repo. New skins are picked
+up automatically every week by a GitHub Actions job, so the catalog stays
+current without anyone babysitting it.
+
+## Contents
+
+- [For users](#for-users)
+  - [Features](#features)
+  - [Controls](#controls)
+  - [About the ZIP download](#about-the-zip-download)
+- [For developers](#for-developers)
+  - [How it works](#how-it-works)
+  - [Repository layout](#repository-layout)
+  - [Running locally](#running-locally)
+  - [Deploying it to your own account](#deploying-it-to-your-own-account)
+  - [Disabling the auto-update](#disabling-the-auto-update)
+- [License](#license)
+- [Disclaimer](#disclaimer)
 
 ---
 
-## Features
+## For users
+
+Nothing to install — just open
+**<https://badfalcon.github.io/OpenLeagueDisplay/>**. On a phone you can also
+"Add to Home Screen" to run it as an installed app.
+
+### Features
 
 - **Browse every skin**: by champion, or by skin line (PROJECT, Star Guardian, K/DA, ...)
 - **Bulk ZIP download**: grab the skins you selected, every skin of a champion,
@@ -39,9 +61,11 @@ GitHub Actions job, so the catalog stays current without anyone babysitting it.
 - **20 locales**: flag picker for English, 日本語, 한국어, 简体中文, Français,
   Deutsch and more (champion names, skin names and UI strings are localized;
   the choice is persisted)
+- **Installable PWA**: add it to your phone's home screen; the app shell is
+  cached by a service worker so the UI loads even on a flaky connection
 - **Mobile-friendly**: responsive layout for phones
 
-## Controls
+### Controls
 
 | Key / action | What it does |
 |---|---|
@@ -58,13 +82,13 @@ GitHub Actions job, so the catalog stays current without anyone babysitting it.
 
 ### About the ZIP download
 
-- File layout inside the ZIP: flat — `<Champion>_<Skin>.jpg` at the root, no
+- **Flat file layout** inside the ZIP — `<Champion>_<Skin>.jpg` at the root, no
   per-champion subfolder. This is intentional: Windows' wallpaper slideshow
   only scans the folder you point it at, not subfolders, so a flat layout
   makes the extracted ZIP drop-in usable.
-- Stored uncompressed (JPEGs are already compressed; this keeps zipping fast)
-- Fetched directly from CDragon with a concurrency of 6. Skins that return 404
-  on CDragon are silently skipped and counted in the final summary.
+- **Stored uncompressed** (JPEGs are already compressed; this keeps zipping fast).
+- **Fetched directly from CDragon** with a concurrency of 6. Skins that return
+  404 on CDragon are silently skipped and counted in the final summary.
 
 ---
 
@@ -79,11 +103,14 @@ GitHub Actions job, so the catalog stays current without anyone babysitting it.
   repo.
 - The browser fetches `data.json` once on load; thumbnails are pulled from the
   CDN on demand via `<img loading="lazy">`.
-- i18n: `data.json` only carries the English names (CDragon's `default`
+- **i18n**: `data.json` only carries the English names (CDragon's `default`
   locale). The 19 other LoL client locales (`ja_jp`, `ko_kr`, `zh_cn`, ... —
   20 languages total with English) live in `i18n/<locale>.json` and are
   fetched only when the user picks that language, so English users pay zero
   extra bandwidth.
+- **PWA**: `sw.js` caches the app shell (HTML/CSS/JS/icons) stale-while-revalidate
+  and serves `data.json` / `i18n/*.json` network-first. Splash images from
+  CDragon are not cached, so full offline use (with images) is not supported.
 
 For the rationale behind the design decisions (why images aren't kept in the
 repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md).
@@ -101,6 +128,10 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 │   ├── render.js                    #   view rendering (home / champion / lines / line)
 │   ├── zip.js                       #   bulk ZIP download (JSZip)
 │   └── lightbox.js                  #   fullscreen viewer + slideshow
+├── sw.js                            # Service Worker (app-shell cache)
+├── manifest.webmanifest             # PWA manifest (install / add to home screen)
+├── favicon.svg                      # Site icon (also the manifest "any" icon)
+├── icon-maskable.svg                # PWA maskable icon
 ├── data.json                        # Champion / skin manifest (~1.1 MB)
 ├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
 ├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
@@ -109,6 +140,7 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 ├── .idea/runConfigurations/         # PyCharm Run Configurations, checked in
 ├── CLAUDE.md                        # Design notes & conventions (developer-facing)
 ├── LICENSE                          # MIT (covers the repository's code)
+├── ogp.png                          # Open Graph / Twitter Card share image
 ├── screenshot.png                   # README screenshot
 └── README.md
 ```
@@ -128,19 +160,21 @@ python serve.py
 There is no build step and no package dependency. The front-end is plain
 vanilla JS (ES Modules) plus JSZip (loaded from a CDN). Open the page through
 `python serve.py` rather than `file://` directly — ES Modules require an HTTP
-origin to load. PyCharm users get the
-"Generate data.json" and "Serve (http.server :8000)" Run Configurations under
-`.idea/runConfigurations/` for free.
+origin to load. PyCharm users get the "Generate data.json" and
+"Serve (http.server :8000)" Run Configurations under `.idea/runConfigurations/`
+for free.
 
 If a corporate proxy makes CDragon fail with `CERTIFICATE_VERIFY_FAILED`, you
 can bypass certificate verification with
 `LOL_INSECURE=1 python generate_data.py` (or
 `$env:LOL_INSECURE=1; python generate_data.py` in PowerShell).
 
-### Deploying it to your own account (≈5 minutes if you have Python)
+### Deploying it to your own account
+
+≈5 minutes if you have Python installed.
 
 1. **Create a new repo** (e.g. `OpenLeagueDisplay`).
-2. Push the contents of this folder:
+2. **Push the contents of this folder**:
    ```bash
    git init
    git add .
