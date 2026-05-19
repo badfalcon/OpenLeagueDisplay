@@ -209,7 +209,8 @@
 </footer>
 
 <!-- Cloudflare Web Analytics: Cookie レス / プライバシー配慮の軽量アクセス解析。
-     beacon.min.js を defer で 1 本読むだけで、CDragon 以外の外部依存はこれが唯一。
+     beacon.min.js を defer で 1 本読むだけ。機能ライブラリ (JSZip) とは別枠の
+     解析専用の外部依存で、CDN 障害時もビューア自体は動く。
      計測 beacon は cloudflareinsights.com へ送られる (CSP の connect-src で許可)。
      sw.js は同一オリジンのみインターセプトするのでこのリクエストは素通し。
      data-cf-beacon の token は Cloudflare ダッシュボードのサイト登録で発行された値。 -->
