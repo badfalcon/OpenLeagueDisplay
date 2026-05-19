@@ -141,8 +141,14 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 ## コンベンション
 
 - **Pythonは標準ライブラリのみ** (generate_data.py は GitHub Actions の素のPython3で動く)
-- **クライアント側依存は CDN1本まで**: 現状は **JSZip** のみ (`cdn.jsdelivr.net` から
-  defer で遅延読込)。リポジトリには何も置かない方針は維持
+- **クライアント側の機能ライブラリ依存は CDN1本まで**: 現状は **JSZip** のみ
+  (`cdn.jsdelivr.net` から defer で遅延読込)。リポジトリには何も置かない方針は維持。
+  これとは別にアクセス解析として **Cloudflare Web Analytics** の beacon
+  (`static.cloudflareinsights.com/beacon.min.js`) を index.html 末尾で defer 読込
+  している。Cookie レスでビューアの機能には関与しないので「機能ライブラリ」とは
+  別枠。CDN 障害時もビューアは動く。beacon の token は index.html の
+  `data-cf-beacon` に直書き、計測先 `cloudflareinsights.com` は CSP の
+  `connect-src` で許可済み
 - **CSS変数で色管理**: ハードコードしない (`--bg`, `--gold` 等)
 - **ファイル名はsnake_case**、CSSクラスはケバブケース、JS関数はキャメルケース
 - **コメントは「なぜ」を書く**。何をしているかはコードで読める
