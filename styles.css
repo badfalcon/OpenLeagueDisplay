@@ -306,6 +306,19 @@
      (#primary-action を home/lines で消すのに必要) */
   .btn[hidden] { display: none; }
 
+  /* スクリーンリーダー専用。視覚的には隠すがアクセシビリティツリーには残す。
+     共有リンクのコピー完了通知 (#sr-status の aria-live) などに使う */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
   /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
      ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
      OS のドロップダウン挙動を引き継げるため。矢印は ::after が使えないので

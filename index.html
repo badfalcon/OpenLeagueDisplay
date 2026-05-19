@@ -205,6 +205,11 @@
   <span id="offline-banner-text">You are offline — splash images may not load.</span>
 </div>
 
+<!-- スクリーンリーダー向けの状態通知。視覚ユーザーには共有ボタンのアイコンが
+     チェックマークへ変わるが、aria-label の書き換えだけでは読み上げられないため、
+     コピー完了をこの live region のテキスト更新で通知する -->
+<div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
+
 <footer>
   <div class="footer-inner">
     <div class="footer-attribution">

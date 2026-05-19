@@ -58,6 +58,13 @@ function showCopied(btn) {
   btn.innerHTML = CHECK_ICON;
   btn.classList.add("copied");
   btn.setAttribute("aria-label", t("share_copied"));
+  // aria-label の書き換えは読み上げられないので、live region 経由で通知する。
+  // 連打で同じ文言を入れても再アナウンスされるよう、一度空にしてから入れ直す
+  const live = $("sr-status");
+  if (live) {
+    live.textContent = "";
+    requestAnimationFrame(() => { live.textContent = t("share_copied"); });
+  }
   revertTimer = setTimeout(() => {
     btn.innerHTML = originalIcon;
     btn.classList.remove("copied");
