@@ -840,6 +840,17 @@
      崩れないよう、credits 内のリンクだけ通常字形に戻す */
   .footer-credits { opacity: 0.75; }
   .footer-credits a { text-transform: none; letter-spacing: 0.04em; }
+  /* 免責文は長い散文なので footer 全体の uppercase / 広い字間を解除し、
+     一段薄く小さくして出典・作者表記より目立たせない */
+  .footer-disclaimer {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 9.5px;
+    line-height: 1.6;
+    opacity: 0.55;
+    max-width: 60ch;
+    margin: 4px auto 0;
+  }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;

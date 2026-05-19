@@ -76,6 +76,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Tap <strong>My Gallery</strong> in the header to start building.<br>Click any skin to add or remove it. Click a champion card to toggle <em>all</em> of its skins.<br><br>The floating bar at the bottom shows your count and downloads the ZIP. You can also grab a whole champion or skin line from its detail page.",
     tut_s3_title: "Set as wallpapers",
     tut_s3_body: "Unzip the download and point your OS wallpaper slideshow at that folder (Windows: <code>Settings → Personalization → Background → Slideshow</code>) — your desktop rotates on its own.<br><br><strong>Slideshow</strong> at the top also plays your gallery in-browser, or click any splash to zoom. Press <code>?</code> anytime to reopen this guide.",
+    disclaimer: "OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.",
   },
   ja_jp: {
     search_placeholder: "チャンピオン/スキン検索...",
@@ -145,6 +146,7 @@ export const UI_STRINGS = {
     tut_s2_body: "ヘッダの <strong>マイギャラリー</strong> をタップしてギャラリー作成を開始。<br>スキンをクリックで追加/解除。チャンピオンカードのクリックで<em>そのチャンピオン全スキン</em>を一括トグル。<br><br>画面下のバーに件数が出るので、そこから ZIP をダウンロード。各チャンピオン/シリーズの詳細ページから一括 DL もできます。",
     tut_s3_title: "壁紙として設定",
     tut_s3_body: "ZIP を解凍したフォルダを OS の壁紙スライドショーに指定すれば、デスクトップ背景が自動でローテーション再生されます (Windows: <code>設定 → 個人用設定 → 背景 → スライドショー</code>)。<br><br>ヘッダの <strong>スライドショー</strong> はブラウザ内再生用。スプラッシュクリックで拡大表示、<code>?</code> キーでこのガイドを再表示。",
+    disclaimer: "OpenLeagueDisplay は Riot Games が承認したものではなく、Riot Games または League of Legends の制作・運営に公式に関与する者の見解や意見を反映するものではありません。League of Legends および Riot Games は Riot Games, Inc. の商標または登録商標です。",
   },
   ko_kr: {
     search_placeholder: "챔피언/스킨 검색…",
@@ -214,6 +216,7 @@ export const UI_STRINGS = {
     tut_s2_body: "헤더의 <strong>마이 갤러리</strong> 를 눌러 갤러리 만들기를 시작합니다.<br>스킨을 클릭하면 추가/해제, 챔피언 카드를 클릭하면 <em>해당 챔피언의 모든 스킨</em>이 일괄 전환됩니다.<br><br>하단의 플로팅 바에 갤러리 개수가 표시되고, 거기서 ZIP을 받을 수 있습니다. 각 챔피언/스킨 라인 페이지에서 일괄 다운로드도 가능합니다.",
     tut_s3_title: "배경화면으로 설정",
     tut_s3_body: "ZIP을 압축 해제한 폴더를 OS의 배경화면 슬라이드 쇼에 지정하면 데스크톱이 자동으로 순환됩니다 (Windows: <code>설정 → 개인 설정 → 배경 → 슬라이드 쇼</code>).<br><br>헤더의 <strong>슬라이드쇼</strong> 는 브라우저 내 재생용. 스플래시 클릭으로 확대, <code>?</code> 키로 이 가이드를 다시 열기.",
+    disclaimer: "OpenLeagueDisplay는 Riot Games의 승인을 받지 않았으며, Riot Games 또는 League of Legends 제작·운영에 공식적으로 관여한 누구의 견해나 의견도 대변하지 않습니다. League of Legends와 Riot Games는 Riot Games, Inc.의 상표 또는 등록 상표입니다.",
   },
   zh_cn: {
     search_placeholder: "搜索英雄/皮肤…",
@@ -283,6 +286,7 @@ export const UI_STRINGS = {
     tut_s2_body: "点击顶部的 <strong>我的画廊</strong> 开始构建画廊。<br>点击皮肤添加或移除。点击英雄卡片可<em>切换该英雄的全部皮肤</em>。<br><br>底部浮动栏会显示画廊数量，从那里下载 ZIP。也可以从英雄/系列详情页一键打包整个集合。",
     tut_s3_title: "设为桌面壁纸",
     tut_s3_body: "把解压后的文件夹指定为系统的桌面壁纸幻灯片来源，桌面就会自动轮播 (Windows: <code>设置 → 个性化 → 背景 → 幻灯片放映</code>)。<br><br>顶部的 <strong>幻灯片</strong> 用于在浏览器内播放画廊。点击任意原画可放大查看，按 <code>?</code> 随时再次打开此指南。",
+    disclaimer: "OpenLeagueDisplay 未获得 Riot Games 认可，也不代表 Riot Games 或任何正式参与制作或运营《英雄联盟》之人士的观点或意见。《英雄联盟》和 Riot Games 是 Riot Games, Inc. 的商标或注册商标。",
   },
   zh_tw: {
     search_placeholder: "搜尋英雄/造型…",
@@ -351,6 +355,7 @@ export const UI_STRINGS = {
     tut_s2_body: "點選頂部的 <strong>我的畫廊</strong> 開始建立畫廊。<br>點選造型加入或移除。點選英雄卡片可<em>切換該英雄的全部造型</em>。<br><br>底部浮動列會顯示畫廊數量，從那裡下載 ZIP。也可以從英雄/系列詳情頁一鍵打包整組。",
     tut_s3_title: "設為桌布",
     tut_s3_body: "把解壓後的資料夾指定為系統的桌布輪播來源，桌面就會自動輪播 (Windows: <code>設定 → 個人化 → 背景 → 投影片放映</code>)。<br><br>頂部的 <strong>幻燈片</strong> 用於在瀏覽器內播放畫廊。點選任一原畫可放大檢視，按 <code>?</code> 隨時重新開啟此指南。",
+    disclaimer: "OpenLeagueDisplay 未獲得 Riot Games 認可，亦不代表 Riot Games 或任何正式參與製作或營運《英雄聯盟》之人士的觀點或意見。《英雄聯盟》與 Riot Games 為 Riot Games, Inc. 之商標或註冊商標。",
   },
   fr_fr: {
     search_placeholder: "Rechercher un champion ou un skin…",
@@ -419,6 +424,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Appuyez sur <strong>Ma Galerie</strong> dans l'en-tête pour commencer à la constituer.<br>Cliquez sur un skin pour l'ajouter ou le retirer. Cliquez sur la carte d'un champion pour basculer <em>tous</em> ses skins.<br><br>La barre flottante en bas affiche le total et télécharge le ZIP. Vous pouvez aussi récupérer un champion entier ou une gamme depuis sa page détail.",
     tut_s3_title: "En fond d'écran",
     tut_s3_body: "Décompressez le ZIP, puis pointez le diaporama de votre OS sur ce dossier — le bureau tourne tout seul (Windows : <code>Paramètres → Personnalisation → Arrière-plan → Diaporama</code>).<br><br><strong>Diaporama</strong> dans l'en-tête joue aussi votre galerie ici, ou cliquez sur un splash pour zoomer. <code>?</code> rouvre ce guide.",
+    disclaimer: "OpenLeagueDisplay n'est pas approuvé par Riot Games et ne reflète pas les points de vue ou les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion de League of Legends. League of Legends et Riot Games sont des marques commerciales ou des marques déposées de Riot Games, Inc.",
   },
   de_de: {
     search_placeholder: "Champion oder Skin suchen…",
@@ -487,6 +493,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Tippe oben auf <strong>Meine Galerie</strong>, um sie aufzubauen.<br>Klicke einen Skin an, um ihn hinzuzufügen oder zu entfernen. Klick auf eine Champion-Karte schaltet <em>alle</em> seine Skins um.<br><br>Die schwebende Leiste am unteren Rand zeigt die Anzahl und lädt das ZIP. Du kannst auch einen ganzen Champion oder eine Skin-Reihe direkt von seiner Detailseite holen.",
     tut_s3_title: "Als Hintergrund",
     tut_s3_body: "Entpacke das ZIP und richte die Hintergrund-Diashow deines OS auf den Ordner — der Desktop wechselt dann von selbst (Windows: <code>Einstellungen → Personalisierung → Hintergrund → Diashow</code>).<br><br><strong>Diashow</strong> oben spielt deine Galerie auch hier im Browser ab, oder klick einen Splash zum Zoomen. <code>?</code> öffnet diese Anleitung erneut.",
+    disclaimer: "OpenLeagueDisplay wird von Riot Games nicht unterstützt und gibt nicht die Ansichten oder Meinungen von Riot Games oder Personen wieder, die offiziell an der Produktion oder Verwaltung von League of Legends beteiligt sind. League of Legends und Riot Games sind Marken oder eingetragene Marken von Riot Games, Inc.",
   },
   es_es: {
     search_placeholder: "Buscar campeón o aspecto…",
@@ -555,6 +562,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Pulsa <strong>Mi Galería</strong> en la cabecera para empezar a construirla.<br>Haz clic en un aspecto para añadirlo o quitarlo. Haz clic en la tarjeta de un campeón para alternar <em>todos</em> sus aspectos.<br><br>La barra flotante inferior muestra el conteo y descarga el ZIP. También puedes obtener un campeón entero o una línea desde su página de detalle.",
     tut_s3_title: "Como fondo de pantalla",
     tut_s3_body: "Descomprime el ZIP y apunta la presentación de fondos de tu sistema a esa carpeta — el escritorio rotará solo (Windows: <code>Configuración → Personalización → Fondo → Presentación</code>).<br><br><strong>Diapositivas</strong> arriba también reproduce tu galería aquí en el navegador, o haz clic en cualquier splash para verlo en grande. <code>?</code> reabre esta guía.",
+    disclaimer: "OpenLeagueDisplay no está avalado por Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie implicado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pt_br: {
     search_placeholder: "Buscar campeão ou skin…",
@@ -623,6 +631,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Toque em <strong>Minha Galeria</strong> no cabeçalho para começar a montá-la.<br>Clique em uma skin para adicionar ou remover. Clique no card de um campeão para alternar <em>todas</em> as skins dele.<br><br>A barra flutuante inferior mostra a contagem e baixa o ZIP. Você também pode pegar um campeão inteiro ou uma linha pela página de detalhes.",
     tut_s3_title: "Como papel de parede",
     tut_s3_body: "Descompacte o ZIP e aponte a apresentação de fundo do seu sistema para essa pasta — a área de trabalho gira sozinha (Windows: <code>Configurações → Personalização → Tela de fundo → Apresentação de slides</code>).<br><br><strong>Slideshow</strong> em cima também reproduz sua galeria aqui no navegador, ou clique em qualquer splash para ampliar. <code>?</code> reabre este guia.",
+    disclaimer: "OpenLeagueDisplay não é endossado pela Riot Games e não reflete as visões ou opiniões da Riot Games nem de ninguém oficialmente envolvido na produção ou gestão de League of Legends. League of Legends e Riot Games são marcas comerciais ou marcas registradas da Riot Games, Inc.",
   },
   ru_ru: {
     search_placeholder: "Поиск чемпиона или образа…",
@@ -691,6 +700,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Нажмите <strong>Моя галерея</strong> в шапке, чтобы начать её собирать.<br>Клик по образу добавляет или удаляет его. Клик по карточке чемпиона переключает <em>все</em> его образы.<br><br>Плавающая панель внизу показывает количество и скачивает ZIP. Также можно взять целого чемпиона или серию со страницы детали.",
     tut_s3_title: "Как обои рабочего стола",
     tut_s3_body: "Распакуйте ZIP и укажите эту папку в слайд-шоу обоев ОС — рабочий стол будет менять обои сам (Windows: <code>Параметры → Персонализация → Фон → Слайд-шоу</code>).<br><br><strong>Слайд-шоу</strong> в шапке также воспроизводит галерею в браузере, или кликните по сплэшу для увеличения. <code>?</code> снова откроет это руководство.",
+    disclaimer: "OpenLeagueDisplay не одобрен Riot Games и не отражает взгляды или мнения Riot Games либо кого-либо, официально занятого в производстве или управлении League of Legends. League of Legends и Riot Games являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.",
   },
   it_it: {
     search_placeholder: "Cerca un campione o una skin…",
@@ -759,6 +769,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Tocca <strong>La Mia Galleria</strong> nell'intestazione per iniziare a costruirla.<br>Clicca su una skin per aggiungerla o rimuoverla. Clicca la card di un campione per alternare <em>tutte</em> le sue skin.<br><br>La barra flottante in basso mostra il conteggio e scarica lo ZIP. Puoi anche prendere un campione intero o una linea dalla pagina di dettaglio.",
     tut_s3_title: "Come sfondi",
     tut_s3_body: "Decomprimi lo ZIP e punta la presentazione sfondi del sistema a quella cartella — il desktop ruota da solo (Windows: <code>Impostazioni → Personalizzazione → Sfondo → Presentazione</code>).<br><br><strong>Presentazione</strong> in alto riproduce anche la galleria nel browser, o clicca uno splash per ingrandirlo. <code>?</code> riapre questa guida.",
+    disclaimer: "OpenLeagueDisplay non è approvato da Riot Games e non riflette le opinioni o i punti di vista di Riot Games né di chiunque sia ufficialmente coinvolto nella produzione o gestione di League of Legends. League of Legends e Riot Games sono marchi commerciali o marchi registrati di Riot Games, Inc.",
   },
   es_mx: {
     search_placeholder: "Buscar campeón o aspecto…",
@@ -827,6 +838,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Toca <strong>Mi Galería</strong> en el encabezado para empezar a armarla.<br>Haz clic en un aspecto para agregarlo o quitarlo. Haz clic en la tarjeta de un campeón para alternar <em>todos</em> sus aspectos.<br><br>La barra flotante inferior muestra el conteo y descarga el ZIP. También puedes obtener un campeón entero o una línea desde su página de detalle.",
     tut_s3_title: "Como fondo de pantalla",
     tut_s3_body: "Descomprime el ZIP y apunta el pase de fondos de tu sistema a esa carpeta — el escritorio rotará solo (Windows: <code>Configuración → Personalización → Fondo → Presentación</code>).<br><br><strong>Pase de diapositivas</strong> arriba también reproduce tu galería aquí en el navegador, o haz clic en cualquier splash para verlo en grande. <code>?</code> reabre esta guía.",
+    disclaimer: "OpenLeagueDisplay no cuenta con el respaldo de Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie involucrado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pl_pl: {
     search_placeholder: "Szukaj bohatera lub skina…",
@@ -895,6 +907,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Stuknij <strong>Moja galeria</strong> w nagłówku, aby zacząć ją budować.<br>Kliknij skin, aby go dodać lub usunąć. Kliknij kartę bohatera, aby przełączyć <em>wszystkie</em> jego skiny.<br><br>Pływający pasek na dole pokazuje liczbę i pobiera ZIP. Możesz też pobrać całego bohatera lub całą serię ze strony szczegółów.",
     tut_s3_title: "Jako tapety",
     tut_s3_body: "Rozpakuj ZIP i wskaż ten folder w pokazie slajdów tapet OS — pulpit będzie się przełączał sam (Windows: <code>Ustawienia → Personalizacja → Tło → Pokaz slajdów</code>).<br><br><strong>Pokaz slajdów</strong> u góry odtwarza też galerię w przeglądarce, albo kliknij splash, by powiększyć. <code>?</code> ponownie otwiera ten przewodnik.",
+    disclaimer: "OpenLeagueDisplay nie jest wspierany przez Riot Games i nie odzwierciedla poglądów ani opinii Riot Games ani nikogo oficjalnie zaangażowanego w tworzenie lub zarządzanie League of Legends. League of Legends i Riot Games są znakami towarowymi lub zastrzeżonymi znakami towarowymi Riot Games, Inc.",
   },
   tr_tr: {
     search_placeholder: "Şampiyon veya kostüm ara…",
@@ -963,6 +976,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Başlıktaki <strong>Galerim</strong>'e dokunarak oluşturmaya başlayın.<br>Eklemek veya çıkarmak için bir kostüme tıklayın. Bir şampiyon kartına tıklamak o şampiyonun <em>tüm</em> kostümlerini değiştirir.<br><br>Alttaki yüzen çubuk sayıyı gösterir ve ZIP'i indirir. Detay sayfasından tüm bir şampiyonu veya seriyi de alabilirsiniz.",
     tut_s3_title: "Duvar kâğıdı olarak",
     tut_s3_body: "ZIP'i açın ve OS duvar kâğıdı slayt gösterisini o klasöre yönlendirin — masaüstü kendi kendine döner (Windows: <code>Ayarlar → Kişiselleştirme → Arka plan → Slayt gösterisi</code>).<br><br>Başlıktaki <strong>Slayt gösterisi</strong> galeriyi tarayıcıda da oynatır veya bir splash'a tıklayarak yakınlaştırın. <code>?</code> bu kılavuzu yeniden açar.",
+    disclaimer: "OpenLeagueDisplay, Riot Games tarafından onaylanmamıştır ve Riot Games'in ya da League of Legends'ın yapımında veya yönetiminde resmi olarak yer alan hiç kimsenin görüşlerini veya fikirlerini yansıtmaz. League of Legends ve Riot Games, Riot Games, Inc. şirketinin ticari markaları veya tescilli ticari markalarıdır.",
   },
   cs_cz: {
     search_placeholder: "Hledat šampiona nebo vzhled…",
@@ -1031,6 +1045,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Klepněte na <strong>Moje galerie</strong> v hlavičce a začněte ji sestavovat.<br>Kliknutím na vzhled jej přidáte nebo odeberete. Kliknutím na kartu šampiona přepnete <em>všechny</em> jeho vzhledy.<br><br>Plovoucí lišta dole ukazuje počet a stahuje ZIP. Celého šampiona nebo sérii můžete také stáhnout ze stránky detailu.",
     tut_s3_title: "Jako tapety",
     tut_s3_body: "Rozbalte ZIP a nasměrujte prezentaci pozadí OS na tu složku — plocha se přepíná sama (Windows: <code>Nastavení → Přizpůsobení → Pozadí → Prezentace</code>).<br><br><strong>Prezentace</strong> v hlavičce přehrává galerii i v prohlížeči, nebo klikněte na splash pro přiblížení. <code>?</code> znovu otevře tohoto průvodce.",
+    disclaimer: "OpenLeagueDisplay není schválen společností Riot Games a neodráží názory ani stanoviska společnosti Riot Games či kohokoli oficiálně zapojeného do tvorby nebo správy League of Legends. League of Legends a Riot Games jsou ochranné známky nebo registrované ochranné známky společnosti Riot Games, Inc.",
   },
   el_gr: {
     search_placeholder: "Αναζήτηση πρωταθλητή ή εμφάνισης…",
@@ -1099,6 +1114,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Πατήστε <strong>Η Συλλογή μου</strong> στην κεφαλίδα για να ξεκινήσετε.<br>Κάντε κλικ σε μια εμφάνιση για να την προσθέσετε ή να την αφαιρέσετε. Κλικ στην κάρτα πρωταθλητή εναλλάσσει <em>όλες</em> τις εμφανίσεις του.<br><br>Η αιωρούμενη μπάρα στο κάτω μέρος δείχνει τον αριθμό και κατεβάζει το ZIP. Μπορείτε επίσης να πάρετε ολόκληρο πρωταθλητή ή σειρά από τη σελίδα λεπτομερειών.",
     tut_s3_title: "Ως ταπετσαρίες",
     tut_s3_body: "Αποσυμπιέστε το ZIP και στοχεύστε την προβολή διαφανειών φόντου του OS σε αυτόν τον φάκελο — η επιφάνεια εργασίας περιστρέφεται μόνη της (Windows: <code>Ρυθμίσεις → Εξατομίκευση → Φόντο → Προβολή διαφανειών</code>).<br><br><strong>Προβολή διαφανειών</strong> πάνω αναπαράγει επίσης τη συλλογή σας στο πρόγραμμα περιήγησης, ή κάντε κλικ σε οποιοδήποτε splash για μεγέθυνση. Το <code>?</code> ανοίγει ξανά αυτόν τον οδηγό.",
+    disclaimer: "Το OpenLeagueDisplay δεν είναι εγκεκριμένο από τη Riot Games και δεν αντικατοπτρίζει τις απόψεις ή τις γνώμες της Riot Games ή οποιουδήποτε εμπλέκεται επίσημα στην παραγωγή ή τη διαχείριση του League of Legends. Το League of Legends και η Riot Games είναι εμπορικά σήματα ή κατατεθέντα εμπορικά σήματα της Riot Games, Inc.",
   },
   hu_hu: {
     search_placeholder: "Hős vagy szkin keresése…",
@@ -1167,6 +1183,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Koppints a <strong>Saját galéria</strong> gombra a fejlécben.<br>Egy szkinre kattintva hozzáadhatod vagy eltávolíthatod. Egy hős kártyájára kattintva <em>az összes</em> szkinjét átkapcsolod.<br><br>Az alsó lebegő sáv mutatja a számot és letölti a ZIP-et. Egész hőst vagy sorozatot is letölthetsz a részletek oldaláról.",
     tut_s3_title: "Háttérképként",
     tut_s3_body: "Bontsd ki a ZIP-et, és irányítsd az OS háttér-diavetítését arra a mappára — az asztal magától forog (Windows: <code>Beállítások → Személyre szabás → Háttér → Diavetítés</code>).<br><br>A <strong>Diavetítés</strong> a fejlécben is lejátssza a galériát a böngészőben, vagy katt egy splash-re nagyításhoz. A <code>?</code> újra megnyitja ezt az útmutatót.",
+    disclaimer: "Az OpenLeagueDisplay nem a Riot Games által jóváhagyott alkalmazás, és nem tükrözi a Riot Games vagy a League of Legends készítésében, illetve kezelésében hivatalosan részt vevő bárki nézeteit vagy véleményét. A League of Legends és a Riot Games a Riot Games, Inc. védjegyei vagy bejegyzett védjegyei.",
   },
   ro_ro: {
     search_placeholder: "Caută campion sau aspect…",
@@ -1235,6 +1252,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Atinge <strong>Galeria mea</strong> din antet pentru a începe.<br>Click pe un aspect pentru a-l adăuga sau elimina. Click pe cardul unui campion comută <em>toate</em> aspectele sale.<br><br>Bara plutitoare de jos arată numărul și descarcă ZIP-ul. Poți lua și un campion întreg sau o serie din pagina de detalii.",
     tut_s3_title: "Ca fundal",
     tut_s3_body: "Dezarhivează ZIP-ul și îndreaptă prezentarea de fundal a OS-ului către acel folder — desktopul rotește singur (Windows: <code>Setări → Personalizare → Fundal → Prezentare</code>).<br><br><strong>Prezentare</strong> de sus redă galeria și în browser, sau click pe orice splash pentru a-l mări. <code>?</code> redeschide acest ghid.",
+    disclaimer: "OpenLeagueDisplay nu este aprobat de Riot Games și nu reflectă punctele de vedere sau opiniile Riot Games ori ale oricui implicat oficial în producerea sau gestionarea League of Legends. League of Legends și Riot Games sunt mărci comerciale sau mărci comerciale înregistrate ale Riot Games, Inc.",
   },
   th_th: {
     search_placeholder: "ค้นหาแชมเปี้ยนหรือสกิน…",
@@ -1303,6 +1321,7 @@ export const UI_STRINGS = {
     tut_s2_body: "แตะ <strong>แกลเลอรีของฉัน</strong> ที่ส่วนหัวเพื่อเริ่มสร้าง.<br>คลิกสกินเพื่อเพิ่มหรือเอาออก คลิกการ์ดแชมเปี้ยนเพื่อสลับ<em>ทุกสกิน</em>ของแชมเปี้ยนนั้น.<br><br>แถบลอยด้านล่างแสดงจำนวนและดาวน์โหลด ZIP คุณสามารถดาวน์โหลดแชมเปี้ยนทั้งหมดหรือซีรีส์ได้จากหน้ารายละเอียดเช่นกัน",
     tut_s3_title: "เป็นวอลล์เปเปอร์",
     tut_s3_body: "แตก ZIP แล้วชี้สไลด์โชว์พื้นหลังของ OS ไปที่โฟลเดอร์นั้น — เดสก์ท็อปจะหมุนเอง (Windows: <code>การตั้งค่า → การปรับแต่งส่วนบุคคล → พื้นหลัง → สไลด์โชว์</code>).<br><br><strong>สไลด์โชว์</strong> ด้านบนเล่นแกลเลอรีในเบราว์เซอร์ด้วย หรือคลิกสแปลชเพื่อซูม กด <code>?</code> เพื่อเปิดคู่มือนี้อีกครั้ง",
+    disclaimer: "OpenLeagueDisplay ไม่ได้รับการรับรองจาก Riot Games และไม่ได้สะท้อนมุมมองหรือความคิดเห็นของ Riot Games หรือผู้ที่มีส่วนเกี่ยวข้องอย่างเป็นทางการในการผลิตหรือบริหารจัดการ League of Legends ทั้งนี้ League of Legends และ Riot Games เป็นเครื่องหมายการค้าหรือเครื่องหมายการค้าจดทะเบียนของ Riot Games, Inc.",
   },
   id_id: {
     search_placeholder: "Cari juara atau skin…",
@@ -1371,6 +1390,7 @@ export const UI_STRINGS = {
     tut_s2_body: "Ketuk <strong>Galeri Saya</strong> di header untuk mulai membangun.<br>Klik skin untuk menambah atau menghapus. Klik kartu juara untuk mengubah <em>semua</em> skin-nya.<br><br>Bilah mengambang di bawah menampilkan jumlah dan mengunduh ZIP. Kamu juga bisa mengambil seluruh juara atau lini dari halaman detailnya.",
     tut_s3_title: "Sebagai wallpaper",
     tut_s3_body: "Ekstrak ZIP dan arahkan tayangan slide latar OS ke folder itu — desktop berputar sendiri (Windows: <code>Pengaturan → Personalisasi → Latar belakang → Tayangan slide</code>).<br><br><strong>Tayangan slide</strong> di atas juga memutar galerimu di browser, atau klik splash mana saja untuk memperbesar. <code>?</code> membuka kembali panduan ini.",
+    disclaimer: "OpenLeagueDisplay tidak didukung oleh Riot Games dan tidak mencerminkan pandangan atau pendapat Riot Games maupun siapa pun yang terlibat secara resmi dalam produksi atau pengelolaan League of Legends. League of Legends dan Riot Games adalah merek dagang atau merek dagang terdaftar dari Riot Games, Inc.",
   },
 };
 // t("key", arg0, arg1, ...) — locale 未掲載なら default に、key 未定義なら key 文字列を返す
@@ -1602,6 +1622,8 @@ export function applyStaticUIStrings() {
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
+  const disclaimer = $("footer-disclaimer");
+  if (disclaimer) disclaimer.textContent = t("disclaimer");
   if ($("lightbox").classList.contains("open")) {
     $("lb-mode").textContent = state.lb.mode === "slideshow" ? t("mode_slideshow") : t("mode_viewer");
   }
