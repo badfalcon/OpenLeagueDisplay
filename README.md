@@ -176,6 +176,13 @@ Community Dragon are **copyright Riot Games, Inc.** and are *not* covered by
 the MIT license — please avoid redistribution or commercial use beyond
 personal use.
 
-This project is not endorsed by Riot Games. It only references assets that
-Community Dragon publishes under Riot's "Legal Jibber Jabber" policy; it does
-not talk to Riot's client or API directly.
+## Disclaimer
+
+OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views
+or opinions of Riot Games or anyone officially involved in producing or
+managing League of Legends. League of Legends and Riot Games are trademarks
+or registered trademarks of Riot Games, Inc.
+
+It only references assets that Community Dragon publishes under Riot's
+"Legal Jibber Jabber" policy; it does not talk to Riot's client or API
+directly.
