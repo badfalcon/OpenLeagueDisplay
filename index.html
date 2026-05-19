@@ -87,6 +87,18 @@
       </div>
       <div class="header-utils">
         <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
+        <!-- 共有: Web Share API 対応端末 (主にモバイル) はネイティブ共有シート、
+             非対応端末はサイト URL をクリップボードへコピーする。アイコンは
+             外部アセットを増やさないため inline SVG (リポジトリにバイナリを置かない方針) -->
+        <button class="btn btn-icon" id="share-btn" type="button" aria-label="Share this site">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line>
+            <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line>
+          </svg>
+        </button>
         <div class="lang-picker" id="lang-picker">
           <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
@@ -192,6 +204,11 @@
 <div class="offline-banner" id="offline-banner" role="status" aria-live="polite" hidden>
   <span id="offline-banner-text">You are offline — splash images may not load.</span>
 </div>
+
+<!-- スクリーンリーダー向けの状態通知。視覚ユーザーには共有ボタンのアイコンが
+     チェックマークへ変わるが、aria-label の書き換えだけでは読み上げられないため、
+     コピー完了をこの live region のテキスト更新で通知する -->
+<div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
 
 <footer>
   <div class="footer-inner">

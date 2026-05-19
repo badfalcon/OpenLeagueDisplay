@@ -29,6 +29,7 @@ import {
   openTutorial, closeTutorial, tutNext, tutPrev,
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
+import { shareSite } from "./share.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -142,6 +143,7 @@ function wireEvents() {
     render();
   });
   $("help-btn").addEventListener("click", openTutorial);
+  $("share-btn").addEventListener("click", shareSite);
   $("tut-skip").addEventListener("click", closeTutorial);
   $("tut-next").addEventListener("click", tutNext);
   $("tut-back").addEventListener("click", tutPrev);

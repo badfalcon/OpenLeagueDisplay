@@ -293,10 +293,31 @@
     font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
     letter-spacing: 0;
   }
+  /* 共有ボタンのコピー完了状態。チェックアイコンへ切り替わる短時間だけ
+     枠と色を強調し、コピー成功を視覚的に伝える */
+  .btn-icon.copied {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: rgba(212, 168, 87, 0.12);
+  }
+
   /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
      author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
      (#primary-action を home/lines で消すのに必要) */
   .btn[hidden] { display: none; }
+
+  /* スクリーンリーダー専用。視覚的には隠すがアクセシビリティツリーには残す。
+     共有リンクのコピー完了通知 (#sr-status の aria-live) などに使う */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
 
   /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
      ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
