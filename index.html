@@ -212,10 +212,9 @@
      beacon.min.js を defer で 1 本読むだけで、CDragon 以外の外部依存はこれが唯一。
      計測 beacon は cloudflareinsights.com へ送られる (CSP の connect-src で許可)。
      sw.js は同一オリジンのみインターセプトするのでこのリクエストは素通し。
-     data-cf-beacon の token は Cloudflare ダッシュボードでサイト登録時に発行される
-     値に差し替えること (現状はプレースホルダー)。 -->
+     data-cf-beacon の token は Cloudflare ダッシュボードのサイト登録で発行された値。 -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
-        data-cf-beacon='{"token": "YOUR_CF_BEACON_TOKEN"}'></script>
+        data-cf-beacon='{"token": "3b9c447cd38d42a48d7bc318ffedd059"}'></script>
 
 </body>
 </html>

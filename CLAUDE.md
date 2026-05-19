@@ -147,8 +147,8 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   (`static.cloudflareinsights.com/beacon.min.js`) を index.html 末尾で defer 読込
   している。Cookie レスでビューアの機能には関与しないので「機能ライブラリ」とは
   別枠。CDN 障害時もビューアは動く。beacon の token は index.html の
-  `data-cf-beacon` に直書き (現状プレースホルダー)、計測先 `cloudflareinsights.com`
-  は CSP の `connect-src` で許可済み
+  `data-cf-beacon` に直書き、計測先 `cloudflareinsights.com` は CSP の
+  `connect-src` で許可済み
 - **CSS変数で色管理**: ハードコードしない (`--bg`, `--gold` 等)
 - **ファイル名はsnake_case**、CSSクラスはケバブケース、JS関数はキャメルケース
 - **コメントは「なぜ」を書く**。何をしているかはコードで読める
