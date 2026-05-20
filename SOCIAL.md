@@ -7,42 +7,80 @@
 
 ## X / Twitter
 
-### A. 日本語 (短め・通常ツイート)
+無料ユーザーは装飾不可・280字制限。すべてプレーンテキスト、URLは一律23字で計算。
 
-> Riot公式の League Displays が2021年から放置されてるので、後継を自作しました。
->
-> **OpenLeagueDisplay** — 全チャンピオン × 全スキンのスプラッシュを
-> ブラウザで眺めて、好きなのだけ選んで ZIP でまとめDLできる静的サイトです。
-> 画像はリポジトリに置かず Community Dragon を直接参照。20言語対応・PWA・週次自動更新。
->
-> https://badfalcon.github.io/OpenLeagueDisplay/
->
-> #LeagueOfLegends #LoL
+### A. 日本語 / 短め (本文 約150字 + URL23 + タグ約25 = 約198字)
 
-### B. 日本語 (機能の箇条書き寄り)
+```
+Riot公式の League Displays が2021年から放置されてるので、後継の静的Webサイトを作りました。
 
-> League Displays の代わりに作った静的サイト「OpenLeagueDisplay」を公開しました。
->
-> ・全チャンピオン × 全スキンを閲覧
-> ・選択したスキンを ZIP で一括DL → Windowsの壁紙スライドショーに直挿し
-> ・スキンライン (PROJECT, Star Guardian, K/DA…) で横断
-> ・20言語・モバイル対応・PWA
-> ・週次で自動更新 (GitHub Actions)
->
-> https://badfalcon.github.io/OpenLeagueDisplay/
+OpenLeagueDisplay
+全チャンピオン×全スキンを眺めて、好きなのだけZIPで一括DL。20言語対応・PWA・週次自動更新。
 
-### C. 英語 (海外向け)
+https://badfalcon.github.io/OpenLeagueDisplay/
 
-> Riot's League Displays has been abandoned since 2021, so I built a community
-> stand-in.
->
-> **OpenLeagueDisplay** — browse every champion × every skin in your browser,
-> tick the ones you like, and bulk-download them as a ZIP for a local wallpaper
-> slideshow. Static site, no install, 20 locales, weekly auto-update.
->
-> https://badfalcon.github.io/OpenLeagueDisplay/
->
-> #LeagueOfLegends #LoL
+#LeagueOfLegends #LoL
+```
+
+### B. 日本語 / 機能列挙 (本文 約210字 + URL23 = 約233字)
+
+```
+League Displays の代わりに作った静的サイト OpenLeagueDisplay を公開しました。
+
+・全チャンピオン×全スキンを閲覧
+・選択したスキンをZIPで一括DL → Windowsの壁紙スライドショーに直挿し
+・スキンライン (PROJECT, K/DA…) で横断
+・20言語/モバイル/PWA
+・GitHub Actionsで週次自動更新
+
+https://badfalcon.github.io/OpenLeagueDisplay/
+```
+
+### C. 英語 / 海外向け (本文 約215字 + URL23 + タグ約25 = 約263字)
+
+```
+Riot's League Displays has been abandoned since 2021, so I built a community stand-in.
+
+OpenLeagueDisplay - browse every champion x every skin in the browser, tick the ones you like, bulk-download as a ZIP. Static site, 20 locales, PWA.
+
+https://badfalcon.github.io/OpenLeagueDisplay/
+
+#LeagueOfLegends #LoL
+```
+
+### D. スレッド分割版 (詳しく書きたい場合)
+
+1ツイート目:
+```
+League Displays が2021年から放置されてるので、ブラウザだけで動く後継を作りました。
+
+OpenLeagueDisplay
+https://badfalcon.github.io/OpenLeagueDisplay/
+
+何ができるかは下のスレッドで↓
+```
+
+2ツイート目:
+```
+できること
+
+・全チャンピオン×全スキンのスプラッシュを閲覧
+・スキンライン (PROJECT, Star Guardian, K/DA…) で横断
+・気に入ったスキンをチェック → ZIPで一括ダウンロード
+・落としたフォルダをWindowsの壁紙スライドショーに指定すれば完成
+```
+
+3ツイート目:
+```
+技術メモ
+
+・GitHub Pages にデプロイの完全静的サイト
+・画像はリポジトリに置かず Community Dragon CDN を直接参照
+・20言語対応 (英語以外は遅延ロードで帯域ゼロ)
+・週1で GitHub Actions が data.json を自動更新
+
+ソース (MIT): https://github.com/badfalcon/OpenLeagueDisplay
+```
 
 ---
 
@@ -150,8 +188,11 @@ r/wallpapers。r/leagueoflegends は self-promotion ルールが厳しめなの�
 
 ## 投稿時の注意
 
-- **X**: og:image (ogp.png) が summary_large_image で展開されるので、本文は
-  URL 1本でカードが出る。複数枚画像を貼るなら screenshot.png も併用可。
+- **X (無料ユーザー)**: 280字制限、太字/見出し/箇条書き記号などの書式不可
+  (Premium に課金している場合のみ長文+書式可)。URLは実際の長さに関わらず
+  一律23字でカウントされる。og:image (ogp.png) が summary_large_image で
+  展開されるので、本文は URL 1本でカードが出る。複数枚画像を貼るなら
+  screenshot.png も併用可。
 - **Reddit**: r/leagueoflegends は self-promotion 10:1 ルールあり。Link post
   でなく self post 推奨、コメント欄での質問返しを丁寧に。
 - **LinkedIn**: ハッシュタグは3–5個推奨 (上記は8個)。絞るなら
