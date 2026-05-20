@@ -9,21 +9,42 @@
 
 無料ユーザーは装飾不可・280字制限。すべてプレーンテキスト、URLは一律23字で計算。
 
-### A. 日本語 / 短め (本文 約150字 + URL23 + タグ約25 = 約198字)
+### Xアルゴリズム上の注意
 
+外部リンク付きツイートはタイムラインでの表示回数が大きく下がる
+(プラットフォーム外へユーザーを逃がさないため、と Musk 本人も明言済み)。
+ハッシュタグの過剰使用も同様にディスカバリ寄与より減速の方が大きいと
+言われている。なので以下を前提に組む:
+
+- **1通目にはURLを入れない。** フック (なぜこれを作ったか/何ができるか) だけ書く
+- **URLは「自分のツイートへのリプライ」として2通目に貼る** (引用RTでも可)
+- 1通目に画像を1枚は付ける (ogp.png か screenshot.png)
+- ハッシュタグも控えめに (#LoL くらい)
+
+### A. 日本語 / 単発 + リプライでURL
+
+**1通目** (本文 約185字):
 ```
-Riot公式の League Displays が2021年から放置されてるので、後継の静的Webサイトを作りました。
+Riot公式の League Displays が2021年から放置されてるので、後継の静的Webサイトを自作しました。
 
 OpenLeagueDisplay
 全チャンピオン×全スキンを眺めて、好きなのだけZIPで一括DL。20言語対応・PWA・週次自動更新。
 
+リンクは下のリプに貼ります #LoL
+```
+画像: ogp.png または screenshot.png を1枚添付
+
+**1通目への自己リプ** (URL23 + 補足):
+```
 https://badfalcon.github.io/OpenLeagueDisplay/
 
-#LeagueOfLegends #LoL
+ソース (MIT):
+https://github.com/badfalcon/OpenLeagueDisplay
 ```
 
-### B. 日本語 / 機能列挙 (本文 約210字 + URL23 = 約233字)
+### B. 日本語 / 単発 + リプライでURL (機能列挙版)
 
+**1通目** (本文 約215字):
 ```
 League Displays の代わりに作った静的サイト OpenLeagueDisplay を公開しました。
 
@@ -33,34 +54,48 @@ League Displays の代わりに作った静的サイト OpenLeagueDisplay を公
 ・20言語/モバイル/PWA
 ・GitHub Actionsで週次自動更新
 
+URLは↓のリプから #LoL
+```
+画像: screenshot.png を添付
+
+**自己リプ**:
+```
 https://badfalcon.github.io/OpenLeagueDisplay/
 ```
 
-### C. 英語 / 海外向け (本文 約215字 + URL23 + タグ約25 = 約263字)
+### C. 英語 / 単発 + リプライでURL
 
+**1通目** (本文 約240字):
 ```
 Riot's League Displays has been abandoned since 2021, so I built a community stand-in.
 
-OpenLeagueDisplay - browse every champion x every skin in the browser, tick the ones you like, bulk-download as a ZIP. Static site, 20 locales, PWA.
+OpenLeagueDisplay - browse every champion x every skin in the browser, tick the ones you like, bulk-download as a ZIP for a local wallpaper slideshow. Static site, 20 locales, PWA.
 
+Link in reply.
+```
+画像: ogp.png または screenshot.png を添付
+
+**自己リプ**:
+```
 https://badfalcon.github.io/OpenLeagueDisplay/
 
-#LeagueOfLegends #LoL
+Source (MIT):
+https://github.com/badfalcon/OpenLeagueDisplay
 ```
 
-### D. スレッド分割版 (詳しく書きたい場合)
+### D. スレッド (1通目はリンクなし、2通目以降にURL)
 
-1ツイート目:
+**1通目** (フックのみ、画像必須):
 ```
 League Displays が2021年から放置されてるので、ブラウザだけで動く後継を作りました。
 
 OpenLeagueDisplay
-https://badfalcon.github.io/OpenLeagueDisplay/
 
-何ができるかは下のスレッドで↓
+何ができるかをスレッドにまとめます↓
 ```
+画像: screenshot.png を添付
 
-2ツイート目:
+**2通目** (機能):
 ```
 できること
 
@@ -70,7 +105,7 @@ https://badfalcon.github.io/OpenLeagueDisplay/
 ・落としたフォルダをWindowsの壁紙スライドショーに指定すれば完成
 ```
 
-3ツイート目:
+**3通目** (技術):
 ```
 技術メモ
 
@@ -78,8 +113,15 @@ https://badfalcon.github.io/OpenLeagueDisplay/
 ・画像はリポジトリに置かず Community Dragon CDN を直接参照
 ・20言語対応 (英語以外は遅延ロードで帯域ゼロ)
 ・週1で GitHub Actions が data.json を自動更新
+```
 
-ソース (MIT): https://github.com/badfalcon/OpenLeagueDisplay
+**4通目** (URLはここで初出):
+```
+触ってみる:
+https://badfalcon.github.io/OpenLeagueDisplay/
+
+ソース (MIT):
+https://github.com/badfalcon/OpenLeagueDisplay
 ```
 
 ---
@@ -189,10 +231,11 @@ r/wallpapers。r/leagueoflegends は self-promotion ルールが厳しめなの�
 ## 投稿時の注意
 
 - **X (無料ユーザー)**: 280字制限、太字/見出し/箇条書き記号などの書式不可
-  (Premium に課金している場合のみ長文+書式可)。URLは実際の長さに関わらず
-  一律23字でカウントされる。og:image (ogp.png) が summary_large_image で
-  展開されるので、本文は URL 1本でカードが出る。複数枚画像を貼るなら
-  screenshot.png も併用可。
+  (Premium 課金時のみ長文+書式可)。URLは実際の長さに関わらず一律23字。
+  **外部リンクを含むツイートはアルゴリズムで露出が下がる** ので、
+  本文中にURLは入れず自己リプライ (または スレッドの2通目以降) に貼る。
+  リンクカード (og:image) の代わりに ogp.png / screenshot.png を
+  メディア添付して視覚的フックを補強する。ハッシュタグは1個程度に抑える。
 - **Reddit**: r/leagueoflegends は self-promotion 10:1 ルールあり。Link post
   でなく self post 推奨、コメント欄での質問返しを丁寧に。
 - **LinkedIn**: ハッシュタグは3–5個推奨 (上記は8個)。絞るなら
