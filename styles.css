@@ -982,9 +982,43 @@
     padding-right: 18px;
     margin-right: 4px;
   }
+  /* button.count.pack-view: 件数バッジを「ギャラリービュー」への導線にする。
+     見た目は従来の .count (Fraunces italic) を保ちつつ、ボタン既定値 (角丸/枠/背景) を
+     落として hover で gold-hi → gold へ転がす。is-active (= 既にギャラリービュー中)
+     では disabled + arrow 非表示で押せないことを示す */
+  .pack-bar button.pack-view {
+    background: transparent;
+    border: 0;
+    padding-top: 0; padding-bottom: 0;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s;
+    display: inline-flex; align-items: baseline; gap: 6px;
+  }
+  .pack-bar button.pack-view:hover { color: var(--gold); }
+  .pack-bar button.pack-view:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+  .pack-bar button.pack-view[disabled] {
+    cursor: default;
+    color: var(--gold);  /* アクティブ表現 (現ビュー) */
+  }
+  .pack-bar .pack-view-arrow {
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 14px;
+    color: var(--gold);
+    opacity: 0.85;
+    transition: transform 0.18s;
+  }
+  .pack-bar button.pack-view:hover .pack-view-arrow {
+    transform: translateX(2px);
+  }
   @media (max-width: 780px) {
     .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
     .pack-bar .count { font-size: 15px; padding-right: 14px; }
+    .pack-bar .pack-view-arrow { font-size: 12px; }
   }
 
   /* === SKIN LINES GRID ============================================ */

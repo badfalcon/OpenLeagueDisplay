@@ -12,7 +12,7 @@ export let DATA = null;
 export function setData(d) { DATA = d; }
 
 export const state = {
-  view: "home",            // home | champion | lines | line
+  view: "home",            // home | champion | lines | line | selected
   currentChamp: null,
   currentLine: null,       // skin line id (string)
   searchQuery: "",

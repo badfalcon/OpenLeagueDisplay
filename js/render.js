@@ -99,17 +99,20 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
 export function render() {
   const root = $("root");
   ensureLayout(root);
-  // タブはトップレベル切替。back-btn は詳細 (champion / line) または検索中に表示
+  // タブはトップレベル切替。back-btn は詳細 (champion / line / selected) または検索中に表示。
+  // "selected" は pack-bar 経由で開く中間ビューなのでタブはどちらも非アクティブ
   const isLines = (state.view === "lines" || state.view === "line");
-  const isDetail = (state.view === "champion" || state.view === "line");
+  const isSelected = (state.view === "selected");
+  const isDetail = (state.view === "champion" || state.view === "line" || isSelected);
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
-  $("tab-home").classList.toggle("active", !isLines);
+  $("tab-home").classList.toggle("active", !isLines && !isSelected);
   $("nav-lines").classList.toggle("active", isLines);
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
+  else if (state.view === "selected") renderSelected(root);
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
@@ -393,6 +396,68 @@ function renderLine(root) {
   });
 }
 
+// 選択中のスキン一覧を確認するビュー。pack-bar の件数バッジから開く。
+// state.selected (Set<SELECT_KEY>) を SKIN_BY_KEY で実体化し、localized 名前で
+// 安定ソートしてから skin-grid で並べる (Set のイテレーション順 = 追加順だと、
+// 再訪時の表示が直感的に並ばない)。
+// 選択モード中の card クリックは toggleSelected が再 render() するので、
+// 解除した瞬間にギャラリーから消える。
+function renderSelected(root) {
+  const items = [];
+  for (const k of state.selected) {
+    const hit = SKIN_BY_KEY.get(k);
+    if (hit && hit.s.splash) items.push({ key: k, champ: hit.c, skin: hit.s });
+  }
+  const cmpLocale = state.locale === "default" ? "en" : state.locale.replace("_", "-");
+  items.sort((a, b) => {
+    const an = `${champName(a.champ)} ${skinLabel(a.champ, a.skin)}`;
+    const bn = `${champName(b.champ)} ${skinLabel(b.champ, b.skin)}`;
+    return an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
+  });
+
+  setPrimaryHeader({
+    isList: true,
+    title: t("select_mode"),
+    count: items.length ? t("skins_count", items.length) : "",
+  });
+
+  if (items.length === 0) {
+    $("view-content").innerHTML = `<div class="loading"><p>${t("gallery_empty")}</p></div>`;
+    return;
+  }
+
+  const cards = items.map((it, i) => {
+    const cn = champName(it.champ);
+    const sl = skinLabel(it.champ, it.skin);
+    return `
+    <div class="skin-card selected" data-idx="${i}" data-key="${esc(it.key)}">
+      <div class="sel-checkbox"></div>
+      <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="label">${esc(cn)} — ${esc(sl)}</div>
+    </div>`;
+  }).join("");
+  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
+  const lbList = items.map(it => ({
+    champ: champName(it.champ), skin: skinLabel(it.champ, it.skin),
+    src: it.skin.splash, desc: skinDescription(it.champ, it.skin),
+  }));
+  $("view-content").querySelectorAll(".skin-card").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.idx, 10);
+      if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
+      openLightbox(lbList, idx, "manual");
+    });
+  });
+}
+
+export function openSelected() {
+  state.view = "selected";
+  state.currentChamp = null;
+  state.currentLine = null;
+  state.searchQuery = ""; $("search").value = "";
+  window.scrollTo(0, 0); render();
+}
+
 // 選択モード中、ヘッダー直下に「現在 N 件選択中 / DL / クリア」バーを出す
 function renderPackBar() {
   const root = $("root");
@@ -401,9 +466,14 @@ function renderPackBar() {
     if (bar) bar.remove();
     return;
   }
+  // 件数バッジは「選択一覧ビュー」への導線を兼ねる。既にそのビューを開いている時は
+  // 押せても遷移先が同じなので disabled にしておく (見た目もアクティブ表現に)
+  const inSelected = state.view === "selected";
+  const countCls = inSelected ? "count pack-view is-active" : "count pack-view";
+  const arrow = inSelected ? "" : ` <span class="pack-view-arrow" aria-hidden="true">→</span>`;
   const html = `
     <div class="pack-bar" id="pack-bar">
-      <span class="count">${t("selected_count", state.selected.size)}</span>
+      <button class="${countCls}" id="pack-view" type="button"${inSelected ? " disabled" : ""}>${esc(t("selected_count", state.selected.size))}${arrow}</button>
       <button class="btn" id="pack-clear">${t("clear")}</button>
       <button class="btn primary" id="pack-dl">${t("dl_selected")}</button>
     </div>`;
@@ -412,6 +482,7 @@ function renderPackBar() {
   } else {
     root.insertAdjacentHTML("afterbegin", html);
   }
+  $("pack-view").addEventListener("click", openSelected);
   $("pack-clear").addEventListener("click", clearSelected);
   $("pack-dl").addEventListener("click", downloadSelected);
 }
@@ -425,7 +496,10 @@ export function toggleSelected(key, el) {
     if (el) el.classList.add("selected");
   }
   saveSelected();
-  renderPackBar();
+  // ギャラリービュー中はトグルした項目を grid から消す必要があるので全体 re-render。
+  // 他のビューはカードの class 更新だけで十分なので軽量に pack-bar だけ
+  if (state.view === "selected") render();
+  else renderPackBar();
 }
 // チャンプ/ライン単位の一括 toggle。state.selected は per-skin の Set なので、
 // 「配下スキンの SELECT_KEY を一括 add/remove するだけ」。
