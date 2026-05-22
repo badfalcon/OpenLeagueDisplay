@@ -20,8 +20,8 @@ export const state = {
   // リリース順、Annie が先頭)。"name_asc"/"name_desc" は localized name で
   // localeCompare。locale を切替えると比較基準も同じ locale で再計算される
   sortOrder: "default",
-  selectMode: false,
-  // 選択キー: `${alias}//${skinLabel}` (label はスキン側でユニーク)
+  // 選択キー (= マイギャラリーの中身): `${alias}//${skinLabel}` (label はスキン側でユニーク)。
+  // 選択は常時有効 (モード概念なし): 各カードの ＋ で個別 toggle する
   selected: new Set(),
   // ZIP生成キャンセル用フラグ
   packAbort: false,

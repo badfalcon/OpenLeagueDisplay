@@ -2,7 +2,7 @@
 // チャンピオン/スキン名翻訳 (i18n/<locale>.json) とは別に UI chrome は同梱する。
 
 import { state, $, lsGet, LS_LOCALE_KEY, DATA, SELECT_KEY } from "./state.js";
-import { renderStats } from "./render.js";
+import { renderStats, refreshGalleryBtn } from "./render.js";
 
 // UI 文字列の i18n テーブル。チャンピオン/スキン名翻訳 (i18n/<locale>.json) とは別に、
 // UI chrome (ボタン/プレースホルダ/エラー/進捗) は同梱で済ませる。未掲載 locale は
@@ -61,6 +61,9 @@ export const UI_STRINGS = {
     offline_banner: "You are offline — splash images may not load.",
     slideshow_empty: "Add skins to My Gallery first to use the slideshow.",
     gallery_empty: "Your gallery is empty",
+    gallery_empty_hint: "Click the + on any skin or champion card to add it.",
+    gallery_add: "Add to gallery",
+    gallery_remove: "Remove from gallery",
     sort_aria: "Sort order",
     sort_default: "Default",
     sort_name_asc: "Name A → Z",
@@ -74,7 +77,7 @@ export const UI_STRINGS = {
     tut_s1_title: "Welcome",
     tut_s1_body: "A spiritual successor to Riot's discontinued <strong>LeagueDisplays</strong>.<br><br>Browse every champion and skin, pick your favorites, and download them as a single ZIP folder. Drop it into your wallpaper folder and let your OS rotate them as desktop backgrounds.",
     tut_s2_title: "Build Your Gallery",
-    tut_s2_body: "Tap <strong>My Gallery</strong> in the header to start building.<br>Click any skin to add or remove it. Click a champion card to toggle <em>all</em> of its skins.<br><br>The floating bar at the bottom shows your count and downloads the ZIP. You can also grab a whole champion or skin line from its detail page.",
+    tut_s2_body: "Click the <strong>+</strong> on any skin to add it to your gallery. On a champion card, the <strong>+</strong> adds <em>all</em> of its skins at once.<br><br>Open <strong>My Gallery</strong> in the header anytime to review your picks, play a slideshow, or download them all as a single ZIP. You can also grab a whole champion or skin line from its detail page.",
     tut_s3_title: "Set as wallpapers",
     tut_s3_body: "Unzip the download and point your OS wallpaper slideshow at that folder (Windows: <code>Settings → Personalization → Background → Slideshow</code>) — your desktop rotates on its own.<br><br><strong>Slideshow</strong> at the top also plays your gallery in-browser, or click any splash to zoom. Press <code>?</code> anytime to reopen this guide.",
     disclaimer: "OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.",
@@ -132,6 +135,9 @@ export const UI_STRINGS = {
     offline_banner: "オフラインです — スプラッシュ画像は表示されないことがあります",
     slideshow_empty: "先にマイギャラリーにスキンを追加してください",
     gallery_empty: "ギャラリーは空です",
+    gallery_empty_hint: "スキンやチャンピオンカードの ＋ を押して追加してください",
+    gallery_add: "ギャラリーに追加",
+    gallery_remove: "ギャラリーから削除",
     sort_aria: "並び順",
     sort_default: "デフォルト",
     sort_name_asc: "名前 A → Z",
@@ -145,7 +151,7 @@ export const UI_STRINGS = {
     tut_s1_title: "ようこそ",
     tut_s1_body: "Riot 公式の <strong>LeagueDisplays</strong> が放置されたのを受けて作られた、その代替の静的ビューアです。<br><br>全チャンピオン・全スキンを見て、気に入ったものを 1 つの ZIP フォルダにまとめて DL。OS の壁紙スライドショーにそのフォルダを指定すれば、デスクトップ背景が自動でローテーションします。",
     tut_s2_title: "マイギャラリーを作る",
-    tut_s2_body: "ヘッダの <strong>マイギャラリー</strong> をタップしてギャラリー作成を開始。<br>スキンをクリックで追加/解除。チャンピオンカードのクリックで<em>そのチャンピオン全スキン</em>を一括トグル。<br><br>画面下のバーに件数が出るので、そこから ZIP をダウンロード。各チャンピオン/シリーズの詳細ページから一括 DL もできます。",
+    tut_s2_body: "スキンの <strong>＋</strong> を押すとギャラリーに追加。チャンピオンカードの <strong>＋</strong> なら<em>そのチャンピオンの全スキン</em>を一括追加できます。<br><br>ヘッダの <strong>マイギャラリー</strong> をいつでも開いて、選んだスキンの確認・スライドショー再生・まとめて ZIP ダウンロードができます。各チャンピオン/シリーズの詳細ページから一括 DL も可能です。",
     tut_s3_title: "壁紙として設定",
     tut_s3_body: "ZIP を解凍したフォルダを OS の壁紙スライドショーに指定すれば、デスクトップ背景が自動でローテーション再生されます (Windows: <code>設定 → 個人用設定 → 背景 → スライドショー</code>)。<br><br>ヘッダの <strong>スライドショー</strong> はブラウザ内再生用。スプラッシュクリックで拡大表示、<code>?</code> キーでこのガイドを再表示。",
     disclaimer: "OpenLeagueDisplay は Riot Games が承認したものではなく、Riot Games または League of Legends の制作・運営に公式に関与する者の見解や意見を反映するものではありません。League of Legends および Riot Games は Riot Games, Inc. の商標または登録商標です。",
@@ -1611,7 +1617,7 @@ export function applyStaticUIStrings() {
   $("nav-lines").textContent = t("nav_lines");
   equalizeTabs();
   $("slideshow-btn").textContent = t("nav_slideshow");
-  $("select-toggle").textContent = state.selectMode ? t("select_mode_on") : t("select_mode");
+  refreshGalleryBtn();
   const helpBtn = $("help-btn");
   if (helpBtn) helpBtn.setAttribute("aria-label", t("tut_help_aria"));
   const shareBtn = $("share-btn");
