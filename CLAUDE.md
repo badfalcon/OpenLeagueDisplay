@@ -94,12 +94,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   待たず `generate_data.py` の `CHAMPION_REGIONS` (alias.lower()→[slug,...]) と
   `REGION_NAMES` (slug→英名) で持つ。新チャンピオンが追加された時はここに 1 行
   追記する。漏れは `build_manifest()` の警告 (`[警告] CHAMPION_REGIONS 未登録: <alias>`)
-  で次回 regenerate 時に気付ける。ロール/rarity と同じく翻訳も有限セット
-  (~14 地域) なので index.html の `REGION_LABELS` (default + ja_jp/ko_kr/zh_cn の
-  主要 locale) にハードコード。検索フィルタは `REGION_LABELS[state.locale]` を
-  見て、未対応 locale なら `REGION_LABELS.default` (英語) にフォールバック
-  (ROLE_LABELS / RARITY_LABELS と同じ二段当たり)。i18n/<locale>.json には
-  regions フィールド自体を出さない。
+  で次回 regenerate 時に気付ける。地域名は検索キーワード専用 (表示には使わない)
+  で、`js/i18n.js` の `REGION_LABELS` に「地域名を実際に翻訳していると確認できた
+  locale」だけハードコード (現状 17 locale)。検索フィルタは
+  `REGION_LABELS[state.locale]` を見て、未登録 locale なら `REGION_LABELS.default`
+  (ラテン/英語) にフォールバック (ROLE_LABELS / RARITY_LABELS と同じ二段当たり)。
+  el_gr/th_th/id_id 等は実クライアントが地域名をラテン文字のまま表示するため
+  あえて未登録 (default フォールバックが実クライアント表記と一致する)。新しく
+  locale を足す時は公式クライアント表記を確認してから (推測の音訳は入れない)。
+  i18n/<locale>.json には regions フィールド自体を出さない。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
@@ -165,16 +168,22 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   `sw.js` でアプリシェル (HTML/CSS/JS/アイコン) を stale-while-revalidate キャッシュ
   し、`data.json` / `i18n/*.json` は network-first。スプラッシュ画像 (CDragon) は
   キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応
-- [ ] アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生
+- [x] ~~アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生~~ →
+  `generate_data.py` が `splashVideoPath` を `video` フィールドに取り込み、
+  ライトボックスが `video` を持つスキンで `<img>` の代わりに `<video>` を再生
+  (poster に静止 splash、muted+loop+playsinline で autoplay)。一覧カードには
+  ▶ バッジを出して開く前に動くと分かるようにした。`video` の無いスキンや
+  旧 data.json では従来通り静止 splash 表示 (完全に後方互換)
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [ ] キーボードショートカット一覧モーダル (? キーで表示)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
-- [ ] REGION_LABELS の locale を増やす (現状 default/ja_jp/ko_kr/zh_cn のみ。
-  zh_tw/fr_fr/de_de/es_es/pt_br/ru_ru も ROLE_LABELS / RARITY_LABELS と同じく
-  揃えると 9 locale 一貫する)
+- [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で
+  裏どりできた 17 locale を登録 (it_it/es_mx/pl_pl/tr_tr/cs_cz/hu_hu/ro_ro を追加)。
+  el_gr/th_th/id_id 等は実クライアントが地域名をラテン文字表記なのであえて未登録
+  (default フォールバックで実表記と一致する)
 
 ## ローカル開発
 

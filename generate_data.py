@@ -400,6 +400,13 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     if tile:
         entry["tile"] = cdragon_url(tile)
 
+    # アニメーションスプラッシュ動画 (.webm)。一部のスキンだけが持つフィールドで、
+    # 大半の skin/tier では未定義。ブラウザ側はライトボックスで splash の代わりに
+    # 動画を再生する (無いスキンは従来通り静止 splash)。URL 変換規則は画像と同じ。
+    video = skin_obj.get("splashVideoPath")
+    if video:
+        entry["video"] = cdragon_url(video)
+
     # 所属スキンライン (PROJECT, Star Guardian 等) — まとめDLのキーになる
     lines = skin_obj.get("skinLines") or []
     line_ids = [ln.get("id") for ln in lines if isinstance(ln, dict) and ln.get("id")]

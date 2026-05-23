@@ -235,6 +235,10 @@ function renderChampCards(list) {
   }).join("");
 }
 
+// アニメーションスプラッシュ (video あり) を持つスキンに重ねる再生グリフ。
+// ライトボックスを開く前に「これは動く」と分かるようにする
+const animBadge = (s) => s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+
 function renderSkinCards(matches) {
   return matches.map((m, i) => {
     const { c, s } = m;
@@ -244,7 +248,7 @@ function renderSkinCards(matches) {
     const sl = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -281,7 +285,7 @@ function wireSkinSelect(scope) {
 
 // 検索結果のスキンタイル: 本体クリックでライトボックス、＋ で当該スキンを toggle
 function wireSearchSkinCards(root, matches) {
-  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
+  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
   const scope = root.querySelector(".skin-grid.is-flat");
   if (!scope) return;
   scope.querySelectorAll(".skin-card").forEach(el => {
@@ -302,7 +306,7 @@ function renderChampion(root) {
     const lab = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(lab)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(lab)}</div>
     </div>`;
@@ -398,7 +402,7 @@ function renderLine(root) {
     const sl = skinLabel(it.champ, it.skin);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(it.skin)}
       <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -410,7 +414,7 @@ function renderLine(root) {
     primaryClick: () => downloadLine(lid, lname, items),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, desc: skinDescription(it.champ, it.skin) }));
+  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin) }));
   const vc = $("view-content");
   vc.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
@@ -457,7 +461,7 @@ function renderSelected(root) {
     const sl = skinLabel(it.champ, it.skin);
     return `
     <div class="skin-card selected" data-idx="${i}" data-key="${esc(it.key)}">
-      <div class="sel-checkbox" title="${esc(t("gallery_remove"))}"></div>
+      <div class="sel-checkbox" title="${esc(t("gallery_remove"))}"></div>${animBadge(it.skin)}
       <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -474,7 +478,7 @@ function renderSelected(root) {
   $("gallery-clear").addEventListener("click", clearSelected);
   const lbList = items.map(it => ({
     champ: champName(it.champ), skin: skinLabel(it.champ, it.skin),
-    src: it.skin.splash, desc: skinDescription(it.champ, it.skin),
+    src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin),
   }));
   const vc = $("view-content");
   vc.querySelectorAll(".skin-card").forEach(el => {
@@ -549,7 +553,7 @@ export function openLines() {
 }
 
 function buildChampList(c) {
-  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, desc: skinDescription(c, s) }));
+  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
 }
 
 export function openChampion(alias) {

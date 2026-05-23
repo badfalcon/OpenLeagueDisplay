@@ -156,6 +156,10 @@
   <div class="lb-stage">
     <img class="lb-img" id="lb-img-a" alt="">
     <img class="lb-img" id="lb-img-b" alt="">
+    <!-- アニメーションスプラッシュ (splashVideoPath を持つスキン) 用。
+         muted + playsinline は autoplay ポリシー回避、loop は interval 中の継続再生。
+         poster に splash 静止画を当てて、動画ロード完了までの繋ぎにする -->
+    <video class="lb-video" id="lb-video" muted loop playsinline preload="auto"></video>
   </div>
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>

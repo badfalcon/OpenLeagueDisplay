@@ -657,6 +657,22 @@
   }
   .skin-card:hover { transform: translateY(-3px); }
   .skin-card:hover img { transform: scale(1.06); }
+  /* アニメーションスプラッシュ (splashVideoPath あり) を持つスキンの右上に出す
+     再生グリフ。ライトボックスで動画再生されることを一覧段階で示す。
+     sel-checkbox は左上なので選択モード中でも競合しない */
+  .anim-badge {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 26px; height: 26px;
+    box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(7, 6, 11, 0.82);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border: 1px solid var(--gold);
+    color: var(--gold-hi);
+    font-size: 10px;
+    padding-left: 2px; /* ▶ グリフの光学中心を箱の中央へ寄せる */
+    pointer-events: none;
+  }
   .skin-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 24px 18px 16px;
@@ -703,6 +719,17 @@
     opacity: 0; transition: opacity 0.8s ease;
   }
   .lb-img.show { opacity: 1; }
+  /* アニメーションスプラッシュの動画レイヤ。.lb-img と同じ配置・フェードで、
+     動画を持つスキンの時だけ .show が付いて画像レイヤの上に重なる。
+     z-index は付けない: .lb-stage 内で lb-img-a/b より後ろの DOM 順なので
+     自然に画像の上、かつ stage の外にある .lb-overlay/ボタン類の下に収まる。
+     Ken Burns は静止画専用なので動画には掛けない (動画自体が動くため) */
+  .lb-video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: contain;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  .lb-video.show { opacity: 1; }
   .lightbox.slideshow .lb-img.show {
     animation: kenburns 12s ease-out forwards;
   }
