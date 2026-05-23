@@ -709,12 +709,17 @@
     opacity: 0; pointer-events: none; transition: opacity 0.25s;
   }
   .lightbox.open { opacity: 1; pointer-events: auto; }
-  /* ライトボックス/スライドショー中は背景スクロールを止める。
-     position:fixed のオーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう。
-     html/body に overflow-x:clip があるとスクロールコンテナが <html> 側になり
-     body だけの overflow:hidden では止まらないので、:has で <html> も固定する */
-  html:has(body.lightbox-open),
-  body.lightbox-open { overflow: hidden; }
+  /* ライトボックス/チュートリアル中は背景スクロールを止める。position:fixed の
+     オーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう。さらに
+     iOS Safari は overflow:hidden だけだとタッチスクロールが残り、html/body の
+     overflow-x:clip で実スクロールコンテナが <html> 側になる構成でも止まらない。
+     JS (lockScroll/state.js) が body を position:fixed にして現在位置を退避することで、
+     <html> をフローから切り離して確実に固定する。top はインラインで負オフセットが入る */
+  body.scroll-locked {
+    position: fixed;
+    left: 0; width: 100%;
+    overflow: hidden;
+  }
   .lb-stage { position: absolute; inset: 0; overflow: hidden; }
   .lb-img {
     position: absolute; inset: 0;
@@ -1145,8 +1150,6 @@
      clip-path フレームを踏襲し、世界観 (黒紫 × ゴールド) を保つ。
      z-index は lightbox (100) より上、progress-overlay (200) より下。
      チュートリアル中にユーザーが DL を開始することは想定しないので競合は無い */
-  html:has(body.tutorial-open),
-  body.tutorial-open { overflow: hidden; }
   .tutorial-overlay {
     position: fixed; inset: 0; z-index: 150;
     background: rgba(7, 6, 11, 0.88);

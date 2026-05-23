@@ -1,7 +1,7 @@
 // ライトボックス (画像拡大表示) と全局スライドショー。
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
-import { state, $, SKIN_BY_KEY, DATA } from "./state.js";
+import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
 import { t, toLightboxItem } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
@@ -30,6 +30,7 @@ export function openLightbox(list, idx, mode) {
   lb.classList.add("open");
   lb.setAttribute("aria-hidden", "false");
   document.body.classList.add("lightbox-open");
+  lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
   $("ss-controls").style.display = mode === "slideshow" ? "" : "none";
   // 間隔ボタンは上ツールバー側 (常時表示) に置いたので、スライドショー時のみ表示する
@@ -129,6 +130,7 @@ export function closeLightbox() {
   lb.classList.remove("open");
   lb.setAttribute("aria-hidden", "true");
   document.body.classList.remove("lightbox-open");
+  unlockScroll();
   stopSlideshow();
   // openLightbox の seq を進めて係争中の onload を無効化
   state.lb.seq++;
