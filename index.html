@@ -15,16 +15,18 @@
   将来の回帰防止と CDN 侵害時の影響軽減のためのバックストップ。
   - script-src: 'self' で js/*.js (ES Modules) をカバー。'unsafe-inline' は
     onload="imgLoaded(this)" 等のインラインイベント属性のために残す
-    (event delegation 化までの暫定)。jsdelivr は JSZip の CDN ロード用
+    (event delegation 化までの暫定)。jsdelivr は JSZip の CDN ロード用、
+    static.cloudflareinsights.com は Cloudflare Web Analytics の beacon.min.js 用
   - style-src: 'self' で styles.css をカバー。Google Fonts と一部 innerHTML 内の
     style="min-width:Nch" のような inline style 属性のため 'unsafe-inline'
   - img-src: data: は styles.css の inline SVG アイコン (検索虫眼鏡 / セレクト矢印 /
     body::after ノイズ) を表示するために必要。blob: は生成していないので付けない。
     CDragon + 国旗 CDN を外部画像として許可
-  - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self
+  - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self、
+    cloudflareinsights.com は Web Analytics の計測 beacon 送信先
   - manifest-src: PWA の manifest.webmanifest は同一オリジン
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
      できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
@@ -85,6 +87,18 @@
       </div>
       <div class="header-utils">
         <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
+        <!-- 共有: Web Share API 対応端末 (主にモバイル) はネイティブ共有シート、
+             非対応端末はサイト URL をクリップボードへコピーする。アイコンは
+             外部アセットを増やさないため inline SVG (リポジトリにバイナリを置かない方針) -->
+        <button class="btn btn-icon" id="share-btn" type="button" aria-label="Share this site">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line>
+            <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line>
+          </svg>
+        </button>
         <div class="lang-picker" id="lang-picker">
           <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
@@ -99,7 +113,7 @@
         <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
       </div>
       <div class="header-actions">
-        <button class="btn" id="select-toggle" aria-label="My Gallery">My Gallery</button>
+        <button class="btn" id="gallery-btn">My Gallery</button>
         <button class="btn" id="slideshow-btn">Slideshow</button>
       </div>
     </div>
@@ -195,6 +209,11 @@
   <span id="offline-banner-text">You are offline — splash images may not load.</span>
 </div>
 
+<!-- スクリーンリーダー向けの状態通知。視覚ユーザーには共有ボタンのアイコンが
+     チェックマークへ変わるが、aria-label の書き換えだけでは読み上げられないため、
+     コピー完了をこの live region のテキスト更新で通知する -->
+<div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
+
 <footer>
   <div class="footer-inner">
     <div class="footer-attribution">
@@ -207,8 +226,20 @@
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay" target="_blank" rel="noopener">Source</a>
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
     </div>
+    <!-- 法的免責: Riot の "Legal Jibber Jabber" ポリシーは Riot 非公認である旨の
+         明記を求めている。文言は applyStaticUIStrings() が i18n テーブルから流す -->
+    <p class="footer-disclaimer" id="footer-disclaimer"></p>
   </div>
 </footer>
+
+<!-- Cloudflare Web Analytics: Cookie レス / プライバシー配慮の軽量アクセス解析。
+     beacon.min.js を defer で 1 本読むだけ。機能ライブラリ (JSZip) とは別枠の
+     解析専用の外部依存で、CDN 障害時もビューア自体は動く。
+     計測 beacon は cloudflareinsights.com へ送られる (CSP の connect-src で許可)。
+     sw.js は同一オリジンのみインターセプトするのでこのリクエストは素通し。
+     data-cf-beacon の token は Cloudflare ダッシュボードのサイト登録で発行された値。 -->
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "3b9c447cd38d42a48d7bc318ffedd059"}'></script>
 
 </body>
 </html>

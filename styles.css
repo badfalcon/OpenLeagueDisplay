@@ -102,9 +102,9 @@
 
   /* 2 段構成。header は縦並びの flex で 2 行を積む:
        行1 (.header-primary):   [brand] (auto-spacer) [.header-utils = ? + lang]
-       行2 (.header-secondary): [view-tabs] [.header-actions = select + slideshow]
+       行2 (.header-secondary): [view-tabs] [.header-actions = gallery + slideshow]
      行1 を識別情報 + 常設ユーティリティ、行2 を閲覧操作、と役割で段分けする。
-     select-toggle と slideshow-btn は .header-actions で 1 つの flex 群に
+     gallery-btn と slideshow-btn は .header-actions で 1 つの flex 群に
      まとめ、狭幅で折返す時もセットで動く */
   header {
     display: flex; flex-direction: column;
@@ -293,10 +293,31 @@
     font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
     letter-spacing: 0;
   }
+  /* 共有ボタンのコピー完了状態。チェックアイコンへ切り替わる短時間だけ
+     枠と色を強調し、コピー成功を視覚的に伝える */
+  .btn-icon.copied {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: rgba(212, 168, 87, 0.12);
+  }
+
   /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
      author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
      (#primary-action を home/lines で消すのに必要) */
   .btn[hidden] { display: none; }
+
+  /* スクリーンリーダー専用。視覚的には隠すがアクセシビリティツリーには残す。
+     共有リンクのコピー完了通知 (#sr-status の aria-live) などに使う */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
 
   /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
      ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
@@ -807,6 +828,8 @@
      スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う */
   @media (hover: none) {
     .slideshow-controls { opacity: 1; }
+    /* タッチ端末は hover で前に出せないので ＋ を常時不透明にする */
+    .sel-checkbox { opacity: 1; }
   }
   .ss-btn {
     padding: 11px 18px;
@@ -846,6 +869,17 @@
      崩れないよう、credits 内のリンクだけ通常字形に戻す */
   .footer-credits { opacity: 0.75; }
   .footer-credits a { text-transform: none; letter-spacing: 0.04em; }
+  /* 免責文は長い散文なので footer 全体の uppercase / 広い字間を解除し、
+     一段薄く小さくして出典・作者表記より目立たせない */
+  .footer-disclaimer {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 9.5px;
+    line-height: 1.6;
+    opacity: 0.55;
+    max-width: 60ch;
+    margin: 4px auto 0;
+  }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;
@@ -875,43 +909,49 @@
   .btn.danger { border-color: rgba(183, 58, 58, 0.55); color: #e8a8a8; }
   .btn.danger:hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
 
-  /* 選択モード中、カードにチェックボックスを乗せる。
-     選択の実体 (state.selected) は常に「1スキン単位」のキー。
-     チャンプ/ラインカードの □ は「その配下の全スキンを一括 add/remove」のショートカット */
-  body.select-mode .skin-card,
-  body.select-mode .champ-card { cursor: pointer; }
+  /* 各カードに「ギャラリーに追加」の ＋ ボタンを常時乗せる (選択モード概念は廃止)。
+     選択の実体 (state.selected) は常に「1スキン単位」のキー。スキンカードの ＋ は
+     そのスキン1枚、チャンプ/ラインカードの ＋ は「配下の全スキンを一括 add/remove」。
+     カード本体クリックは拡大表示 (スキン) / 詳細遷移 (チャンプ/ライン) で、選択とは混ざらない */
+  .skin-card, .champ-card, .line-card { cursor: pointer; }
   .sel-checkbox {
     position: absolute; top: 12px; left: 12px; z-index: 5;
     width: 28px; height: 28px; padding: 0;
-    /* ✓ (::before) は font-size 20px の JetBrains Mono Bold で line-height 1 でも
-       グリフが上下に染み出して箱を視覚的に長方形化する。min/max で寸法を完全固定し、
-       overflow:hidden で滲み出しを切る。partial 状態は max-width を解除して横に伸ばす */
+    /* グリフ (::before) は font-size を大きめにするので line-height 1 でも上下に
+       染み出して箱を長方形化する。min/max で寸法を完全固定し overflow:hidden で
+       滲み出しを切る。partial 状態は max-width を解除して横に伸ばす */
     min-width: 28px; max-width: 28px;
     min-height: 28px; max-height: 28px;
     box-sizing: border-box;
     overflow: hidden;
-    background: rgba(7, 6, 11, 0.88);
+    background: rgba(7, 6, 11, 0.7);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    border: 1px solid var(--gold);
-    display: none; align-items: center; justify-content: center;
+    border: 1px solid var(--gold-deep);
+    display: flex; align-items: center; justify-content: center;
     color: var(--gold-hi);
     font-family: var(--font-mono);
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.04em;
-    pointer-events: none;
+    /* ~170 枚のグリッドに常時乗るので普段は控えめ、hover/focus で前に出す */
+    opacity: 0.55;
+    pointer-events: auto; cursor: pointer;
     transition: all 0.18s;
   }
-  body.select-mode .sel-checkbox { display: flex; }
-  /* チャンプ/ラインカードの本体クリックは「詳細画面へ移動」のまま (個別スキン調整の
-     導線を残す)。一括 toggle は左上の □ をクリックする */
-  body.select-mode .champ-card .sel-checkbox,
-  body.select-mode .line-card .sel-checkbox {
-    pointer-events: auto; cursor: pointer;
+  .skin-card:hover .sel-checkbox,
+  .champ-card:hover .sel-checkbox,
+  .line-card:hover .sel-checkbox,
+  .sel-checkbox:focus-visible { opacity: 1; border-color: var(--gold); }
+  /* 追加可能を示す ＋ (未選択時)。selected は ✓、partial は数字テキスト優先で空 */
+  .sel-checkbox::before {
+    content: "+"; font-size: 18px; font-weight: 600; line-height: 1;
   }
-  body.select-mode .champ-card .sel-checkbox:hover,
-  body.select-mode .line-card .sel-checkbox:hover {
-    background: var(--gold); color: #1a1208;
-  }
+  .sel-checkbox:hover { background: var(--gold); color: #1a1208; opacity: 1; }
+  /* selected は常に主張させたいので opacity 上書き (hover 待ちにしない) */
+  .skin-card.selected .sel-checkbox,
+  .champ-card.selected .sel-checkbox,
+  .line-card.selected .sel-checkbox,
+  .champ-card.partial .sel-checkbox,
+  .line-card.partial .sel-checkbox { opacity: 1; border-color: var(--gold); }
   .skin-card.selected, .champ-card.selected, .line-card.selected { border-color: var(--gold); }
   /* selected も 3 種共通: ベースの vignette を残しつつ内枠を 3px ゴールド + 光彩に
      強める。ベース ::after (var(--card-frame-shadow)) より specificity が高いので
@@ -928,6 +968,9 @@
      ✓ (::before) が padding と相互作用して箱を太らせるのを防ぐ */
   .champ-card.partial .sel-checkbox,
   .line-card.partial .sel-checkbox { width: auto; min-width: 28px; max-width: none; padding: 0 7px; }
+  /* partial は div の text content "3/14" を表示するので ＋ グリフは消す */
+  .champ-card.partial .sel-checkbox::before,
+  .line-card.partial .sel-checkbox::before { content: ""; }
   /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
      親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
   .skin-card.selected .sel-checkbox::before,
@@ -937,49 +980,17 @@
     font-size: 20px; font-weight: 700; line-height: 1;
   }
 
-  /* === PACK BAR === floating bottom pill =========================== */
-  /* 選択モード中は floating pack-bar (bottom: 28px) が画面下に常駐するので、
-     一番下までスクロールした時に footer と被らないよう body 側にスペースを確保する */
-  body.select-mode { padding-bottom: 96px; }
-  @media (max-width: 780px) {
-    body.select-mode { padding-bottom: 76px; }
+  /* === GALLERY TOOLBAR === マイギャラリービュー上部のアクション列 ============ */
+  /* 旧 pack-bar の DL / スライドショー / クリアをここに集約。グリッドの上に普通に並べる */
+  .gallery-toolbar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin: 0 0 20px;
   }
-  .pack-bar {
-    position: fixed; left: 50%; bottom: 28px;
-    transform: translateX(-50%);
-    z-index: 25;
-    display: flex; gap: 14px; align-items: center;
-    padding: 14px 16px 14px 24px;
-    background: rgba(12, 11, 20, 0.92);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid var(--gold);
-    box-shadow:
-      0 28px 64px rgba(0, 0, 0, 0.7),
-      0 0 0 4px rgba(212, 168, 87, 0.06);
-    animation: packIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    max-width: calc(100vw - 32px);
-    flex-wrap: nowrap;
-  }
-  @keyframes packIn {
-    from { opacity: 0; transform: translate(-50%, 24px); }
-    to   { opacity: 1; transform: translate(-50%, 0); }
-  }
-  .pack-bar .count {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-variation-settings: "opsz" 18, "SOFT" 70, "wght" 500;
-    color: var(--gold-hi);
-    font-size: 17px;
-    letter-spacing: 0;
-    white-space: nowrap;
-    border-right: 1px solid var(--rule);
-    padding-right: 18px;
-    margin-right: 4px;
-  }
-  @media (max-width: 780px) {
-    .pack-bar { padding: 12px 14px 12px 18px; bottom: 18px; }
-    .pack-bar .count { font-size: 15px; padding-right: 14px; }
+  /* 空状態の追加方法ヒント (gallery_empty の下に小さく) */
+  .gallery-hint {
+    margin-top: 8px;
+    font-size: 13px;
+    opacity: 0.7;
   }
 
   /* === SKIN LINES GRID ============================================ */
@@ -1219,10 +1230,12 @@
 
   /* === OFFLINE BANNER ==============================================
      オフライン時に画面下部へ出す告知バー。app.js が online/offline
-     イベントで hidden 属性をトグルする。floating な見た目は .pack-bar に
-     完全準拠 (半透明 + blur / ゴールド枠 / packIn 登場アニメ)。
-     z-index は topbar (30) より上、lightbox (100) より下。
-     選択モード中は pack-bar (bottom: 28px) と重なるので一段上へ逃がす */
+     イベントで hidden 属性をトグルする。半透明 + blur / ゴールド枠 / packIn 登場アニメ。
+     z-index は topbar (30) より上、lightbox (100) より下 */
+  @keyframes packIn {
+    from { opacity: 0; transform: translate(-50%, 24px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
   .offline-banner {
     position: fixed; left: 50%; bottom: 28px;
     transform: translateX(-50%);
@@ -1242,10 +1255,8 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .offline-banner[hidden] { display: none; }
-  body.select-mode .offline-banner { bottom: 96px; }
   @media (max-width: 780px) {
     .offline-banner { bottom: 18px; padding: 12px 18px; }
-    body.select-mode .offline-banner { bottom: 76px; }
   }
 
   /* === RESPONSIVE ================================================= */
@@ -1355,9 +1366,9 @@
     .skin-card .label { font-size: 13.5px; }
     .line-card .name  { font-size: 16px; }
 
-    /* 選択チェックボックス: 96px グリッドに対して 44px は視覚的に過大。
-       skin-card は本体タップで toggle、champ/line-card は本体タップで詳細遷移なので
-       Material/Apple のタッチ最小ガイドラインを厳守する必要は無い。32px に圧縮 */
+    /* ＋ ボタン: 96px グリッドに対して 44px は視覚的に過大。本体タップは拡大/詳細遷移、
+       追加は ＋ タップなので Material/Apple のタッチ最小ガイドラインを厳守する必要は
+       無い。32px に圧縮 (タッチ端末では hover が無いので ＋ は常時不透明のまま) */
     .sel-checkbox {
       width: 32px; height: 32px; padding: 0;
       min-width: 32px; max-width: 32px;
@@ -1390,14 +1401,8 @@
        opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
     .slideshow-controls { bottom: 96px; }
 
-    /* pack-bar: 320px でも収まる padding/gap に絞る。
-       既存 ≤780px の hint: display:none (L876) はそのまま活きる */
-    .pack-bar {
-      padding: 10px 12px; gap: 8px; bottom: 12px;
-      max-width: calc(100vw - 16px);
-    }
-    .pack-bar .count { font-size: 13px; padding-right: 10px; margin-right: 6px; }
-    .pack-bar .btn   { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
+    /* ギャラリーツールバー: 狭幅ではボタンを詰めて折り返す */
+    .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
 
     /* lang menu: 画面右端からはみ出さない max-width 制約 */
     .lang-menu {

@@ -12,7 +12,7 @@ import {
   champName, skinLabel, skinDescription, lineName,
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
-import { openLightbox } from "./lightbox.js";
+import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 
 // stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
 // <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
@@ -99,21 +99,35 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
 export function render() {
   const root = $("root");
   ensureLayout(root);
-  // タブはトップレベル切替。back-btn は詳細 (champion / line) または検索中に表示
+  // タブはトップレベル切替。back-btn は詳細 (champion / line / selected) または検索中に表示。
+  // "selected" (マイギャラリー) は専用導線で開く中間ビューなのでタブはどちらも非アクティブ
   const isLines = (state.view === "lines" || state.view === "line");
-  const isDetail = (state.view === "champion" || state.view === "line");
+  const isSelected = (state.view === "selected");
+  const isDetail = (state.view === "champion" || state.view === "line" || isSelected);
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
-  $("tab-home").classList.toggle("active", !isLines);
+  $("tab-home").classList.toggle("active", !isLines && !isSelected);
   $("nav-lines").classList.toggle("active", isLines);
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
+  else if (state.view === "selected") renderSelected(root);
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
-  renderPackBar();
+  refreshGalleryBtn();
+}
+
+// ヘッダーの「マイギャラリー」ボタン: ラベルに選択件数を出し、ギャラリービュー中は
+// .primary でアクティブ表現にする。選択数が変わる箇所 (toggle/bulk/clear) と
+// render() から呼ぶ。locale 切替時は applyStaticUIStrings からも呼ばれる
+export function refreshGalleryBtn() {
+  const btn = $("gallery-btn");
+  if (!btn) return;
+  const n = state.selected.size;
+  btn.textContent = n > 0 ? `${t("select_mode")} (${n})` : t("select_mode");
+  btn.classList.toggle("primary", state.view === "selected");
 }
 
 function renderHome(root) {
@@ -204,17 +218,17 @@ function renderHome(root) {
 
 function renderChampCards(list) {
   return list.map(c => {
-    // 選択モード中のみ、配下スキンの選択件数を集計して partial/selected を分ける。
+    // 配下スキンの選択件数を集計して partial/selected を分ける。
     // state.selected は per-skin なので、ここは派生情報の計算でしかない (集合の真実は Set 側)
     let cls = "", cbText = "";
-    if (state.selectMode && c.skins.length > 0) {
+    if (c.skins.length > 0) {
       const sel = c.skins.reduce((n, s) => n + (state.selected.has(SELECT_KEY(c.alias, s.label)) ? 1 : 0), 0);
       if (sel === c.skins.length) cls = " selected";
       else if (sel > 0) { cls = " partial"; cbText = `${sel}/${c.skins.length}`; }
     }
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox">${esc(cbText)}</div>
+      <div class="sel-checkbox" title="${esc(t("gallery_add"))}">${esc(cbText)}</div>
       <img loading="lazy" src="${esc(c.portrait)}" alt="${esc(champName(c))}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(champName(c))}</div>
     </div>`;
@@ -234,7 +248,7 @@ function renderSkinCards(matches) {
     const sl = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox"></div>${animBadge(s)}
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -243,31 +257,44 @@ function renderSkinCards(matches) {
 
 function wireChampCards(root) {
   root.querySelectorAll(".champ-card").forEach(el => {
-    // 本体クリックは選択モードでも詳細画面へ。個別スキンの細かい調整は詳細でやる
+    // 本体クリックは詳細画面へ。個別スキンの細かい調整は詳細でやる
     el.addEventListener("click", () => openChampion(el.dataset.alias));
-    // □ クリックは「このチャンプの全スキンを一括 toggle」のショートカット
+    // ＋ クリックは「このチャンプの全スキンを一括 toggle」のショートカット
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
       cb.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (!state.selectMode) return;
         bulkToggleChamp(el.dataset.alias);
       });
     }
   });
 }
 
-// 検索結果のスキンタイル: クリックでライトボックスを開く (lines view と同じ流儀)。
-// 選択モード時は当該スキンだけを toggle (チャンピオン一括ではなく per-skin)
+// スキンカードの ＋ (.sel-checkbox) に「このスキン1枚を toggle」を配線する共通ヘルパ。
+// 本体クリックは各 view 側でライトボックスに割り当てるので、選択導線は ＋ だけ。
+function wireSkinSelect(scope) {
+  scope.querySelectorAll(".skin-card").forEach(el => {
+    const cb = el.querySelector(".sel-checkbox");
+    if (!cb) return;
+    cb.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      toggleSelected(el.dataset.key, el);
+    });
+  });
+}
+
+// 検索結果のスキンタイル: 本体クリックでライトボックス、＋ で当該スキンを toggle
 function wireSearchSkinCards(root, matches) {
   const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
-  root.querySelectorAll(".skin-grid.is-flat .skin-card").forEach(el => {
+  const scope = root.querySelector(".skin-grid.is-flat");
+  if (!scope) return;
+  scope.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
-      if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(lbList, idx, "manual");
     });
   });
+  wireSkinSelect(scope);
 }
 
 function renderChampion(root) {
@@ -279,7 +306,7 @@ function renderChampion(root) {
     const lab = skinLabel(c, s);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox"></div>${animBadge(s)}
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
       <img loading="lazy" src="${esc(s.splash)}" alt="${esc(lab)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(lab)}</div>
     </div>`;
@@ -291,21 +318,22 @@ function renderChampion(root) {
     primaryClick: () => downloadChampion(c),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  $("view-content").querySelectorAll(".skin-card").forEach(el => {
+  const vc = $("view-content");
+  vc.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
-      if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(buildChampList(c), idx, "manual");
     });
   });
+  wireSkinSelect(vc);
 }
 
 function renderLines(root) {
   const lines = DATA.skin_lines || {};
-  // 選択モード時は per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
+  // per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
   // count/thumb は LINE_INDEX から取るので 1 回構築済み。
   const selectedCounts = {};
-  if (state.selectMode && state.selected.size > 0) {
+  if (state.selected.size > 0) {
     for (const k of state.selected) {
       const hit = SKIN_BY_KEY.get(k);
       if (!hit) continue;
@@ -332,14 +360,14 @@ function renderLines(root) {
   }
   const cards = entries.map(e => {
     let cls = "", cbText = "";
-    if (state.selectMode && e.count > 0) {
+    if (e.count > 0) {
       const sel = selectedCounts[e.id] || 0;
       if (sel === e.count) cls = " selected";
       else if (sel > 0) { cls = " partial"; cbText = `${sel}/${e.count}`; }
     }
     return `
     <div class="line-card${cls}" data-line="${esc(e.id)}">
-      <div class="sel-checkbox">${esc(cbText)}</div>
+      <div class="sel-checkbox" title="${esc(t("gallery_add"))}">${esc(cbText)}</div>
       <img loading="lazy" src="${esc(e.thumb)}" alt="${esc(e.name)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="meta">
         <div class="name">${esc(e.name)}</div>
@@ -355,7 +383,6 @@ function renderLines(root) {
     if (cb) {
       cb.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (!state.selectMode) return;
         bulkToggleLine(el.dataset.line);
       });
     }
@@ -375,7 +402,7 @@ function renderLine(root) {
     const sl = skinLabel(it.champ, it.skin);
     return `
     <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox"></div>${animBadge(it.skin)}
+      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(it.skin)}
       <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
@@ -388,36 +415,87 @@ function renderLine(root) {
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin) }));
-  $("view-content").querySelectorAll(".skin-card").forEach(el => {
+  const vc = $("view-content");
+  vc.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
       const idx = parseInt(el.dataset.idx, 10);
-      if (state.selectMode) { toggleSelected(el.dataset.key, el); return; }
       openLightbox(lbList, idx, "manual");
     });
   });
+  wireSkinSelect(vc);
 }
 
-// 選択モード中、ヘッダー直下に「現在 N 件選択中 / DL / クリア」バーを出す
-function renderPackBar() {
-  const root = $("root");
-  let bar = $("pack-bar");
-  if (!state.selectMode || state.selected.size === 0) {
-    if (bar) bar.remove();
+// マイギャラリー (選択中スキン一覧) ビュー。ヘッダーの「マイギャラリー」ボタンから開く。
+// state.selected (Set<SELECT_KEY>) を SKIN_BY_KEY で実体化し、localized 名前で
+// 安定ソートしてから skin-grid で並べる (Set のイテレーション順 = 追加順だと、
+// 再訪時の表示が直感的に並ばない)。
+// グリッド上部に DL / スライドショー / クリアのツールバーを置く (旧 pack-bar の役割)。
+// カードの ＋ クリックで toggleSelected が再 render() するので、解除した瞬間に消える。
+function renderSelected(root) {
+  const items = [];
+  for (const k of state.selected) {
+    const hit = SKIN_BY_KEY.get(k);
+    if (hit && hit.s.splash) items.push({ key: k, champ: hit.c, skin: hit.s });
+  }
+  const cmpLocale = state.locale === "default" ? "en" : state.locale.replace("_", "-");
+  items.sort((a, b) => {
+    const an = `${champName(a.champ)} ${skinLabel(a.champ, a.skin)}`;
+    const bn = `${champName(b.champ)} ${skinLabel(b.champ, b.skin)}`;
+    return an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
+  });
+
+  setPrimaryHeader({
+    isList: true,
+    title: t("select_mode"),
+    count: items.length ? t("skins_count", items.length) : "",
+  });
+
+  if (items.length === 0) {
+    $("view-content").innerHTML =
+      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p></div>`;
     return;
   }
-  const html = `
-    <div class="pack-bar" id="pack-bar">
-      <span class="count">${t("selected_count", state.selected.size)}</span>
-      <button class="btn" id="pack-clear">${t("clear")}</button>
-      <button class="btn primary" id="pack-dl">${t("dl_selected")}</button>
+
+  const cards = items.map((it, i) => {
+    const cn = champName(it.champ);
+    const sl = skinLabel(it.champ, it.skin);
+    return `
+    <div class="skin-card selected" data-idx="${i}" data-key="${esc(it.key)}">
+      <div class="sel-checkbox" title="${esc(t("gallery_remove"))}"></div>${animBadge(it.skin)}
+      <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="label">${esc(cn)} — ${esc(sl)}</div>
     </div>`;
-  if (bar) {
-    bar.outerHTML = html;
-  } else {
-    root.insertAdjacentHTML("afterbegin", html);
-  }
-  $("pack-clear").addEventListener("click", clearSelected);
-  $("pack-dl").addEventListener("click", downloadSelected);
+  }).join("");
+  $("view-content").innerHTML = `
+    <div class="gallery-toolbar">
+      <button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>
+      <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      <button class="btn" id="gallery-clear">${t("clear")}</button>
+    </div>
+    <div class="skin-grid">${cards}</div>`;
+  $("gallery-dl").addEventListener("click", downloadSelected);
+  $("gallery-ss").addEventListener("click", startGlobalSlideshow);
+  $("gallery-clear").addEventListener("click", clearSelected);
+  const lbList = items.map(it => ({
+    champ: champName(it.champ), skin: skinLabel(it.champ, it.skin),
+    src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin),
+  }));
+  const vc = $("view-content");
+  vc.querySelectorAll(".skin-card").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.idx, 10);
+      openLightbox(lbList, idx, "manual");
+    });
+  });
+  wireSkinSelect(vc);
+}
+
+export function openSelected() {
+  state.view = "selected";
+  state.currentChamp = null;
+  state.currentLine = null;
+  state.searchQuery = ""; $("search").value = "";
+  window.scrollTo(0, 0); render();
 }
 
 export function toggleSelected(key, el) {
@@ -429,7 +507,10 @@ export function toggleSelected(key, el) {
     if (el) el.classList.add("selected");
   }
   saveSelected();
-  renderPackBar();
+  // ギャラリービュー中はトグルした項目を grid から消す必要があるので全体 re-render。
+  // 他のビューはカードの class 更新で十分なので、ヘッダー件数だけ即時更新する
+  if (state.view === "selected") render();
+  else refreshGalleryBtn();
 }
 // チャンプ/ライン単位の一括 toggle。state.selected は per-skin の Set なので、
 // 「配下スキンの SELECT_KEY を一括 add/remove するだけ」。

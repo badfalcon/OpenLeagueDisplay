@@ -15,7 +15,7 @@ import {
   pickInitialLocale, loadLocale,
 } from "./i18n.js";
 import {
-  render, goHome, goBack, openLines,
+  render, goHome, goBack, openLines, openSelected,
   imgLoaded, imgErr,
 } from "./render.js";
 import {
@@ -29,6 +29,7 @@ import {
   openTutorial, closeTutorial, tutNext, tutPrev,
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
+import { shareSite } from "./share.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -111,15 +112,7 @@ async function init() {
       if (SKIN_BY_KEY.has(k)) state.selected.add(k);
     }
     if (state.selected.size !== saved.length) saveSelected();
-    // 永続化が見えないと不気味なので、選択が残っていれば選択モードも自動で
-    // 復元する (パックバーは selectMode が ON のときだけ出る仕様のため)
-    if (state.selected.size > 0) {
-      state.selectMode = true;
-      document.body.classList.add("select-mode");
-      const tgl = $("select-toggle");
-      tgl.classList.add("primary");
-      tgl.textContent = t("select_mode_on");
-    }
+    // ヘッダーのギャラリーボタン件数は applyStaticUIStrings / render() が反映する
   }
 
   render();
@@ -134,14 +127,9 @@ function wireEvents() {
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
   $("slideshow-btn").addEventListener("click", startGlobalSlideshow);
-  $("select-toggle").addEventListener("click", () => {
-    state.selectMode = !state.selectMode;
-    document.body.classList.toggle("select-mode", state.selectMode);
-    $("select-toggle").classList.toggle("primary", state.selectMode);
-    $("select-toggle").textContent = state.selectMode ? t("select_mode_on") : t("select_mode");
-    render();
-  });
+  $("gallery-btn").addEventListener("click", openSelected);
   $("help-btn").addEventListener("click", openTutorial);
+  $("share-btn").addEventListener("click", shareSite);
   $("tut-skip").addEventListener("click", closeTutorial);
   $("tut-next").addEventListener("click", tutNext);
   $("tut-back").addEventListener("click", tutPrev);
