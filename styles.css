@@ -980,6 +980,12 @@
     font-size: 20px; font-weight: 700; line-height: 1;
   }
 
+  /* ギャラリーで ✓ を外したカードは即削除せずその場に残す (やり直し可能にするため)。
+     淡色 + ＋ 表示で「外した / もう一度押せば戻せる」を視覚化。実際にグリッドから
+     消えるのは次にギャラリーを開き直した時。.gallery-grid 限定で他ビューには波及しない */
+  .gallery-grid .skin-card:not(.selected) { opacity: 0.4; }
+  .gallery-grid .skin-card:not(.selected):hover { opacity: 0.72; }
+
   /* === GALLERY TOOLBAR === マイギャラリービュー上部のアクション列 ============ */
   /* 旧 pack-bar の DL / スライドショー / クリアをここに集約。グリッドの上に普通に並べる */
   .gallery-toolbar {
