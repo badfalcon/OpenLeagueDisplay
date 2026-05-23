@@ -9,7 +9,7 @@ import {
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
-  champName, skinLabel, skinDescription, lineName,
+  champName, skinLabel, lineName, toLightboxItem,
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
@@ -235,24 +235,28 @@ function renderChampCards(list) {
   }).join("");
 }
 
-// アニメーションスプラッシュ (video あり) を持つスキンに重ねる再生グリフ。
-// ライトボックスを開く前に「これは動く」と分かるようにする
-const animBadge = (s) => s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+// スキンタイル 1 枚の HTML。home(検索)/champion/line/selected の各 view が
+// 微差 (data-alias の有無・label の champ 名プレフィックス・常時選択) だけで
+// 同じカードを描いていたのを 1 箇所に集約する。video ありは ▶ バッジを重ねて
+// 「これは動く」とライトボックスを開く前に分かるようにする。
+function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }) {
+  const k = SELECT_KEY(c.alias, s.label);
+  const selected = forceSelected || state.selected.has(k);
+  const aliasAttr = alias ? ` data-alias="${esc(c.alias)}"` : "";
+  const badge = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+  const title = selected ? t("gallery_remove") : t("gallery_add");
+  return `
+    <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
+      <div class="sel-checkbox" title="${esc(title)}"></div>${badge}
+      <img loading="lazy" src="${esc(s.splash)}" alt="${esc(skinLabel(c, s))}" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="label">${esc(label)}</div>
+    </div>`;
+}
 
 function renderSkinCards(matches) {
-  return matches.map((m, i) => {
-    const { c, s } = m;
-    const k = SELECT_KEY(c.alias, s.label);
-    const sel = state.selected.has(k) ? " selected" : "";
-    const cn = champName(c);
-    const sl = skinLabel(c, s);
-    return `
-    <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
-      <img loading="lazy" src="${esc(s.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(cn)} — ${esc(sl)}</div>
-    </div>`;
-  }).join("");
+  return matches.map((m, i) =>
+    skinCardHTML({ c: m.c, s: m.s, idx: i, label: `${champName(m.c)} — ${skinLabel(m.c, m.s)}`, alias: true })
+  ).join("");
 }
 
 function wireChampCards(root) {
@@ -285,7 +289,7 @@ function wireSkinSelect(scope) {
 
 // 検索結果のスキンタイル: 本体クリックでライトボックス、＋ で当該スキンを toggle
 function wireSearchSkinCards(root, matches) {
-  const lbList = matches.map(({ c, s }) => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
+  const lbList = matches.map(({ c, s }) => toLightboxItem(c, s));
   const scope = root.querySelector(".skin-grid.is-flat");
   if (!scope) return;
   scope.querySelectorAll(".skin-card").forEach(el => {
@@ -300,17 +304,9 @@ function wireSearchSkinCards(root, matches) {
 function renderChampion(root) {
   const c = DATA.champions.find(x => x.alias === state.currentChamp);
   if (!c) { state.view = "home"; render(); return; }
-  const cards = c.skins.map((s, i) => {
-    const k = SELECT_KEY(c.alias, s.label);
-    const sel = state.selected.has(k) ? " selected" : "";
-    const lab = skinLabel(c, s);
-    return `
-    <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(s)}
-      <img loading="lazy" src="${esc(s.splash)}" alt="${esc(lab)}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(lab)}</div>
-    </div>`;
-  }).join("");
+  const cards = c.skins.map((s, i) =>
+    skinCardHTML({ c, s, idx: i, label: skinLabel(c, s) })
+  ).join("");
   setPrimaryHeader({
     title: champName(c),
     count: t("skins_count", c.skins.length),
@@ -395,18 +391,9 @@ function renderLine(root) {
   const idx = LINE_INDEX.get(String(lid));
   const items = idx ? idx.members.map(m => ({ champ: m.c, skin: m.s })) : [];
   if (items.length === 0) { state.view = "lines"; render(); return; }
-  const cards = items.map((it, i) => {
-    const k = SELECT_KEY(it.champ.alias, it.skin.label);
-    const sel = state.selected.has(k) ? " selected" : "";
-    const cn = champName(it.champ);
-    const sl = skinLabel(it.champ, it.skin);
-    return `
-    <div class="skin-card${sel}" data-idx="${i}" data-key="${esc(k)}">
-      <div class="sel-checkbox" title="${esc(sel ? t("gallery_remove") : t("gallery_add"))}"></div>${animBadge(it.skin)}
-      <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(cn)} — ${esc(sl)}</div>
-    </div>`;
-  }).join("");
+  const cards = items.map((it, i) =>
+    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
+  ).join("");
   setPrimaryHeader({
     title: lname,
     count: t("skins_count", items.length),
@@ -414,7 +401,7 @@ function renderLine(root) {
     primaryClick: () => downloadLine(lid, lname, items),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const lbList = items.map(it => ({ champ: champName(it.champ), skin: skinLabel(it.champ, it.skin), src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin) }));
+  const lbList = items.map(it => toLightboxItem(it.champ, it.skin));
   const vc = $("view-content");
   vc.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
@@ -456,16 +443,9 @@ function renderSelected(root) {
     return;
   }
 
-  const cards = items.map((it, i) => {
-    const cn = champName(it.champ);
-    const sl = skinLabel(it.champ, it.skin);
-    return `
-    <div class="skin-card selected" data-idx="${i}" data-key="${esc(it.key)}">
-      <div class="sel-checkbox" title="${esc(t("gallery_remove"))}"></div>${animBadge(it.skin)}
-      <img loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(sl)}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(cn)} — ${esc(sl)}</div>
-    </div>`;
-  }).join("");
+  const cards = items.map((it, i) =>
+    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`, forceSelected: true })
+  ).join("");
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       <button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>
@@ -476,10 +456,7 @@ function renderSelected(root) {
   $("gallery-dl").addEventListener("click", downloadSelected);
   $("gallery-ss").addEventListener("click", startGlobalSlideshow);
   $("gallery-clear").addEventListener("click", clearSelected);
-  const lbList = items.map(it => ({
-    champ: champName(it.champ), skin: skinLabel(it.champ, it.skin),
-    src: it.skin.splash, video: it.skin.video, desc: skinDescription(it.champ, it.skin),
-  }));
+  const lbList = items.map(it => toLightboxItem(it.champ, it.skin));
   const vc = $("view-content");
   vc.querySelectorAll(".skin-card").forEach(el => {
     el.addEventListener("click", () => {
@@ -553,7 +530,7 @@ export function openLines() {
 }
 
 function buildChampList(c) {
-  return c.skins.map(s => ({ champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) }));
+  return c.skins.map(s => toLightboxItem(c, s));
 }
 
 export function openChampion(alias) {
