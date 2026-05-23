@@ -710,7 +710,10 @@
   }
   .lightbox.open { opacity: 1; pointer-events: auto; }
   /* ライトボックス/スライドショー中は背景スクロールを止める。
-     position:fixed のオーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう */
+     position:fixed のオーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう。
+     html/body に overflow-x:clip があるとスクロールコンテナが <html> 側になり
+     body だけの overflow:hidden では止まらないので、:has で <html> も固定する */
+  html:has(body.lightbox-open),
   body.lightbox-open { overflow: hidden; }
   .lb-stage { position: absolute; inset: 0; overflow: hidden; }
   .lb-img {
@@ -1142,6 +1145,7 @@
      clip-path フレームを踏襲し、世界観 (黒紫 × ゴールド) を保つ。
      z-index は lightbox (100) より上、progress-overlay (200) より下。
      チュートリアル中にユーザーが DL を開始することは想定しないので競合は無い */
+  html:has(body.tutorial-open),
   body.tutorial-open { overflow: hidden; }
   .tutorial-overlay {
     position: fixed; inset: 0; z-index: 150;
