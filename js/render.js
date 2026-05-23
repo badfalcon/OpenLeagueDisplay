@@ -14,6 +14,10 @@ import {
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 
+// localeCompare に渡す BCP-47 タグ。"default" は英語、それ以外は CDragon の
+// "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
+const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
+
 // stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
 // <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
 // 以降の呼び出し (locale 切替時など) は即時表示にしてチラつかせない
@@ -147,8 +151,8 @@ function renderHome(root) {
   // 並び替え: "default" は data.json の順 (リリース順) をそのまま使うので何もしない。
   // 名前順は localized name で localeCompare。比較に Intl 経路を使うため、
   // 日本語/韓国語/中文 でもクライアントの自然な並びになる
-  const cmpLocale = state.locale === "default" ? "en" : state.locale.replace("_", "-");
   const sortSign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
+  const cmpLocale = cmpTag();
   const sortChamps = (arr) => sortSign && arr.sort((a, b) =>
     sortSign * champName(a).localeCompare(champName(b), cmpLocale, { sensitivity: "base" }));
   const sortSkins = (arr) => sortSign && arr.sort((a, b) => {
@@ -274,31 +278,27 @@ function wireChampCards(root) {
   });
 }
 
-// スキンカードの ＋ (.sel-checkbox) に「このスキン1枚を toggle」を配線する共通ヘルパ。
-// 本体クリックは各 view 側でライトボックスに割り当てるので、選択導線は ＋ だけ。
-function wireSkinSelect(scope) {
+// スキンタイル群への配線をまとめる共通ヘルパ。本体クリックでライトボックス
+// (lbList の同じ idx を開く)、＋ (.sel-checkbox) で当該スキン 1 枚を toggle する。
+// champion/line/selected/検索結果のどの view も同じ配線なので 1 箇所に集約する。
+function wireSkinCards(scope, lbList) {
   scope.querySelectorAll(".skin-card").forEach(el => {
+    el.addEventListener("click", () => openLightbox(lbList, parseInt(el.dataset.idx, 10), "manual"));
     const cb = el.querySelector(".sel-checkbox");
-    if (!cb) return;
-    cb.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      toggleSelected(el.dataset.key, el);
-    });
+    if (cb) {
+      cb.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        toggleSelected(el.dataset.key, el);
+      });
+    }
   });
 }
 
-// 検索結果のスキンタイル: 本体クリックでライトボックス、＋ で当該スキンを toggle
+// 検索結果のスキンタイル: home view 内の flat グリッドだけを対象に配線する
 function wireSearchSkinCards(root, matches) {
-  const lbList = matches.map(({ c, s }) => toLightboxItem(c, s));
   const scope = root.querySelector(".skin-grid.is-flat");
   if (!scope) return;
-  scope.querySelectorAll(".skin-card").forEach(el => {
-    el.addEventListener("click", () => {
-      const idx = parseInt(el.dataset.idx, 10);
-      openLightbox(lbList, idx, "manual");
-    });
-  });
-  wireSkinSelect(scope);
+  wireSkinCards(scope, matches.map(({ c, s }) => toLightboxItem(c, s)));
 }
 
 function renderChampion(root) {
@@ -314,14 +314,7 @@ function renderChampion(root) {
     primaryClick: () => downloadChampion(c),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const vc = $("view-content");
-  vc.querySelectorAll(".skin-card").forEach(el => {
-    el.addEventListener("click", () => {
-      const idx = parseInt(el.dataset.idx, 10);
-      openLightbox(buildChampList(c), idx, "manual");
-    });
-  });
-  wireSkinSelect(vc);
+  wireSkinCards($("view-content"), buildChampList(c));
 }
 
 function renderLines(root) {
@@ -401,15 +394,7 @@ function renderLine(root) {
     primaryClick: () => downloadLine(lid, lname, items),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
-  const lbList = items.map(it => toLightboxItem(it.champ, it.skin));
-  const vc = $("view-content");
-  vc.querySelectorAll(".skin-card").forEach(el => {
-    el.addEventListener("click", () => {
-      const idx = parseInt(el.dataset.idx, 10);
-      openLightbox(lbList, idx, "manual");
-    });
-  });
-  wireSkinSelect(vc);
+  wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
 }
 
 // マイギャラリー (選択中スキン一覧) ビュー。ヘッダーの「マイギャラリー」ボタンから開く。
@@ -424,7 +409,7 @@ function renderSelected(root) {
     const hit = SKIN_BY_KEY.get(k);
     if (hit && hit.s.splash) items.push({ key: k, champ: hit.c, skin: hit.s });
   }
-  const cmpLocale = state.locale === "default" ? "en" : state.locale.replace("_", "-");
+  const cmpLocale = cmpTag();
   items.sort((a, b) => {
     const an = `${champName(a.champ)} ${skinLabel(a.champ, a.skin)}`;
     const bn = `${champName(b.champ)} ${skinLabel(b.champ, b.skin)}`;
@@ -456,15 +441,7 @@ function renderSelected(root) {
   $("gallery-dl").addEventListener("click", downloadSelected);
   $("gallery-ss").addEventListener("click", startGlobalSlideshow);
   $("gallery-clear").addEventListener("click", clearSelected);
-  const lbList = items.map(it => toLightboxItem(it.champ, it.skin));
-  const vc = $("view-content");
-  vc.querySelectorAll(".skin-card").forEach(el => {
-    el.addEventListener("click", () => {
-      const idx = parseInt(el.dataset.idx, 10);
-      openLightbox(lbList, idx, "manual");
-    });
-  });
-  wireSkinSelect(vc);
+  wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
 }
 
 export function openSelected() {
