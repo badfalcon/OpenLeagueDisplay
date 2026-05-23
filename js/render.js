@@ -430,7 +430,8 @@ function renderLine(root) {
 // 安定ソートしてから skin-grid で並べる (Set のイテレーション順 = 追加順だと、
 // 再訪時の表示が直感的に並ばない)。
 // グリッド上部に DL / スライドショー / クリアのツールバーを置く (旧 pack-bar の役割)。
-// カードの ＋ クリックで toggleSelected が再 render() するので、解除した瞬間に消える。
+// カードの ＋ クリックで toggleSelected しても即削除はせず、その場で淡色化するだけ
+// (やり直し可能にするため)。実際にグリッドから外れるのは次にギャラリーを開き直した時。
 function renderSelected(root) {
   const items = [];
   for (const k of state.selected) {
@@ -472,7 +473,7 @@ function renderSelected(root) {
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
-    <div class="skin-grid">${cards}</div>`;
+    <div class="skin-grid gallery-grid">${cards}</div>`;
   $("gallery-dl").addEventListener("click", downloadSelected);
   $("gallery-ss").addEventListener("click", startGlobalSlideshow);
   $("gallery-clear").addEventListener("click", clearSelected);
@@ -499,18 +500,28 @@ export function openSelected() {
 }
 
 export function toggleSelected(key, el) {
-  if (state.selected.has(key)) {
-    state.selected.delete(key);
-    if (el) el.classList.remove("selected");
-  } else {
+  const nowSelected = !state.selected.has(key);
+  if (nowSelected) {
     state.selected.add(key);
     if (el) el.classList.add("selected");
+  } else {
+    state.selected.delete(key);
+    if (el) el.classList.remove("selected");
   }
   saveSelected();
-  // ギャラリービュー中はトグルした項目を grid から消す必要があるので全体 re-render。
-  // 他のビューはカードの class 更新で十分なので、ヘッダー件数だけ即時更新する
-  if (state.view === "selected") render();
-  else refreshGalleryBtn();
+  // ギャラリービューでも即 re-render しない。以前は解除した瞬間に grid から消えて
+  // やり直せなかったので、カードはその場に残し (.selected が外れて淡色化)、もう一度
+  // 押せば戻せるようにする。実際にグリッドから消えるのは次にギャラリーを開き直した時。
+  // どのビューでもカードの class 更新で済ませ、件数表示 (ヘッダー / ボタン) だけ即時更新。
+  if (el) {
+    const cb = el.querySelector(".sel-checkbox");
+    if (cb) cb.title = nowSelected ? t("gallery_remove") : t("gallery_add");
+  }
+  refreshGalleryBtn();
+  if (state.view === "selected") {
+    const cnt = $("primary-count");
+    if (cnt) cnt.textContent = state.selected.size ? t("skins_count", state.selected.size) : "";
+  }
 }
 // チャンプ/ライン単位の一括 toggle。state.selected は per-skin の Set なので、
 // 「配下スキンの SELECT_KEY を一括 add/remove するだけ」。
