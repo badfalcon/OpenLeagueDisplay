@@ -788,7 +788,7 @@
     width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display);
-    font-size: 22px; font-style: italic;
+    font-size: 22px; font-style: normal;
     transition: all 0.18s;
   }
   .lb-close:hover, .lb-nav:hover {
