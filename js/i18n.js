@@ -1767,6 +1767,12 @@ export function lineName(lid) {
   return state.i18n.lines[String(lid)] || (DATA && DATA.skin_lines || {})[String(lid)] || `Line ${lid}`;
 }
 
+// ライトボックス/スライドショーが受け取る 1 枚分のアイテム形 (localized 名前 + メディア URL)。
+// render.js と lightbox.js が同じ形を別々に組んでいたのを 1 箇所に集約する。
+export function toLightboxItem(c, s) {
+  return { champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) };
+}
+
 // navigator.languages から、CDragon の locale コード (xx_xx) に最も近いものを 1 つ拾う。
 // 一致が無ければ "default" (= 英語) を返す
 export function pickInitialLocale(available) {

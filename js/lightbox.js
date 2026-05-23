@@ -2,16 +2,14 @@
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
 import { state, $, SKIN_BY_KEY, DATA } from "./state.js";
-import { t, champName, skinLabel, skinDescription } from "./i18n.js";
+import { t, toLightboxItem } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
   const list = [];
   for (const k of state.selected) {
     const hit = SKIN_BY_KEY.get(k);
-    if (hit && hit.s.splash) {
-      list.push({ champ: champName(hit.c), skin: skinLabel(hit.c, hit.s), src: hit.s.splash, video: hit.s.video, desc: skinDescription(hit.c, hit.s) });
-    }
+    if (hit && hit.s.splash) list.push(toLightboxItem(hit.c, hit.s));
   }
   return list;
 }
