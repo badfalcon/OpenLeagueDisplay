@@ -8,6 +8,29 @@ export function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
 
+// 背景スクロールのロック (ライトボックス / チュートリアルのモーダル表示中)。
+// overflow:hidden だけだと iOS Safari はタッチスクロールを止めないので、body を
+// position:fixed にして現在のスクロール位置を退避する (= 定番の iOS scroll-lock)。
+// html/body に overflow-x:clip があり実スクロールコンテナが <html> 側になる構成でも、
+// body をフローから外せば <html> はスクロールしなくなる。
+// ライトボックスとチュートリアルが入れ子になっても破綻しないようカウンタで多重ロックを束ねる。
+let _scrollLockY = 0;
+let _scrollLockCount = 0;
+export function lockScroll() {
+  if (_scrollLockCount++ > 0) return;
+  const se = document.scrollingElement || document.documentElement;
+  _scrollLockY = se.scrollTop;
+  document.body.style.top = `-${_scrollLockY}px`;
+  document.body.classList.add("scroll-locked");
+}
+export function unlockScroll() {
+  if (_scrollLockCount === 0 || --_scrollLockCount > 0) return;
+  document.body.classList.remove("scroll-locked");
+  document.body.style.top = "";
+  const se = document.scrollingElement || document.documentElement;
+  se.scrollTop = _scrollLockY;
+}
+
 export let DATA = null;
 export function setData(d) { DATA = d; }
 

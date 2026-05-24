@@ -6,7 +6,7 @@
 // 本文 (tut_s*_body) は i18n テーブルに <strong>/<em>/<code>/<br> を埋め込んだ
 // 信頼済み文字列なので innerHTML に直接流す。ユーザー入力経路は無いので XSS シンクは無い。
 
-import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY } from "./state.js";
+import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll } from "./state.js";
 import { t } from "./i18n.js";
 
 const TOTAL_STEPS = 3;
@@ -25,6 +25,7 @@ export function openTutorial() {
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
   document.body.classList.add("tutorial-open");
+  lockScroll();
   // 主操作 (Next) にフォーカスを移して Enter / 矢印で進めるように
   requestAnimationFrame(() => {
     const next = $("tut-next");
@@ -38,6 +39,7 @@ export function closeTutorial() {
   ov.classList.remove("open");
   ov.setAttribute("aria-hidden", "true");
   document.body.classList.remove("tutorial-open");
+  unlockScroll();
   lsSet(LS_TUTORIAL_KEY, "1");
   const prev = state.tut.lastFocus;
   if (prev && typeof prev.focus === "function") {
