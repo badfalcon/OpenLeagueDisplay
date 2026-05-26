@@ -18,8 +18,8 @@ import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
-// 「最近追加」セクションに出す日数の窓。generate_data.py が新規スキンに打つ
-// `added` (YYYY-MM-DD, 初観測日) を data.json の generated_at_utc から遡って判定する。
+// 「最近追加」セクションに出す日数の窓。各スキンの「新着判定日」(released 優先・
+// 無ければ added) を data.json の generated_at_utc から遡って判定する。
 // 週次更新なので 30 日 = 直近 ~4 回ぶんの新着が再訪のたびに数回は目に入る。
 // 基準を client の wall-clock ではなく generated_at にするのは、判定を data.json の
 // 鮮度に紐付けて決定的にするため (端末時計のズレや古いキャッシュに影響されない)。
@@ -33,22 +33,29 @@ function recentCutoff(genAtIso) {
   return new Date(base.getTime() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
 }
 
-// `added` を持ち、かつ generated_at から RECENT_DAYS 以内のスキンを新しい順に集める。
-// 旧 data.json (added 無し) では空配列を返すので、セクション自体が出ない (完全後方互換)。
+// スキンの「新着判定日」: Meraki 由来の実リリース日 (released) を最優先し、無ければ
+// generate_data.py の diff ベース初観測日 (added) にフォールバックする。released は
+// 本物のリリース日なので過去スキンは自然と窓外になり、Meraki がまだ日付を持たない
+// 最新スキンだけ added (≒初観測=新着) が効く、の二段構え。両方無ければ空文字。
+const recentDate = (s) => s.released || s.added || "";
+
+// 新着判定日を持ち、かつ generated_at から RECENT_DAYS 以内のスキンを新しい順に集める。
+// 旧 data.json (released/added 無し) では空配列を返すので、セクション自体が出ない (完全後方互換)。
 function collectRecent() {
   if (!DATA || !Array.isArray(DATA.champions)) return [];
   const cutoff = recentCutoff(DATA.generated_at_utc);
   const out = [];
   for (const c of DATA.champions) {
     for (const s of c.skins) {
-      if (!s.splash || !s.added) continue;
-      if (cutoff && s.added < cutoff) continue;
+      const d = recentDate(s);
+      if (!s.splash || !d) continue;
+      if (cutoff && d < cutoff) continue;
       out.push({ c, s });
     }
   }
   const cmpLocale = cmpTag();
   out.sort((a, b) =>
-    (b.s.added || "").localeCompare(a.s.added || "")  // 新しい順
+    recentDate(b.s).localeCompare(recentDate(a.s))  // 新しい順
     || champName(a.c).localeCompare(champName(b.c), cmpLocale, { sensitivity: "base" }));
   return out;
 }

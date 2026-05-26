@@ -189,7 +189,20 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   wall-clock ではなく `generated_at_utc` にして、端末時計や古いキャッシュに
   左右されず data.json の鮮度に紐付けて決定的にしている。旧 data.json
   (`added` 無し) ではセクションが出ないだけで完全後方互換。UI 文字列は
-  `section_recent` を全 locale に追加
+  `section_recent` を全 locale に追加。
+  **リリース日エンリッチ (Meraki)**: CDragon はスキンのリリース日を一切持たない
+  ため (Ahri 103.json の `skins[]` で確認済み)、`generate_data.py` の
+  `fetch_meraki_releases()` がビルド時に Meraki (lolstaticdata の公開 CDN
+  `cdn.merakianalytics.com/.../champions.json`) から `skin id → release`
+  (YYYY-MM-DD) を取り、各スキンに `released` を付ける。skin id は Riot/CDragon と
+  共通なので数値 id でそのまま join (あいまいマッチ不要)。`"0000-00-00"` や不正
+  形式は捨て、取得失敗時は空マップにフォールバックして `added` (diff) だけで動く
+  (Meraki 障害で CI を落とさない / クライアントには Meraki を一切露出しない)。
+  `collectRecent()` の新着判定日は `released || added` の二段で、過去スキンは本物の
+  リリース日で自然に窓外、Meraki 未登録の最新スキンは diff の `added` で拾う。
+  Meraki を補助に使うのは CLAUDE.md が「唯一の現実的な外部ソース」と認めている
+  範囲。なお当初は Meraki の単独 `skins.json` を狙ったが 404 (存在しない)、
+  スキンデータは `champions.json` 側に埋まっている
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
 - [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import ssl
 import sys
 import time
@@ -24,6 +25,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 CDRAGON = "https://raw.communitydragon.org"
+# CDragon はスキンのリリース日を一切持たないので、コミュニティキュレーションの
+# Meraki (lolstaticdata の公開 CDN) を「リリース日だけ」の補助ソースに使う。
+# ビルド時のみの依存で、取得失敗時は空マップにフォールバックする (CLAUDE.md の
+# 「唯一の現実的な外部ソース」方針どおり、クライアントには一切出さない)。
+MERAKI_CHAMPIONS = "https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
@@ -383,7 +389,50 @@ def cdragon_url(asset_path: str) -> str:
     return f"{CDRAGON}/latest/{p}"
 
 
-def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def fetch_meraki_releases() -> dict[int, str]:
+    """Meraki の champions.json から `skin id -> リリース日 (YYYY-MM-DD)` を作る。
+
+    skin id は Riot/CDragon と共通の数値なので、あいまいマッチ無しでそのまま join
+    できる。Meraki が日付を持たない/不明なスキンは `"0000-00-00"` を返すので無効値
+    として捨てる。取得や形式が壊れていたら空マップを返し、呼び出し側は現行の
+    diff ベース `added` だけにフォールバックする (Meraki 障害で CI を落とさない)。
+    """
+    try:
+        raw = fetch_json(MERAKI_CHAMPIONS)
+    except Exception as e:
+        print(f"   [警告] Meraki champions.json 取得失敗 (released なしで続行): {e}", flush=True)
+        return {}
+    if not isinstance(raw, dict):
+        print("   [警告] Meraki champions.json が想定外の形式 (released なしで続行)", flush=True)
+        return {}
+    out: dict[int, str] = {}
+    for champ in raw.values():
+        if not isinstance(champ, dict):
+            continue
+        skins = champ.get("skins")
+        # Meraki は skins を list で返す想定だが、将来 dict 化しても拾えるようにしておく
+        if isinstance(skins, dict):
+            skins = list(skins.values())
+        if not isinstance(skins, list):
+            continue
+        for sk in skins:
+            if not isinstance(sk, dict):
+                continue
+            sid = sk.get("id")
+            rel = sk.get("release")
+            if (isinstance(sid, int) and isinstance(rel, str)
+                    and rel != "0000-00-00" and _DATE_RE.match(rel)):
+                out[sid] = rel
+    print(f"    Meraki リリース日: {len(out)} スキン分", flush=True)
+    return out
+
+
+def collect_skins_from_skin_obj(
+    alias: str, skin_obj: dict, release_by_id: dict[int, str] | None = None
+) -> list[dict]:
     """1スキン or 1ティアからエントリを作成"""
     skin_name = skin_obj.get("name", "Unknown")
     label = f"{alias}_Classic" if skin_obj.get("isBase") else skin_name
@@ -427,6 +476,16 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     desc = skin_obj.get("description")
     if isinstance(desc, str) and desc.strip():
         entry["desc"] = desc.strip()
+
+    # Meraki 由来の実リリース日 (YYYY-MM-DD)。CDragon に無い情報なので、ある時だけ付ける。
+    # ブラウザの「最近追加」判定は released を優先し、無ければ diff ベースの added に
+    # フォールバックする (古いスキンは released で自然に窓外、Meraki 未登録の最新スキンは
+    # added で拾う、の二段構え)。
+    sid = skin_obj.get("id")
+    if release_by_id and isinstance(sid, int):
+        rel = release_by_id.get(sid)
+        if rel:
+            entry["released"] = rel
 
     # 画像URLが1つも無い場合はスキップ
     if "splash" not in entry:
@@ -479,6 +538,10 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
     except Exception as e:
         print(f"   [警告] skinlines.json の取得に失敗: {e}", flush=True)
         skin_lines = {}
+
+    # スキンのリリース日 (CDragon に無いので Meraki 補助ソースから)。失敗時は空マップ
+    print("==> Meraki からスキンのリリース日を取得...", flush=True)
+    release_by_id = fetch_meraki_releases()
 
     # 並列に全 champion JSON を取得。返却順序は champions の元順を保ちたいので
     # 結果を id→detail の dict に入れてから再度元順で組み上げる
@@ -539,7 +602,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         # 判定に使う (英語と同じ説明文を locale ファイルに重複して書かないため)。
         paths_for_locale: list[tuple[tuple[int, int | None], str, str | None]] = []
         for path, skin_obj in _walk_skins_with_index(detail):
-            made = collect_skins_from_skin_obj(alias, skin_obj)
+            made = collect_skins_from_skin_obj(alias, skin_obj, release_by_id)
             if made:
                 skin_entries.extend(made)
                 paths_for_locale.append((path, made[0]["label"], made[0].get("desc")))
