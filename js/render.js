@@ -18,6 +18,41 @@ import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
+// 「最近追加」セクションに出す日数の窓。generate_data.py が新規スキンに打つ
+// `added` (YYYY-MM-DD, 初観測日) を data.json の generated_at_utc から遡って判定する。
+// 週次更新なので 30 日 = 直近 ~4 回ぶんの新着が再訪のたびに数回は目に入る。
+// 基準を client の wall-clock ではなく generated_at にするのは、判定を data.json の
+// 鮮度に紐付けて決定的にするため (端末時計のズレや古いキャッシュに影響されない)。
+const RECENT_DAYS = 30;
+
+// generated_at (ISO) から RECENT_DAYS 遡った YYYY-MM-DD を返す。`added` は同形式の
+// 文字列なので辞書順比較がそのまま日付比較になる。パース不能なら null (= 窓無効=全件)。
+function recentCutoff(genAtIso) {
+  const base = genAtIso ? new Date(genAtIso) : new Date();
+  if (isNaN(base.getTime())) return null;
+  return new Date(base.getTime() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
+}
+
+// `added` を持ち、かつ generated_at から RECENT_DAYS 以内のスキンを新しい順に集める。
+// 旧 data.json (added 無し) では空配列を返すので、セクション自体が出ない (完全後方互換)。
+function collectRecent() {
+  if (!DATA || !Array.isArray(DATA.champions)) return [];
+  const cutoff = recentCutoff(DATA.generated_at_utc);
+  const out = [];
+  for (const c of DATA.champions) {
+    for (const s of c.skins) {
+      if (!s.splash || !s.added) continue;
+      if (cutoff && s.added < cutoff) continue;
+      out.push({ c, s });
+    }
+  }
+  const cmpLocale = cmpTag();
+  out.sort((a, b) =>
+    (b.s.added || "").localeCompare(a.s.added || "")  // 新しい順
+    || champName(a.c).localeCompare(champName(b.c), cmpLocale, { sensitivity: "base" }));
+  return out;
+}
+
 // stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
 // <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
 // 以降の呼び出し (locale 切替時など) は即時表示にしてチラつかせない
@@ -161,13 +196,28 @@ function renderHome(root) {
     return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
 
-  // 検索なし: 従来通りチャンピオン一覧だけ
+  // 検索なし: チャンピオン一覧。新着スキンがあれば先頭に「最近追加」セクションを足す
   if (!q) {
     const list = DATA.champions.slice();
     sortChamps(list);
+    const recent = collectRecent();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
-    $("view-content").innerHTML = `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    let html = "";
+    if (recent.length) {
+      // 新着は flat な skin グリッド、その下の champ-grid は portrait タイルで見た目が
+      // 明確に違うので、見出しは「最近追加」だけ付ける (チャンピオン側は sticky ヘッダーが
+      // "Champions / N" を担当しており、ここで重ねると同じ見出しが二度出てしまう)
+      html += `
+        <div class="champ-header is-list">
+          <h2>${t("section_recent")}</h2>
+          <span class="count">${t("skins_count", recent.length)}</span>
+        </div>
+        <div class="skin-grid is-flat recent-grid">${renderSkinCards(recent)}</div>`;
+    }
+    html += `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    $("view-content").innerHTML = html;
     wireChampCards(root);
+    if (recent.length) wireSkinCards(root.querySelector(".recent-grid"), recent.map(({ c, s }) => toLightboxItem(c, s)));
     return;
   }
 

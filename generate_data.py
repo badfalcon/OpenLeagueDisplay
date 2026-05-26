@@ -685,6 +685,57 @@ def build_locale_index(
     }
 
 
+def apply_added_dates(manifest: dict, prev_path: Path) -> None:
+    """前回の data.json と差分を取り、新規スキンに `added` (初観測日) を付与する。
+
+    「最近追加されたスキン」セクション (ブラウザ側) のためのメタ情報。週次ビルドで
+    呼ばれ、前回ファイルに居なかった (alias//label) を「新規」とみなす。
+
+    重要な不変条件:
+    - 既に `added` を持つスキンは初観測日をそのまま引き継ぐ (毎週リセットしない)。
+    - 前回ファイルが無い / 読めない / 空の時は何も打たない。差分の基準が無い状態で
+      全件に日付を打つと、初回ビルド時に全スキンが「新着」扱いになって誤爆するため。
+      この設計により、この機能を入れた直後の初回ビルドでは (前回データに `added` が
+      無くても) 既存スキンは基準点として無印のまま、以降のビルドで本当に増えた分だけ
+      日付が付く。
+    日付は manifest の generated_at_utc の日付部分 (UTC, YYYY-MM-DD) を使う。
+    """
+    today = (manifest.get("generated_at_utc") or "")[:10] or time.strftime(
+        "%Y-%m-%d", time.gmtime()
+    )
+    prev_added: dict[str, str] = {}
+    prev_keys: set[str] = set()
+    try:
+        prev = json.loads(prev_path.read_text(encoding="utf-8"))
+        for c in prev.get("champions", []):
+            alias = c.get("alias", "")
+            for s in c.get("skins", []):
+                key = f"{alias}//{s.get('label', '')}"
+                prev_keys.add(key)
+                if s.get("added"):
+                    prev_added[key] = s["added"]
+    except (OSError, ValueError):
+        pass
+    have_baseline = bool(prev_keys)
+
+    new_count = 0
+    for c in manifest.get("champions", []):
+        alias = c.get("alias", "")
+        for s in c.get("skins", []):
+            key = f"{alias}//{s.get('label', '')}"
+            if key in prev_added:
+                s["added"] = prev_added[key]  # 初観測日を維持
+            elif have_baseline and key not in prev_keys:
+                s["added"] = today  # 前回に居なかった = 新規
+                new_count += 1
+    if not have_baseline:
+        print("==> 前回 data.json が無いため added 付与をスキップ (初回扱い)", flush=True)
+    elif new_count:
+        print(f"==> 新規スキン {new_count} 件に added={today} を付与", flush=True)
+    else:
+        print("==> 新規スキンなし (added は据え置き)", flush=True)
+
+
 def main() -> int:
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "data.json"
     # i18n の出力先は data.json と同じディレクトリの `i18n/` 配下に固定。
@@ -707,6 +758,9 @@ def main() -> int:
         return 1
 
     if not only_i18n:
+        # 前回ファイルとの差分で「最近追加されたスキン」用の added 日付を付与
+        # (書き出し前に prev を読むので、必ず write_text より先に呼ぶ)
+        apply_added_dates(manifest, out_path)
         # コンパクトに書き出し (改行はスキン単位)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(

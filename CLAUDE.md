@@ -177,7 +177,19 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [ ] キーボードショートカット一覧モーダル (? キーで表示)
-- [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
+- [x] ~~「最近追加されたスキン」セクション (data.json 差分から検出)~~ →
+  `generate_data.py` の `apply_added_dates()` が週次ビルド時に前回 data.json と
+  diff を取り、新規スキン (前回に居なかった `alias//label`) に `added`
+  (YYYY-MM-DD, 初観測日) を打つ。既存スキンの日付は維持し、前回ファイルが無い
+  時は全件 new の誤爆を防ぐため何も打たない (= この機能導入直後の初回ビルドは
+  既存スキンを基準点にする / 以降のビルドで本当に増えた分だけ日付が付く)。
+  ブラウザ側は `render.js` の `collectRecent()` が `generated_at_utc` から
+  `RECENT_DAYS`(=30) 日以内の `added` を持つスキンを新しい順に集め、ホーム
+  (検索なし) の先頭に「最近追加」セクションとして出す。判定基準を client の
+  wall-clock ではなく `generated_at_utc` にして、端末時計や古いキャッシュに
+  左右されず data.json の鮮度に紐付けて決定的にしている。旧 data.json
+  (`added` 無し) ではセクションが出ないだけで完全後方互換。UI 文字列は
+  `section_recent` を全 locale に追加
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
 - [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で
