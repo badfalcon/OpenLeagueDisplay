@@ -128,9 +128,13 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   - **壁紙設定は stdlib のみ**: Windows=`ctypes` SystemParametersInfoW (+`winreg` で
     fill スタイル)、macOS=`osascript`、Linux=GNOME `gsettings` (+`feh` fallback)。
     pywebview だけが任意の追加依存 (あればネイティブ窓、無ければブラウザ起動)
-  - **セキュリティ**: `127.0.0.1` bind + 取得元を `raw.communitydragon.org` に固定
-    (SSRF)、`/api` POST はカスタムヘッダ `X-OLD-Local` 必須 (CSRF: クロスサイトからは
-    付けられない)
+  - **セキュリティ** (多層防御): ①`127.0.0.1` bind + 取得元を
+    `raw.communitydragon.org` https に固定 (SSRF)、リダイレクト先も
+    `_SafeRedirectHandler` で毎回再検証 ②`/api` はカスタムヘッダ `X-OLD-Local` 必須
+    (CSRF: クロスサイトからは付けられない) ③**Host ヘッダをループバックリテラルに
+    限定** (DNS リバインディングで same-origin 化されカスタムヘッダ防御を抜けてくる
+    攻撃を `_host_ok()` で遮断) ④保存名は URL の sha1 (path traversal 回避)、壁紙設定は
+    subprocess を argv list で呼ぶ (shell 不使用 → コマンドインジェクション無し)
   - **永続キャッシュ必須**: Linux(gsettings)/macOS は壁紙を「パス参照」で設定する
     (コピーしない) ので、`/tmp` だと再起動で壁紙が消える。ユーザ専用の永続 dir
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する

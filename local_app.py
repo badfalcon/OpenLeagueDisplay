@@ -31,6 +31,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -98,6 +99,24 @@ def safe_filename(url: str) -> str:
     return hashlib.sha1(url.encode("utf-8")).hexdigest() + ext
 
 
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """リダイレクト先も毎回 validate_url で検証する (多層防御)。
+
+    validate_url は初回 URL しか見ないので、万一 CDragon が別ホストや内部アドレスへ
+    リダイレクトを返しても urllib が黙って追従しないようにする。同一ホスト内の
+    正当なリダイレクトは許可されるので画像取得は壊れない。
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not validate_url(newurl):
+            raise urllib.error.HTTPError(
+                newurl, code, "redirect to disallowed host blocked", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_SafeRedirectHandler())
+
+
 def download_image(url: str) -> pathlib.Path:
     """検証済み URL を cache_dir にダウンロードして絶対パスを返す。
 
@@ -110,7 +129,7 @@ def download_image(url: str) -> pathlib.Path:
         return dest
 
     req = urllib.request.Request(url, headers={"User-Agent": "OpenLeagueDisplay/local"})
-    with urllib.request.urlopen(req, timeout=20) as r:
+    with _OPENER.open(req, timeout=20) as r:
         ctype = (r.headers.get("Content-Type") or "").lower()
         if not ctype.startswith("image/"):
             raise ValueError(f"not an image (Content-Type: {ctype or 'unknown'})")
@@ -272,8 +291,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def _path(self) -> str:
         return (self.path or "").split("?")[0]
 
+    def _host_ok(self) -> bool:
+        # DNS リバインディング対策。サーバは 127.0.0.1 にしか bind しないので、正規の
+        # アクセスは Host が必ずループバックリテラルになる。悪意サイトが自ドメインを
+        # 127.0.0.1 に rebind して same-origin 化し X-OLD-Local を付けて撃ってきても、
+        # Host ヘッダは攻撃者ドメインのままなのでここで弾ける (CSRF 関門の補強)。
+        host = self.headers.get("Host", "")
+        hostname = host.rsplit(":", 1)[0].strip("[]") if host else ""
+        return hostname in ("127.0.0.1", "localhost", "::1")
+
     def do_GET(self) -> None:
         if self._path() == "/api/ping":
+            if not self._host_ok():
+                self._json(403, {"ok": False, "error": "bad host"})
+                return
             self._json(200, {
                 "app": "OpenLeagueDisplay",
                 "local": True,
@@ -287,6 +318,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self._path()
         if not path.startswith("/api/"):
             self._json(404, {"ok": False, "error": "not found"})
+            return
+        # DNS リバインディング対策: ループバック以外の Host は拒否 (CSRF 関門の補強)
+        if not self._host_ok():
+            self._json(403, {"ok": False, "error": "bad host"})
             return
         # CSRF 関門: カスタムヘッダ必須 (クロスサイトからは付けられない)
         if self.headers.get(CSRF_HEADER) is None:
