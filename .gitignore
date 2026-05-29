@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .vscode/
+# ローカル開発用の venv (uv/venv どちらでも)。リポジトリには入れない
+.venv/
 # .idea/ は基本無視するが、共有用のRun Configurationだけはチェックインする
 .idea/*
 !.idea/runConfigurations/
