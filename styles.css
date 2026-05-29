@@ -787,6 +787,16 @@
     margin-bottom: 12px;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   }
+  /* 「壁紙に設定」ボタン (ローカル実行モードのみ表示)。親 .lb-overlay は
+     pointer-events:none なので、.slideshow-controls と同様にここで auto に戻す。
+     背景を少し濃くして明るいスプラッシュ上でも読めるようにする */
+  .lb-wallpaper {
+    margin-top: 18px;
+    pointer-events: auto;
+    background: rgba(12, 11, 20, 0.65);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .lb-wallpaper:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   .lb-close, .lb-nav {
     position: absolute;
     background: rgba(12, 11, 20, 0.65);
@@ -999,7 +1009,21 @@
   .gallery-toolbar {
     display: flex; gap: 10px; flex-wrap: wrap;
     margin: 0 0 20px;
+    align-items: center;
   }
+  /* 壁紙スライドショーの間隔ピッカー (ローカル実行モードのみ)。トグルボタンの
+     高さ/トーンに揃える。色は CSS 変数で統一 */
+  .gallery-wp-interval {
+    height: var(--ctrl-h);
+    padding: 0 12px;
+    background: var(--bg-1);
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; letter-spacing: 0.14em;
+    cursor: pointer;
+  }
+  .gallery-wp-interval:hover { border-color: var(--gold); }
   /* 空状態の追加方法ヒント (gallery_empty の下に小さく) */
   .gallery-hint {
     margin-top: 8px;
@@ -1468,3 +1492,27 @@
     .champ-header-controls .ctrl-select { padding-right: 20px; }
     header .view-tabs .tab { max-width: 36vw; }
   }
+
+  /* === TOAST (ローカル実行モードの壁紙操作フィードバック) ===============
+     壁紙ボタンはライトボックス (z-index:100) 内にあり、他オーバーレイも最大 200 な
+     ので、トーストは 300 で確実に手前に出す。視覚通知は #toast、スクリーンリーダー
+     向けは既存の #sr-status (aria-live) を local.js が併用する */
+  .toast {
+    position: fixed;
+    left: 50%; bottom: 36px;
+    transform: translateX(-50%) translateY(8px);
+    z-index: 300;
+    max-width: min(90vw, 480px);
+    padding: 12px 20px;
+    background: rgba(12, 11, 20, 0.92);
+    border: 1px solid var(--gold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 11px; letter-spacing: 0.14em;
+    text-align: center;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast[data-kind="err"] { border-color: #d46a6a; color: #f4c0c0; }

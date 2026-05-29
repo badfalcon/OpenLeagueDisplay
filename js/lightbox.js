@@ -3,6 +3,7 @@
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
 import { t, toLightboxItem } from "./i18n.js";
+import { isLocalWallpaper } from "./local.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -154,6 +155,18 @@ function updateMeta() {
     descEl.hidden = !desc;
   }
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
+  // ローカル実行モードでのみ「壁紙に設定」ボタンを出す。動画スキンでも item.src は
+  // 静止スプラッシュ (poster) として必ずあり、壁紙は静止画なので対象にしてよい。
+  // クリック配線は app.js が一度だけ行うので、ここでは表示と url/name の stash だけ。
+  const wp = $("lb-wallpaper");
+  if (wp) {
+    const canWp = isLocalWallpaper() && !!item.src;
+    wp.hidden = !canWp;
+    if (canWp) {
+      wp.dataset.url = item.src;
+      wp.dataset.name = `${item.champ} — ${item.skin}`;
+    }
+  }
 }
 function showCurrent() {
   const item = state.lb.list[state.lb.idx];

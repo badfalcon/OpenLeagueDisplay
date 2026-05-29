@@ -30,10 +30,12 @@ current without anyone babysitting it.
   - [Features](#features)
   - [Controls](#controls)
   - [About the ZIP download](#about-the-zip-download)
+  - [Desktop app (set wallpaper directly)](#desktop-app-set-wallpaper-directly)
 - [For developers](#for-developers)
   - [How it works](#how-it-works)
   - [Repository layout](#repository-layout)
   - [Running locally](#running-locally)
+  - [Building the desktop app](#building-the-desktop-app)
   - [Deploying it to your own account](#deploying-it-to-your-own-account)
   - [Disabling the auto-update](#disabling-the-auto-update)
 - [License](#license)
@@ -54,6 +56,10 @@ Nothing to install — just open
   or every skin in a skin line in one shot. Extract locally and point Windows'
   "Background → Slideshow" at the folder for a LeagueDisplays-style wallpaper
   rotation.
+- **Desktop app (set wallpaper directly)**: an optional native build lets you
+  set any splash as your desktop wallpaper in one click — or rotate your gallery
+  on a timer — without downloading/extracting anything. See
+  [Desktop app](#desktop-app-set-wallpaper-directly) below.
 - **Slideshow**: full-screen playback with Ken Burns + crossfade
 - **Search / filter**: cross-keyword search over champion name, skin name, role
   (Mage / Tank / ...), region of origin (Demacia / Noxus / ...) and rarity
@@ -89,6 +95,29 @@ Nothing to install — just open
 - **Stored uncompressed** (JPEGs are already compressed; this keeps zipping fast).
 - **Fetched directly from CDragon** with a concurrency of 6. Skins that return
   404 on CDragon are silently skipped and counted in the final summary.
+
+### Desktop app (set wallpaper directly)
+
+The web version can't touch your wallpaper (browsers are sandboxed). For the
+full LeagueDisplays experience — pick a splash, click, it's your wallpaper — run
+the **local app**, which is the exact same UI wrapped in a native window plus a
+tiny local helper that sets the wallpaper for you.
+
+- **Download a build** from the [Releases](../../releases) page
+  (`OpenLeagueDisplay-windows.exe` / `-macos` / `-linux`) and run it. It opens
+  a native window; in any splash a **★ Set as wallpaper** button appears, and
+  **My Gallery** gains a **🖥 Slideshow on desktop** toggle with a rotation
+  interval picker (1 / 5 / 15 / 30 / 60 min, remembered next time).
+- **Or run from source**: `python local_app.py` (Python 3.7+). `pip install
+  pywebview` for the native window; without it, it just opens your default
+  browser. The same site on GitHub Pages is unaffected — the wallpaper UI only
+  appears when the local helper is detected.
+- **Platform notes**: Windows uses the desktop wallpaper API (fill style),
+  macOS uses `osascript`, Linux uses GNOME `gsettings` with an `feh` fallback.
+  On Windows 10 the native window needs Microsoft's WebView2 runtime (bundled on
+  Windows 11); if it's missing, install the Evergreen Runtime or the app falls
+  back to the browser. macOS builds are unsigned, so Gatekeeper will warn on
+  first launch (right-click → Open).
 
 ---
 
@@ -127,7 +156,8 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 │   ├── i18n.js                      #   UI_STRINGS, locale loader, name maps
 │   ├── render.js                    #   view rendering (home / champion / lines / line)
 │   ├── zip.js                       #   bulk ZIP download (JSZip)
-│   └── lightbox.js                  #   fullscreen viewer + slideshow
+│   ├── lightbox.js                  #   fullscreen viewer + slideshow
+│   └── local.js                     #   local-app detection + wallpaper/slideshow API client
 ├── sw.js                            # Service Worker (app-shell cache)
 ├── manifest.webmanifest             # PWA manifest (install / add to home screen)
 ├── favicon.svg                      # Site icon (also the manifest "any" icon)
@@ -136,7 +166,10 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 ├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
 ├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
 ├── serve.py                         # Thin wrapper around http.server for local serving
+├── local_app.py                     # Local app server: static + /api wallpaper (stdlib + optional pywebview)
+├── local_app.spec                   # PyInstaller spec for the desktop build
 ├── .github/workflows/update.yml     # Weekly auto-update (Mondays 09:00 JST)
+├── .github/workflows/release.yml    # Build & publish desktop binaries on tag push
 ├── .idea/runConfigurations/         # PyCharm Run Configurations, checked in
 ├── CLAUDE.md                        # Design notes & conventions (developer-facing)
 ├── LICENSE                          # MIT (covers the repository's code)
@@ -157,6 +190,11 @@ python serve.py
 # → http://127.0.0.1:8000
 ```
 
+For the **desktop app** (with the wallpaper helper) run `local_app.py` instead of
+`serve.py` — same static site, plus the `/api` endpoints that set the wallpaper.
+`pip install pywebview` for a native window; otherwise it opens your browser.
+Requires Python 3.7+ (`ThreadingHTTPServer` / `directory=`).
+
 There is no build step and no package dependency. The front-end is plain
 vanilla JS (ES Modules) plus JSZip (loaded from a CDN). Open the page through
 `python serve.py` rather than `file://` directly — ES Modules require an HTTP
@@ -168,6 +206,25 @@ If a corporate proxy makes CDragon fail with `CERTIFICATE_VERIFY_FAILED`, you
 can bypass certificate verification with
 `LOL_INSECURE=1 python generate_data.py` (or
 `$env:LOL_INSECURE=1; python generate_data.py` in PowerShell).
+
+### Building the desktop app
+
+The cross-platform binaries on the Releases page are built by
+`.github/workflows/release.yml`, which runs on every `v*` tag push: it builds on
+Windows / macOS / Linux runners with PyInstaller and uploads each binary as a
+release asset (the binaries are **never committed** to the repo). To build one
+yourself:
+
+```bash
+pip install pyinstaller pywebview
+pyinstaller local_app.spec
+# → dist/OpenLeagueDisplay(.exe)
+```
+
+`local_app.spec` bundles the static assets (HTML/CSS/`js/`/`data.json`/`i18n/`),
+so the binary is self-contained. The bundled `data.json` is a **snapshot from
+build time** — cut a fresh release (or rerun `generate_data.py` + rebuild) to
+refresh it.
 
 ### Deploying it to your own account
 
@@ -209,6 +266,12 @@ The source code in this repository is distributed under the **MIT License**
 Community Dragon are **copyright Riot Games, Inc.** and are *not* covered by
 the MIT license — please avoid redistribution or commercial use beyond
 personal use.
+
+The released desktop binaries bundle the MIT-licensed app plus a `data.json`
+metadata snapshot (champion/skin names and CDragon URLs — the same data already
+served publicly by the web version). Splash **images are not bundled**; they are
+fetched from Community Dragon at runtime onto your own machine for personal
+wallpaper use. The terms above apply equally to the binaries.
 
 ## Disclaimer
 

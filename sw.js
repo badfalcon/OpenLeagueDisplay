@@ -10,7 +10,7 @@
 //   スプラッシュ全体で ~600MB あり、キャッシュに載せる方針ではない。
 // - シェル更新時は CACHE_VERSION を上げること (activate で古いキャッシュを掃除する)。
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // プリキャッシュ対象。sw.js と同階層基準の相対パス (GitHub Pages のサブパス配信に対応)
@@ -29,6 +29,7 @@ const SHELL = [
   "./js/lightbox.js",
   "./js/tutorial.js",
   "./js/share.js",
+  "./js/local.js",
 ];
 
 self.addEventListener("install", (e) => {
@@ -91,6 +92,10 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   // 同一オリジンのみ扱う。CDragon 画像 / フォント / jsdelivr は素通し
   if (url.origin !== self.location.origin) return;
+
+  // ローカル実行モードの API (/api/ping 等) はキャッシュせず素通しする。
+  // GET /api/ping を SWR に乗せると古い検知結果を返してしまうため除外する。
+  if (url.pathname.split("/").includes("api")) return;
 
   // data.json と i18n/*.json は週次更新データなので network-first
   if (url.pathname.endsWith("/data.json") || url.pathname.includes("/i18n/")) {

@@ -30,6 +30,7 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
+import { probeLocal, setWallpaper, toast } from "./local.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -47,6 +48,9 @@ async function init() {
     state.sortOrder = savedSort;
   }
   applyStaticUIStrings();
+  // ローカル実行 (local_app.py) かを検知。data.json fetch と並行で走らせ、初回 render の
+  // 前に await する (失敗/Pages では静かに false に倒れ、ビューア本体には影響しない)。
+  const localProbe = probeLocal();
   // localized テキストが当たったので、index.html で立てた i18n-loading を外して
   // 隠していたタブ/ボタン/ローディング文言を見せる。これ以降の locale 切替は
   // 同期的に DOM を書き換えるためフラッシュは発生しない
@@ -114,6 +118,9 @@ async function init() {
     if (state.selected.size !== saved.length) saveSelected();
     // ヘッダーのギャラリーボタン件数は applyStaticUIStrings / render() が反映する
   }
+
+  // ローカルモード検知の確定を待ってから初回 render (壁紙 UI の表示状態を反映するため)
+  await localProbe;
 
   render();
 
@@ -198,6 +205,20 @@ function wireEvents() {
   $("lb-close").addEventListener("click", closeLightbox);
   $("lb-prev").addEventListener("click", prevSlide);
   $("lb-next").addEventListener("click", nextSlide);
+  // 壁紙設定ボタン (ローカル実行モードでのみ updateMeta が表示する)。url/name は
+  // ライトボックスが dataset に stash 済み。クリックハンドラの配線は1回だけここで行う。
+  $("lb-wallpaper").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await setWallpaper(btn.dataset.url, btn.dataset.name);
+      toast(t("wallpaper_set"));
+    } catch (err) {
+      toast(t("wallpaper_failed", err.message), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
     $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");

@@ -28,13 +28,17 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
-│   └── lightbox.js                  #   ライトボックス + スライドショー
+│   ├── lightbox.js                  #   ライトボックス + スライドショー
+│   └── local.js                     #   ローカル実行検知 + 壁紙/スライドショー API クライアント
 ├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
+├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
+├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
+├── .github/workflows/release.yml    # タグ push で各 OS のデスクトップバイナリを build & Release
 ├── README.md
 └── .gitignore
 ```
@@ -56,6 +60,11 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
   `shuffle` / `buildSelectedList` も内製 (render.js からは独立)
+- **local.js**: ローカル実行 (local_app.py) の検知と壁紙/スライドショー API クライアント、
+  簡易 `toast`。**import は state.js のみ** (i18n.js を import しないことで
+  `render→local→i18n→render` の循環を作らない。`toast` は呼び出し側で翻訳済み文字列を
+  受け取る)。Pages では `probeLocal()` が false に倒れ、この module を使う UI が一切
+  出ない (= 静的サイトとして従来通り)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する
 
@@ -105,6 +114,32 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   i18n/<locale>.json には regions フィールド自体を出さない。
 - **ZIP化はブラウザ側 (JSZip)**: サーバ無しの方針を維持。JPEGは元々圧縮済みなので
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
+- **ローカル実行モード (壁紙を直接設定)**: ブラウザはサンドボックスで壁紙を触れないので、
+  本家 LeagueDisplays 風に「選ぶ → そのまま壁紙」を実現する `local_app.py` を用意した。
+  設計上の要点:
+  - **serve.py は触らず別ファイル**: serve.py は「ただの静的サーバ」の役割
+    (CLAUDE.md / PyCharm run config が前提) を壊さない。壁紙設定はダウンロード・OS
+    呼び出し・SSRF/CSRF 面など別の関心事なので `local_app.py` に分離 (起動を切替える
+    だけ)。`SimpleHTTPRequestHandler` を継承して静的配信はそのまま + `/api/*` を足す
+  - **同一コードベースで Pages と両立**: フロントは `/api/ping` を叩いて「ローカル
+    モード」を feature-detect (`js/local.js` の `probeLocal`)。Pages では 404 になり
+    壁紙 UI を一切出さない (段階的デグレード)。CSP は `connect-src 'self'` で `/api` を
+    既に許可済み、画像はサーバ側取得なので変更不要
+  - **壁紙設定は stdlib のみ**: Windows=`ctypes` SystemParametersInfoW (+`winreg` で
+    fill スタイル)、macOS=`osascript`、Linux=GNOME `gsettings` (+`feh` fallback)。
+    pywebview だけが任意の追加依存 (あればネイティブ窓、無ければブラウザ起動)
+  - **セキュリティ** (多層防御): ①`127.0.0.1` bind + 取得元を
+    `raw.communitydragon.org` https に固定 (SSRF)、リダイレクト先も
+    `_SafeRedirectHandler` で毎回再検証 ②`/api` はカスタムヘッダ `X-OLD-Local` 必須
+    (CSRF: クロスサイトからは付けられない) ③**Host ヘッダをループバックリテラルに
+    限定** (DNS リバインディングで same-origin 化されカスタムヘッダ防御を抜けてくる
+    攻撃を `_host_ok()` で遮断) ④保存名は URL の sha1 (path traversal 回避)、壁紙設定は
+    subprocess を argv list で呼ぶ (shell 不使用 → コマンドインジェクション無し)
+  - **永続キャッシュ必須**: Linux(gsettings)/macOS は壁紙を「パス参照」で設定する
+    (コピーしない) ので、`/tmp` だと再起動で壁紙が消える。ユーザ専用の永続 dir
+    (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
+  - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
+    ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
 - **デザイン**: 深い黒紫 (`--bg: #07060b` / `--bg-1: #0c0b14`) × 落ち着いた
   ゴールド (`--gold: #d4a857`)。Google Fonts は Cinzel (eyebrow / 見出し) +
@@ -143,7 +178,11 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 
 ## コンベンション
 
-- **Pythonは標準ライブラリのみ** (generate_data.py は GitHub Actions の素のPython3で動く)
+- **Pythonは標準ライブラリのみ** (generate_data.py は GitHub Actions の素のPython3で動く)。
+  `serve.py` と `local_app.py` の**コアも stdlib のみ** (壁紙設定は ctypes/winreg/
+  subprocess、配信は http.server)。**例外は pywebview 1つだけ** — `local_app.py` の
+  ネイティブ窓表示にだけ使う任意依存で、未インストールならブラウザ起動にフォール
+  バックする (= 必須ではない)。data 生成系 (generate_data.py / update.yml) では一切使わない
 - **クライアント側の機能ライブラリ依存は CDN1本まで**: 現状は **JSZip** のみ
   (`cdn.jsdelivr.net` から defer で遅延読込)。リポジトリには何も置かない方針は維持。
   これとは別にアクセス解析として **Cloudflare Web Analytics** の beacon
@@ -160,6 +199,13 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 
 - [x] ~~コレクション別フィルタ (PROJECT, Star Guardian 等)~~ → スキンラインビューで対応
 - [x] ~~お気に入り機能~~ → 選択モード + ZIPまとめDLで実用上カバー
+- [x] ~~ローカルの実行ファイル化 + そのまま壁紙設定 (本家 LeagueDisplays 風)~~ →
+  `local_app.py` (stdlib + 任意 pywebview) で実装。ライトボックスの「★ 壁紙に設定」と
+  ギャラリーの「🖥 デスクトップでスライドショー」(間隔ピッカー付き)。各 OS バイナリは
+  `release.yml` が tag push 時に build & Release。Web (Pages) 版は feature-detect で
+  従来通り
+- [x] ~~壁紙スライドショー回転~~ → ローカル実行モードで実装 (`/api/slideshow`、間隔は
+  1/5/15/30/60 分から選択・localStorage 永続化)
 - [x] ~~OGP/Twitter Card メタタグ追加 (シェア時のサムネ)~~ → `ogp.png`
   (1200x630 ブランドカード) を追加、`twitter:card` を `summary_large_image`
   に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
@@ -249,3 +295,7 @@ Blossom 以降ほぼ放置 → 2021年5月に一度だけキャッチアップ�
 - Riot Games 公認ではない。CDragon の "Legal Jibber Jabber" ポリシー下のアセット
   参照のみ。Riot のクライアントやAPIに直接アクセスはしていない
 - 個人利用の範囲を超えて商用化・大規模再配布はしないこと
+- **デスクトップ版バイナリ (release.yml 配布)**: MIT のアプリ本体 + `data.json`
+  メタデータ (Pages で既に公開しているのと同じ、名前 + CDragon URL) を同梱するだけ。
+  **画像は同梱せず**、実行時に CDragon からユーザー自身のマシンへ取得して壁紙にする
+  (個人利用)。免責文はネイティブ窓でも同じ `index.html` フッターに出る (別途同意画面は不要)
