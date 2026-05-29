@@ -178,7 +178,11 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 
 ## コンベンション
 
-- **Pythonは標準ライブラリのみ** (generate_data.py は GitHub Actions の素のPython3で動く)
+- **Pythonは標準ライブラリのみ** (generate_data.py は GitHub Actions の素のPython3で動く)。
+  `serve.py` と `local_app.py` の**コアも stdlib のみ** (壁紙設定は ctypes/winreg/
+  subprocess、配信は http.server)。**例外は pywebview 1つだけ** — `local_app.py` の
+  ネイティブ窓表示にだけ使う任意依存で、未インストールならブラウザ起動にフォール
+  バックする (= 必須ではない)。data 生成系 (generate_data.py / update.yml) では一切使わない
 - **クライアント側の機能ライブラリ依存は CDN1本まで**: 現状は **JSZip** のみ
   (`cdn.jsdelivr.net` から defer で遅延読込)。リポジトリには何も置かない方針は維持。
   これとは別にアクセス解析として **Cloudflare Web Analytics** の beacon
