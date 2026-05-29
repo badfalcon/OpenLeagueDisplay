@@ -23,6 +23,15 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+# Windows の既定コンソール encoding (cp932 / cp1252) だと日本語ログの print が
+# UnicodeEncodeError になる (CI の Windows ランナーで顕在化)。stdout/stderr を
+# UTF-8 に固定する。生成ファイルは write_text(encoding="utf-8") なので元から無関係。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 CDRAGON = "https://raw.communitydragon.org"
 UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
