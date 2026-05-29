@@ -15,6 +15,13 @@ datas は OS 非依存に書ける (--add-data の ';' / ':' 区切り問題を�
 実行時、local_app.py は同梱物を sys._MEIPASS (= BASE_DIR) から配信する。
 """
 
+import os
+
+# Windows ビルドでは CI が事前に build/icon.ico を生成して exe に埋め込む
+# (タスクバー等で正しいアイコンが出る)。mac/linux ジョブでは生成しないので
+# None となり、従来通りデフォルトアイコンになる (回帰なし)。
+_icon = "build/icon.ico" if os.path.exists("build/icon.ico") else None
+
 # 同梱する静的アセット。(ソース, 展開先) のタプル。ディレクトリはそのまま再帰コピー。
 datas = [
     ("index.html", "."),
@@ -65,4 +72,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=_icon,
 )

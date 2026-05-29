@@ -103,11 +103,21 @@ full LeagueDisplays experience — pick a splash, click, it's your wallpaper —
 the **local app**, which is the exact same UI wrapped in a native window plus a
 tiny local helper that sets the wallpaper for you.
 
-- **Download a build** from the [Releases](../../releases) page
-  (`OpenLeagueDisplay-windows.exe` / `-macos` / `-linux`) and run it. It opens
-  a native window; in any splash a **★ Set as wallpaper** button appears, and
-  **My Gallery** gains a **🖥 Slideshow on desktop** toggle with a rotation
+- **Download a build** from the [Releases](../../releases) page and run it. It
+  opens a native window; in any splash a **★ Set as wallpaper** button appears,
+  and **My Gallery** gains a **🖥 Slideshow on desktop** toggle with a rotation
   interval picker (1 / 5 / 15 / 30 / 60 min, remembered next time).
+  - **Windows — installer (recommended):**
+    `OpenLeagueDisplay-windows-setup.exe` installs per-user (no admin prompt),
+    adds a **Start Menu** entry and an optional **desktop shortcut**, and
+    registers an **uninstaller** under *Settings → Apps → Installed apps*. The
+    builds are **unsigned**, so SmartScreen warns on first run — click **More
+    info → Run anyway**. Uninstalling removes the app but **keeps your wallpaper
+    cache** (`%LOCALAPPDATA%\OpenLeagueDisplay`) so the current wallpaper isn't
+    broken; delete that folder by hand if you want it gone too.
+  - **Windows — portable:** `OpenLeagueDisplay-windows.exe` is the same app with
+    no installer — just download and run.
+  - **macOS / Linux:** `OpenLeagueDisplay-macos` / `-linux` — download and run.
 - **Or run from source**: `python local_app.py` (Python 3.7+). `pip install
   pywebview` for the native window; without it, it just opens your default
   browser. The same site on GitHub Pages is unaffected — the wallpaper UI only
@@ -168,6 +178,7 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 ├── serve.py                         # Thin wrapper around http.server for local serving
 ├── local_app.py                     # Local app server: static + /api wallpaper (stdlib + optional pywebview)
 ├── local_app.spec                   # PyInstaller spec for the desktop build
+├── installer/windows.iss            # Inno Setup script for the Windows installer
 ├── .github/workflows/update.yml     # Weekly auto-update (Mondays 09:00 JST)
 ├── .github/workflows/release.yml    # Build & publish desktop binaries on tag push
 ├── .idea/runConfigurations/         # PyCharm Run Configurations, checked in
@@ -227,6 +238,22 @@ pyinstaller local_app.spec
 so the binary is self-contained. The bundled `data.json` is a **snapshot from
 build time** — cut a fresh release (or rerun `generate_data.py` + rebuild) to
 refresh it.
+
+On Windows the workflow also produces a proper installer with
+[Inno Setup](https://jrsoftware.org/isinfo.php) (`installer/windows.iss`). The
+app icon is generated at build time from `favicon.svg` (no binaries are
+committed to the repo), embedded into the exe, and used for the installer and
+shortcuts. To build the installer yourself:
+
+```powershell
+# 1. generate build\icon.ico from favicon.svg (ImageMagick)
+magick favicon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 build\icon.ico
+# 2. build the exe (picks up build\icon.ico automatically)
+pyinstaller local_app.spec
+# 3. compile the installer (Inno Setup 6 → ISCC.exe)
+ISCC.exe /DAppVersion=1.2.3 installer\windows.iss
+# → installer\out\OpenLeagueDisplay-windows-setup.exe
+```
 
 ### Deploying it to your own account
 

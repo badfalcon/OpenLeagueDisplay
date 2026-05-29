@@ -51,6 +51,19 @@ jobs:
       - name: Generate data.json + i18n
         run: python generate_data.py
 
+      # Windows だけ favicon.svg → build/icon.ico を生成して exe に埋め込む
+      # (タスクバー / インストーラ / ショートカットで正しいアイコンを出すため)。
+      # アイコンはリポジトリにコミットしない方針なのでビルド時に生成する。
+      # ImageMagick は windows ランナーに同梱 (magick)。PyInstaller の前に作ると
+      # local_app.spec が build/icon.ico を拾って exe に埋め込む。
+      - name: Generate icon.ico (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          magick favicon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 build\icon.ico
+          if (-not (Test-Path build\icon.ico)) { throw "icon.ico generation failed" }
+
       - name: Build with PyInstaller
         run: pyinstaller local_app.spec
 
@@ -60,13 +73,37 @@ jobs:
           mkdir -p out
           cp "${{ matrix.bin }}" "out/${{ matrix.asset }}"
 
+      # Windows だけ Inno Setup で正規のインストーラ (setup.exe) も作る。
+      # スタートメニュー登録 / アンインストーラ (アプリと機能) / デスクトップ
+      # ショートカットを備えた "ちゃんとしたソフトウェア" 体験を提供する。
+      # ポータブル exe (上の bare バイナリ) と両方を Release に置く。
+      - name: Install Inno Setup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # タグ push なら版番号をタグから (v1.2.3 → 1.2.3)、手動実行なら dev。
+          $ver = "dev"
+          if ($env:GITHUB_REF -like "refs/tags/*") { $ver = "$env:GITHUB_REF_NAME" -replace '^v','' }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & "$iscc" "/DAppVersion=$ver" installer\windows.iss
+          if (-not (Test-Path installer\out\OpenLeagueDisplay-windows-setup.exe)) { throw "installer build failed" }
+
       # tag push 時は Release にアップロード。手動実行 (workflow_dispatch) では
       # Artifacts に上げるだけ (Release は作らない)。
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: out/${{ matrix.asset }}
+          # Windows ジョブだけ setup.exe も同梱する (存在しない OS では glob が
+          # 無視されるだけ)。
+          files: |
+            out/${{ matrix.asset }}
+            installer/out/OpenLeagueDisplay-windows-setup.exe
           # 前回タグからの PR/コミットを GitHub に自動集約させて Release ノートにする
           # (分類ルールは .github/release.yml で定義)。matrix の各 OS が同じ tag に
           # 対して action-gh-release を呼ぶが、同一 Release への upsert なので最初に
@@ -79,3 +116,11 @@ jobs:
         with:
           name: ${{ matrix.asset }}
           path: out/${{ matrix.asset }}
+
+      # ドライラン (workflow_dispatch) でも Windows インストーラを Artifacts で確認できる。
+      - name: Upload installer as workflow artifact (Windows)
+        if: ${{ runner.os == 'Windows' && !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenLeagueDisplay-windows-setup.exe
+          path: installer/out/OpenLeagueDisplay-windows-setup.exe

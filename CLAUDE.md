@@ -35,6 +35,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
 ├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
+├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
@@ -141,6 +142,28 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
   - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
+- **Windows は正規インストーラも配る (Inno Setup)**: bare exe だけだとスタート
+  メニューにも「アプリと機能」にも載らず "ちゃんとしたソフトウェア感" が無い。
+  `installer/windows.iss` (Inno Setup 6) で setup.exe を作り、`release.yml` の
+  Windows ジョブが tag push 時にビルドして Release に添付する。設計の要点:
+  - **per-user インストール** (`PrivilegesRequired=lowest`、
+    `{localappdata}\Programs\OpenLeagueDisplay`): UAC 昇格不要。アプリのデータ
+    (壁紙キャッシュ `%LOCALAPPDATA%` / HKCU の壁紙設定) が元々 per-user なので
+    権限モデルと一致する
+  - **PyInstaller は onefile のまま**: インストーラは既存の単一 exe を同梱して
+    ショートカットを張るだけ。spec 構成を変えず mac/linux ジョブにも無影響
+  - **アイコンはビルド時に `favicon.svg` から `.ico` 生成** (no-binaries 維持):
+    `release.yml` の Windows ジョブが ImageMagick で `build/icon.ico` を作り、①
+    PyInstaller で exe に埋め込み (`local_app.spec` が存在時のみ `icon=` に渡す。
+    mac/linux では生成しないので None= 従来通り) ②インストーラの `SetupIconFile` と
+    ショートカット `IconFilename` に使う
+  - **bare exe (ポータブル) も残す**: setup.exe を推奨導線にしつつ、インストールを
+    好まない人向けに従来の単一 exe も Release に併置 (生成コストはほぼゼロ)
+  - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
+    ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
+  - **無署名**: コード署名証明書を持たないので setup.exe / exe とも無署名。Windows は
+    SmartScreen で「詳細情報 → 実行」が要る (README に明記)。証明書を入手したら
+    `[Setup] SignTool` と署名ステップを足す
 - **changelog は GitHub 自動生成ノートで持つ**: `release.yml` の
   `generate_release_notes: true` で、`v*` タグ時に前回タグからマージされた PR を
   `.github/release.yml` の分類 (新機能/修正/ドキュメント/セキュリティ/その他) で集約
