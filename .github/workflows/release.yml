@@ -1,0 +1,76 @@
+name: Build & release binaries
+
+# タグ (v*) を push した時に、各 OS のローカル実行ファイルをビルドして Release に添付する。
+# バイナリはリポジトリにコミットせず Release アセットとして配布する (no-binaries-in-repo)。
+# 週次の data.json 更新 (update.yml) とは独立。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:   # 手動でも実行可 (ドライラン用。Release 作成は tag push 時のみ)
+
+permissions:
+  contents: write   # Release の作成 / アセットアップロードに必要
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: OpenLeagueDisplay-windows.exe
+            bin: dist/OpenLeagueDisplay.exe
+          - os: macos-latest
+            asset: OpenLeagueDisplay-macos
+            bin: dist/OpenLeagueDisplay
+          - os: ubuntu-latest
+            asset: OpenLeagueDisplay-linux
+            bin: dist/OpenLeagueDisplay
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # pywebview の Linux backend (WebKitGTK) に必要なシステムライブラリ。
+      # Windows/macOS は OS 同梱の WebView2 / WKWebView を使うので追加導入は不要。
+      - name: Install Linux webview deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-0 libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1
+
+      - name: Install build deps
+        run: pip install pyinstaller pywebview
+
+      # 同梱前に最新の data.json / i18n を生成 (バンドルされるスナップショットを最新化)。
+      # Actions では LOL_INSECURE は使わない。
+      - name: Generate data.json + i18n
+        run: python generate_data.py
+
+      - name: Build with PyInstaller
+        run: pyinstaller local_app.spec
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "${{ matrix.bin }}" "out/${{ matrix.asset }}"
+
+      # tag push 時は Release にアップロード。手動実行 (workflow_dispatch) では
+      # Artifacts に上げるだけ (Release は作らない)。
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/${{ matrix.asset }}
+
+      - name: Upload as workflow artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: out/${{ matrix.asset }}

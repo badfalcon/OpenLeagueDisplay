@@ -5,7 +5,7 @@
 import {
   state, DATA, $, esc,
   SELECT_KEY, SKIN_BY_KEY, LINE_INDEX,
-  saveSelected,
+  saveSelected, LS_WP_INTERVAL_KEY, lsGet, lsSet,
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
@@ -13,6 +13,10 @@ import {
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
+import {
+  isLocalSlideshow, startWallpaperSlideshow, stopWallpaperSlideshow,
+  isWallpaperSlideshowRunning, toast,
+} from "./local.js";
 
 // localeCompare に渡す BCP-47 タグ。"default" は英語、それ以外は CDragon の
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
@@ -432,17 +436,63 @@ function renderSelected(root) {
   const cards = items.map((it, i) =>
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`, forceSelected: true })
   ).join("");
+  // ローカル実行モードでのみ「デスクトップでスライドショー」+ 間隔ピッカーを足す。
+  // 走行中はボタンが停止ラベルになる (毎 render で作り直されるので getter で判定)。
+  const wpControls = isLocalSlideshow()
+    ? `<button class="btn" id="gallery-wp">${isWallpaperSlideshowRunning() ? t("slideshow_stop") : t("slideshow_desktop")}</button>
+       <select class="gallery-wp-interval" id="gallery-wp-interval" aria-label="${esc(t("slideshow_interval_aria"))}">
+         ${wpIntervalOptionsHTML()}
+       </select>`
+    : "";
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       <button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      ${wpControls}
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
   $("gallery-dl").addEventListener("click", downloadSelected);
   $("gallery-ss").addEventListener("click", startGlobalSlideshow);
   $("gallery-clear").addEventListener("click", clearSelected);
+  if (isLocalSlideshow()) wireWallpaperSlideshow(items);
   wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
+}
+
+// 壁紙スライドショーの間隔選択肢 (分)。value はミリ秒。保存値 (なければ 5 分) を選択状態に。
+const WP_INTERVALS = [1, 5, 15, 30, 60];
+function wpIntervalOptionsHTML() {
+  const saved = parseInt(lsGet(LS_WP_INTERVAL_KEY, ""), 10);
+  const sel = WP_INTERVALS.includes(saved / 60000) ? saved : 5 * 60000;
+  return WP_INTERVALS.map((m) => {
+    const ms = m * 60000;
+    return `<option value="${ms}" ${ms === sel ? "selected" : ""}>${esc(t("slideshow_interval_min", m))}</option>`;
+  }).join("");
+}
+
+function wireWallpaperSlideshow(items) {
+  const btn = $("gallery-wp");
+  const sel = $("gallery-wp-interval");
+  sel.addEventListener("change", () => lsSet(LS_WP_INTERVAL_KEY, sel.value));
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      if (isWallpaperSlideshowRunning()) {
+        await stopWallpaperSlideshow();
+        toast(t("slideshow_stopped"));
+      } else {
+        const urls = items.map((it) => it.skin.splash).filter(Boolean);
+        await startWallpaperSlideshow(urls, parseInt(sel.value, 10));
+        toast(t("slideshow_started"));
+      }
+    } catch (err) {
+      toast(t("wallpaper_failed", err.message), "err");
+    } finally {
+      btn.disabled = false;
+      // gallery は自動再描画されないので、走行中状態に応じてラベルを即更新する
+      btn.textContent = isWallpaperSlideshowRunning() ? t("slideshow_stop") : t("slideshow_desktop");
+    }
+  });
 }
 
 export function openSelected() {
