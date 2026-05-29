@@ -6,7 +6,7 @@ PyInstaller spec — OpenLeagueDisplay ローカル実行ファイル
 リポジトリにはこの spec (テキスト) だけを置き、生成バイナリはコミットしない
 (Release アセットとして配布する)。
 
-ビルド:
+ビルド (PyInstaller 6.x 想定):
     pip install pyinstaller pywebview
     pyinstaller local_app.spec
     # → dist/OpenLeagueDisplay(.exe)
@@ -14,8 +14,6 @@ PyInstaller spec — OpenLeagueDisplay ローカル実行ファイル
 datas は OS 非依存に書ける (--add-data の ';' / ':' 区切り問題を回避できる)。
 実行時、local_app.py は同梱物を sys._MEIPASS (= BASE_DIR) から配信する。
 """
-
-block_cipher = None
 
 # 同梱する静的アセット。(ソース, 展開先) のタプル。ディレクトリはそのまま再帰コピー。
 datas = [
@@ -39,21 +37,19 @@ a = Analysis(
     # 環境では明示する。pywebview 同梱のフックが効けば不要。
     hiddenimports=["webview"],
     hookspath=[],
+    hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
+# onefile: a.binaries / a.datas を EXE に渡す (COLLECT は作らない)。
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
-    a.zipfiles,
     a.datas,
     [],
     name="OpenLeagueDisplay",
@@ -65,6 +61,7 @@ exe = EXE(
     runtime_tmpdir=None,
     console=False,   # GUI アプリ (ネイティブ窓) なのでコンソールは出さない
     disable_windowed_traceback=False,
+    argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,

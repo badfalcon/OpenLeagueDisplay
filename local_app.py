@@ -27,6 +27,7 @@ import json
 import os
 import pathlib
 import platform
+import shutil
 import subprocess
 import sys
 import threading
@@ -117,7 +118,10 @@ def download_image(url: str) -> pathlib.Path:
     if len(data) > MAX_BYTES:
         raise ValueError("image too large")
 
-    tmp = dest.with_suffix(dest.suffix + f".{os.getpid()}.tmp")
+    # tmp 名はスレッドごとに固有にする (PID だけだと、スライドショースレッドと手動設定が
+    # 同じ URL を同時に取得した時に同一 tmp を奪い合い、片方の os.replace が
+    # FileNotFoundError になる)。スレッド ID を混ぜて衝突を防ぐ。
+    tmp = dest.with_suffix(dest.suffix + f".{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_bytes(data)
     os.replace(tmp, dest)
     return dest
@@ -153,7 +157,10 @@ def _set_wallpaper_windows(p: str) -> None:
 
     # SPI_SETDESKWALLPAPER=20, SPIF_UPDATEINIFILE|SPIF_SENDWININICHANGE=0x01|0x02=3。
     # ...W は wide-string を取るので argtypes を明示してから絶対パスを渡す。
-    spi = ctypes.windll.user32.SystemParametersInfoW
+    # use_last_error=True で開かないと ctypes.get_last_error() が GetLastError を
+    # 拾わない (失敗時に誤った "Error 0" を投げてしまう) ので、専用に開き直す。
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    spi = user32.SystemParametersInfoW
     spi.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_wchar_p, ctypes.c_uint]
     spi.restype = ctypes.c_int
     if not spi(20, 0, p, 3):
@@ -185,7 +192,8 @@ def _set_wallpaper_linux(p: str) -> None:
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
     # GNOME でない WM / DE 向けフォールバック: feh があれば使う。
-    if subprocess.run(["which", "feh"], capture_output=True).returncode == 0:
+    # shutil.which なら `which` バイナリの有無に依存せず存在確認できる。
+    if shutil.which("feh"):
         subprocess.run(["feh", "--bg-fill", p], check=True)
         return
     raise OSError("No supported wallpaper backend (tried gsettings, feh)")
@@ -350,14 +358,29 @@ def main() -> None:
     if not no_window:
         try:
             import webview  # pywebview
-
-            threading.Thread(target=httpd.serve_forever, daemon=True).start()
-            webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
-            webview.start()
-            return
         except ImportError:
-            # pywebview 未インストール: 既定ブラウザを開いてサーバを foreground で回す
-            webbrowser.open(url)
+            webview = None
+        if webview is not None:
+            # ネイティブ窓を試す。pywebview があっても GUI backend 不全 (例: Linux で
+            # WebKitGTK 無し / DISPLAY 無し) だと create_window/start が ImportError 以外を
+            # 投げるので、その時はブラウザに切替えてサーバを生かしたまま待機する。
+            server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+            server_thread.start()
+            try:
+                webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
+                webview.start()
+            except Exception as e:
+                print(f"(native window unavailable: {e}) opening browser instead", file=sys.stderr)
+                webbrowser.open(url)
+                try:
+                    server_thread.join()
+                except KeyboardInterrupt:
+                    print("\nstopped.")
+            finally:
+                httpd.shutdown()
+            return
+        # pywebview 未インストール: 既定ブラウザを開いてサーバを foreground で回す
+        webbrowser.open(url)
 
     try:
         httpd.serve_forever()

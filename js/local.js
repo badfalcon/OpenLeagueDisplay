@@ -21,11 +21,10 @@ const CSRF_HEADERS = { "Content-Type": "application/json", "X-OLD-Local": "1" };
 // ローカル実行かを検知して state.local をセットする。失敗 (Pages / バックエンド無し)
 // は静かに無視。社内プロキシ等でハングしても初回 render を待たせないよう短くタイムアウト。
 export async function probeLocal() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1500);
     const res = await fetch("./api/ping", { cache: "no-store", signal: ctrl.signal });
-    clearTimeout(timer);
     if (!res.ok) return false;
     const info = await res.json();
     if (info && info.local) {
@@ -39,6 +38,8 @@ export async function probeLocal() {
     }
   } catch (_) {
     /* Pages or no backend: stay in static mode */
+  } finally {
+    clearTimeout(timer);  // 成功・失敗・abort いずれでもタイマーを残さない
   }
   return false;
 }
@@ -67,9 +68,11 @@ async function postJSON(path, payload) {
 }
 
 export async function setWallpaper(url, name) {
-  // 単発設定はサーバ側で走行中スライドショーを止める。フラグも合わせて倒しておく。
+  // 単発設定はサーバ側で走行中スライドショーを止める。成功した時だけフラグも倒す
+  // (失敗時はサーバに届かず回転が続いている可能性があるので状態を変えない)。
+  const data = await postJSON("./api/wallpaper", { url, name: name || "" });
   _ssRunning = false;
-  return postJSON("./api/wallpaper", { url, name: name || "" });
+  return data;
 }
 
 export async function startWallpaperSlideshow(urls, interval) {
@@ -82,11 +85,10 @@ export async function startWallpaperSlideshow(urls, interval) {
 }
 
 export async function stopWallpaperSlideshow() {
-  try {
-    await postJSON("./api/slideshow/stop", {});
-  } finally {
-    _ssRunning = false;
-  }
+  // 成功した時だけ停止済みにする (失敗時はサーバで回転が続いている可能性があり、
+  // ボタンを「停止」のままにして再試行できるようにする)。setWallpaper / start と同じ方針。
+  await postJSON("./api/slideshow/stop", {});
+  _ssRunning = false;
 }
 
 // 依存ゼロの簡易トースト。視覚表示は #toast、スクリーンリーダー通知は既存の

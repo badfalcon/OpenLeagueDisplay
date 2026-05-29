@@ -8,3 +8,7 @@ __pycache__/
 # generate_data.py が新チャンプ漏れ検知時にだけ書き出す。update.yml の自動起票
 # ステップが読み取ったあとは消える運命なのでコミット対象外
 unmapped_regions.json
+# PyInstaller (local_app.spec) のビルド成果物。バイナリはリポジトリに置かない方針なので
+# 無視する (配布は release.yml が Release アセットとして行う)。spec 本体は別 (コミットする)
+build/
+dist/
