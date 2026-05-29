@@ -58,19 +58,9 @@ jobs:
       - name: Generate data.json + i18n
         run: python generate_data.py
 
-      # Windows だけ favicon.svg → build/icon.ico を生成して exe に埋め込む
-      # (タスクバー / インストーラ / ショートカットで正しいアイコンを出すため)。
-      # アイコンはリポジトリにコミットしない方針なのでビルド時に生成する。
-      # ImageMagick は windows ランナーに同梱 (magick)。PyInstaller の前に作ると
-      # local_app.spec が build/icon.ico を拾って exe に埋め込む。
-      - name: Generate icon.ico (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force build | Out-Null
-          magick favicon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 build\icon.ico
-          if (-not (Test-Path build\icon.ico)) { throw "icon.ico generation failed" }
-
+      # アイコン (icon.ico) はリポジトリにコミット済み (make_icon.py で生成・更新)。
+      # local_app.spec が Windows で exe に埋め込み、installer/windows.iss が
+      # インストーラ / ショートカットに使う。ここでの生成ステップは不要。
       - name: Build with PyInstaller
         run: pyinstaller local_app.spec
 

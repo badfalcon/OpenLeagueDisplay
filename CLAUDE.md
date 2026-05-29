@@ -21,6 +21,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── manifest.webmanifest             # PWA マニフェスト (ホーム画面追加 / インストール用)
 ├── favicon.svg                      # サイトアイコン (manifest の purpose:any アイコンも兼ねる)
 ├── icon-maskable.svg                # PWA maskable アイコン (L を safe zone に縮めた版)
+├── icon.ico                         # Windows アプリアイコン (exe/インストーラ/ショートカット用、コミット)
+├── make_icon.py                     # favicon.svg から icon.ico を再生成 (Pillow、ブランド変更時のみ)
 ├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
 ├── js/                              # ES Modules
 │   ├── app.js                       #   エントリ: data.json fetch + イベント配線
@@ -152,11 +154,16 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     権限モデルと一致する
   - **PyInstaller は onefile のまま**: インストーラは既存の単一 exe を同梱して
     ショートカットを張るだけ。spec 構成を変えず mac/linux ジョブにも無影響
-  - **アイコンはビルド時に `favicon.svg` から `.ico` 生成** (no-binaries 維持):
-    `release.yml` の Windows ジョブが ImageMagick で `build/icon.ico` を作り、①
-    PyInstaller で exe に埋め込み (`local_app.spec` が存在時のみ `icon=` に渡す。
-    mac/linux では生成しないので None= 従来通り) ②インストーラの `SetupIconFile` と
-    ショートカット `IconFilename` に使う
+  - **アイコン (`icon.ico`) は小さなブランド資産としてコミット**: `ogp.png` /
+    `screenshot.png` と同類 (~10KB) なのでリポジトリに置く。no-binaries ポリシーが
+    避けたいのはスプラッシュ画像 (~600MB) とリリース実行ファイルであって、これは
+    対象外。当初 CI で ImageMagick によりビルド時生成を試みたが、Windows ランナーの
+    RSVG デリゲートが SVG を読めず (`RenderRSVGImage` 失敗) 不安定だったため、
+    `make_icon.py` (Pillow で `favicon.svg` と同じ図形を直接描画) で生成して
+    コミットする方式にした。ブランド変更時だけ `make_icon.py` を再実行する。
+    `local_app.spec` が Windows (`sys.platform=="win32"`) でだけ `icon=` に渡して
+    exe に埋め込み (mac は .icns 形式が別なので None)、`installer/windows.iss` が
+    `SetupIconFile` とショートカット `IconFilename` に使う
   - **bare exe (ポータブル) も残す**: setup.exe を推奨導線にしつつ、インストールを
     好まない人向けに従来の単一 exe も Release に併置 (生成コストはほぼゼロ)
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ

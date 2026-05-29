@@ -172,6 +172,8 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 ├── manifest.webmanifest             # PWA manifest (install / add to home screen)
 ├── favicon.svg                      # Site icon (also the manifest "any" icon)
 ├── icon-maskable.svg                # PWA maskable icon
+├── icon.ico                         # Windows app icon (exe / installer / shortcuts)
+├── make_icon.py                     # Regenerates icon.ico from favicon.svg (Pillow)
 ├── data.json                        # Champion / skin manifest (~1.1 MB)
 ├── i18n/<locale>.json               # Per-locale name dictionaries (19 locales, ~15-160 KB each)
 ├── generate_data.py                 # Builds data.json + i18n/*.json (stdlib only)
@@ -241,16 +243,22 @@ refresh it.
 
 On Windows the workflow also produces a proper installer with
 [Inno Setup](https://jrsoftware.org/isinfo.php) (`installer/windows.iss`). The
-app icon is generated at build time from `favicon.svg` (no binaries are
-committed to the repo), embedded into the exe, and used for the installer and
-shortcuts. To build the installer yourself:
+app icon (`icon.ico`) is a small committed brand asset (like `ogp.png`),
+embedded into the exe by `local_app.spec` and used for the installer and
+shortcuts. It's drawn from `favicon.svg` by `make_icon.py` — re-run that and
+commit the result only when the brand changes:
 
 ```powershell
-# 1. generate build\icon.ico from favicon.svg (ImageMagick)
-magick favicon.svg -background none -define icon:auto-resize=256,128,64,48,32,16 build\icon.ico
-# 2. build the exe (picks up build\icon.ico automatically)
+# (only when the brand changes) regenerate icon.ico from favicon.svg
+uv run --with pillow python make_icon.py   # or: pip install pillow; python make_icon.py
+```
+
+To build the installer yourself:
+
+```powershell
+# 1. build the exe (embeds icon.ico on Windows)
 pyinstaller local_app.spec
-# 3. compile the installer (Inno Setup 6 → ISCC.exe)
+# 2. compile the installer (Inno Setup 6 → ISCC.exe)
 ISCC.exe /DAppVersion=1.2.3 installer\windows.iss
 # → installer\out\OpenLeagueDisplay-windows-setup.exe
 ```
