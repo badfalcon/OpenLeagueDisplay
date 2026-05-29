@@ -267,6 +267,12 @@ Community Dragon are **copyright Riot Games, Inc.** and are *not* covered by
 the MIT license — please avoid redistribution or commercial use beyond
 personal use.
 
+The released desktop binaries bundle the MIT-licensed app plus a `data.json`
+metadata snapshot (champion/skin names and CDragon URLs — the same data already
+served publicly by the web version). Splash **images are not bundled**; they are
+fetched from Community Dragon at runtime onto your own machine for personal
+wallpaper use. The terms above apply equally to the binaries.
+
 ## Disclaimer
 
 OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views
