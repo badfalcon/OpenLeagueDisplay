@@ -39,6 +39,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
 ├── .github/workflows/release.yml    # タグ push で各 OS のデスクトップバイナリを build & Release
+├── .github/release.yml              # 自動生成リリースノート (changelog) の分類設定
 ├── README.md
 └── .gitignore
 ```
@@ -140,6 +141,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
   - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
+- **changelog は GitHub 自動生成ノートで持つ**: `release.yml` の
+  `generate_release_notes: true` で、`v*` タグ時に前回タグからマージされた PR を
+  `.github/release.yml` の分類 (新機能/修正/ドキュメント/セキュリティ/その他) で集約
+  して Release ノートにする。**手書き `CHANGELOG.md` は持たない** (同期ズレを避ける /
+  「changelog が無いから作る」と誤って手書きファイルを足さないこと)。カテゴリ分けは
+  PR ラベル依存なので、ラベルはリリース時に手で貼るか、必要になったら PR タイトルの
+  prefix (`feat:`/`fix:`/...) からラベルを自動付与する workflow を足す (現状は未導入)。
+  週次の data.json 自動更新は PR ではなく main への直 push なのでノートには出ない
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
 - **デザイン**: 深い黒紫 (`--bg: #07060b` / `--bg-1: #0c0b14`) × 落ち着いた
   ゴールド (`--gold: #d4a857`)。Google Fonts は Cinzel (eyebrow / 見出し) +

@@ -67,6 +67,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: out/${{ matrix.asset }}
+          # 前回タグからの PR/コミットを GitHub に自動集約させて Release ノートにする
+          # (分類ルールは .github/release.yml で定義)。matrix の各 OS が同じ tag に
+          # 対して action-gh-release を呼ぶが、同一 Release への upsert なので最初に
+          # 生成されたノートが共有される (3 回上書きされても内容は同じ)。
+          generate_release_notes: true
 
       - name: Upload as workflow artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
