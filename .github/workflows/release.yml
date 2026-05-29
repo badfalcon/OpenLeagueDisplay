@@ -28,6 +28,13 @@ jobs:
             asset: OpenLeagueDisplay-linux
             bin: dist/OpenLeagueDisplay
     runs-on: ${{ matrix.os }}
+    # Windows ランナーの既定コンソールは cp1252 で、generate_data.py や pyinstaller の
+    # 日本語/非ASCIIログ出力が UnicodeEncodeError ('charmap' codec) でジョブを落とす。
+    # UTF-8 モード (PEP 540) を立てて stdout/stderr/open() の既定を UTF-8 に固定する
+    # (Linux/macOS は元から UTF-8 なので無害)。
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - uses: actions/checkout@v4
 
