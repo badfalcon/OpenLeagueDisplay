@@ -44,6 +44,12 @@ export async function probeLocal() {
   return false;
 }
 
+// state.local が立っていればローカルアプリ (機能フラグとは独立)。ZIP の出し分けは
+// 「壁紙機能の有無」ではなく「そもそもローカルアプリか」で決めたいのでこれを使う。
+export function isLocal() {
+  return !!state.local;
+}
+
 export function isLocalWallpaper() {
   return !!(state.local && state.local.wallpaper);
 }

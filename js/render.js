@@ -14,7 +14,7 @@ import {
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import {
-  isLocalSlideshow, startWallpaperSlideshow, stopWallpaperSlideshow,
+  isLocal, isLocalSlideshow, startWallpaperSlideshow, stopWallpaperSlideshow,
   isWallpaperSlideshowRunning, toast,
 } from "./local.js";
 
@@ -311,11 +311,11 @@ function renderChampion(root) {
   const cards = c.skins.map((s, i) =>
     skinCardHTML({ c, s, idx: i, label: skinLabel(c, s) })
   ).join("");
+  const keys = c.skins.map(s => SELECT_KEY(c.alias, s.label));
   setPrimaryHeader({
     title: champName(c),
     count: t("skins_count", c.skins.length),
-    primaryLabel: t("dl_champion"),
-    primaryClick: () => downloadChampion(c),
+    ...detailPrimary(keys, t("dl_champion"), () => downloadChampion(c)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
@@ -391,11 +391,11 @@ function renderLine(root) {
   const cards = items.map((it, i) =>
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
   ).join("");
+  const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
   setPrimaryHeader({
     title: lname,
     count: t("skins_count", items.length),
-    primaryLabel: t("dl_line"),
-    primaryClick: () => downloadLine(lid, lname, items),
+    ...detailPrimary(keys, t("dl_line"), () => downloadLine(lid, lname, items)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
@@ -438,21 +438,25 @@ function renderSelected(root) {
   ).join("");
   // ローカル実行モードでのみ「デスクトップでスライドショー」+ 間隔ピッカーを足す。
   // 走行中はボタンが停止ラベルになる (毎 render で作り直されるので getter で判定)。
+  // ローカルでは ZIP DL が消えて壁紙スライドショーが主役になるので primary に格上げ。
   const wpControls = isLocalSlideshow()
-    ? `<button class="btn" id="gallery-wp">${isWallpaperSlideshowRunning() ? t("slideshow_stop") : t("slideshow_desktop")}</button>
+    ? `<button class="btn primary" id="gallery-wp">${isWallpaperSlideshowRunning() ? t("slideshow_stop") : t("slideshow_desktop")}</button>
        <select class="gallery-wp-interval" id="gallery-wp-interval" aria-label="${esc(t("slideshow_interval_aria"))}">
          ${wpIntervalOptionsHTML()}
        </select>`
     : "";
+  // ZIP DL は Web 専用 (ブラウザのサンドボックス回避手段)。ローカルでは隠す。
+  const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
-      <button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>
+      ${dlBtn}
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
       ${wpControls}
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
-  $("gallery-dl").addEventListener("click", downloadSelected);
+  const dl = $("gallery-dl");
+  if (dl) dl.addEventListener("click", downloadSelected);
   $("gallery-ss").addEventListener("click", startGlobalSlideshow);
   $("gallery-clear").addEventListener("click", clearSelected);
   if (isLocalSlideshow()) wireWallpaperSlideshow(items);
@@ -540,6 +544,17 @@ function bulkToggleKeys(keys) {
   }
   saveSelected();
   render();
+}
+// 詳細画面 (champion/line) の主アクション。Web=ZIP DL、ローカル=全部選択トグル。
+// ローカルでは DL を隠し、ギャラリー → 壁紙スライドショー導線に寄せる。全選択済みなら
+// 「全部解除」になる (bulkToggleKeys が render() を呼ぶのでラベルは再描画で更新される)。
+function detailPrimary(keys, zipLabel, zipClick) {
+  if (!isLocal()) return { primaryLabel: zipLabel, primaryClick: zipClick };
+  const allSel = keys.length > 0 && keys.every(k => state.selected.has(k));
+  return {
+    primaryLabel: allSel ? t("select_all_done") : t("select_all"),
+    primaryClick: () => bulkToggleKeys(keys),
+  };
 }
 function bulkToggleChamp(alias) {
   const c = DATA.champions.find(x => x.alias === alias);
