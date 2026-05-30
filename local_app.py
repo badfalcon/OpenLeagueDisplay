@@ -3,13 +3,16 @@
 ローカル実行モード用サーバ
 ==========================
 serve.py (静的配信のみ) を壊さず、壁紙設定 API を足した上位版。これを起動すると
-フロント (js/local.js) が /api/ping を検知して "ローカルモード" になり、ライトボックスに
-「壁紙に設定」ボタン、ギャラリーに「デスクトップでスライドショー」が出る。GitHub Pages
-では /api/ping が無い (404) ので何も変わらない ＝ 同一コードベースで段階的デグレード。
+フロント (js/local.js) が /api/ping を検知して "ローカルモード" になり、スプラッシュを
+複数選択 → 確認 → 「壁紙にする」で一括設定できるようになる。1枚なら静止壁紙、2枚以上なら
+OS 純正スライドショー (Windows=IDesktopWallpaper / macOS=System Events のフォルダ
+ローテーション / Linux GNOME=slideshow XML) として設定するので、アプリを閉じても OS が
+回し続け、設定アプリの背景種類も正しく「スライドショー」になる。GitHub Pages では
+/api/ping が無い (404) ので何も変わらない ＝ 同一コードベースで段階的デグレード。
 
-壁紙設定・画像取得・回転はすべて Python 標準ライブラリのみ (urllib / ctypes / winreg /
-subprocess / threading)。pywebview だけが唯一の任意依存で、入っていればネイティブ窓、
-無ければ既定ブラウザにフォールバックするので必須にはしない。
+壁紙設定・画像取得はすべて Python 標準ライブラリのみ (urllib / ctypes [COM 直叩き] /
+winreg / subprocess / threading)。pywebview だけが唯一の任意依存で、入っていればネイティブ
+窓、無ければ既定ブラウザにフォールバックするので必須にはしない。
 
 実行:
     python local_app.py            # 8000番、ネイティブ窓 (pywebview があれば) で起動
@@ -81,6 +84,28 @@ def cache_dir() -> pathlib.Path:
     return root
 
 
+def current_set_dir() -> pathlib.Path:
+    """「今アクティブな壁紙セット」専用フォルダ。
+
+    OS 純正スライドショーは*フォルダを参照*して中の画像を回すので、ユーザが今回
+    選んだ画像「だけ」がここに入っている必要がある。適用のたびに `reset_current_set()`
+    で空にしてから選択画像を入れ直す。cache_dir() 直下 (全 DL 履歴の sha1 置き場) とは
+    分離する。
+    """
+    d = cache_dir() / "current"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def reset_current_set() -> pathlib.Path:
+    """current_set_dir を空にして返す (前回のセットを残さない)。"""
+    d = current_set_dir()
+    for p in d.iterdir():
+        if p.is_file():
+            p.unlink()
+    return d
+
+
 def validate_url(url: str) -> bool:
     """https かつ ALLOWED_HOST のみ許可 (file:// や内部 IP を弾く SSRF 対策)。"""
     try:
@@ -117,14 +142,15 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_SafeRedirectHandler())
 
 
-def download_image(url: str) -> pathlib.Path:
-    """検証済み URL を cache_dir にダウンロードして絶対パスを返す。
+def download_image(url: str, dest_dir: pathlib.Path | None = None) -> pathlib.Path:
+    """検証済み URL を dest_dir (既定 cache_dir) にダウンロードして絶対パスを返す。
 
     既に同じ sha1 名のファイルがあれば再ダウンロードしない。temp に書いてから
-    os.replace でアトミックに置くので、スライドショーと手動設定が同じパスへ同時に
-    書いても、壁紙設定側が壊れかけのファイルを読むことはない。
+    os.replace でアトミックに置くので、同じパスへ同時に書いても壁紙設定側が
+    壊れかけのファイルを読むことはない。
     """
-    dest = (cache_dir() / safe_filename(url)).resolve()
+    base = dest_dir if dest_dir is not None else cache_dir()
+    dest = (base / safe_filename(url)).resolve()
     if dest.exists():
         return dest
 
@@ -147,23 +173,150 @@ def download_image(url: str) -> pathlib.Path:
 
 
 # ---------------------------------------------------------------------------
-# 壁紙設定 (OS 別)
+# 壁紙設定 (OS 別) — 1枚=静止 / 2枚以上=OS純正スライドショー
 # ---------------------------------------------------------------------------
-def set_wallpaper(path: pathlib.Path) -> None:
-    """OS 別に壁紙を設定する。失敗時は例外を投げる (呼び出し側が JSON で返す)。"""
+# 自前タイマーで静止画を設定し直す旧方式はやめ、各 OS の「純正スライドショー」機構に
+# 寄せる。これにより (1) 設定アプリの背景種類が正しく「スライドショー」になり
+# (2) アプリを閉じても OS が回し続ける。1枚だけのときは静止壁紙にし、これが
+# 「スライドショーを解除して1枚に戻す」操作も兼ねる。
+def set_wallpaper_static(path: pathlib.Path) -> None:
+    """選んだ1枚を静止壁紙にする。失敗時は例外を投げる。"""
     p = str(path)
     system = platform.system()
     if system == "Windows":
-        _set_wallpaper_windows(p)
+        _win_set_wallpaper(p)
     elif system == "Darwin":
-        _set_wallpaper_macos(p)
+        _mac_set_wallpaper(p)
     else:
-        _set_wallpaper_linux(p)
+        _linux_set_wallpaper(p)
 
 
-def _set_wallpaper_windows(p: str) -> None:
-    # 横長スプラッシュが画面いっぱいに出るよう、先に表示スタイルを "fill" にする。
-    # 設定しないと中央寄せ / タイルになり得る (本家 LeagueDisplays と同じ見え方に)。
+def set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool = False) -> None:
+    """folder 内の画像を OS 純正スライドショーとして設定する (2枚以上向け)。"""
+    interval_s = max(MIN_INTERVAL_S, float(interval_s))
+    system = platform.system()
+    if system == "Windows":
+        _win_set_slideshow(folder, interval_s, shuffle)
+    elif system == "Darwin":
+        _mac_set_slideshow(folder, interval_s, shuffle)
+    else:
+        _linux_set_slideshow(folder, interval_s, shuffle)
+
+
+# ---- Windows: IDesktopWallpaper (COM) ----------------------------------------
+# 設定アプリ自身が使う COM API。レガシーの SystemParametersInfoW と違い、設定アプリの
+# 背景種類・最近使った画像とも整合し、スライドショーは OS 管理 (アプリ終了後も継続) になる。
+# 追加依存なしで ctypes から vtable を直叩きする (stdlib のみ方針を維持)。WINFUNCTYPE /
+# windll / HRESULT は Windows 専用なので、参照は必ず関数本体内 (= Windows でのみ実行) に置く。
+_CLSID_DesktopWallpaper = "{C2CF3110-460E-4FC1-B9D0-8A1C0C9CC4BD}"
+_IID_IDesktopWallpaper = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
+_IID_IShellItem = "{43826D1E-E718-42EE-BC55-A1E261C37BFE}"
+_IID_IShellItemArray = "{B63EA76D-1F85-456F-A19C-48159EFA858B}"
+_DWPOS_FILL = 4          # DESKTOP_WALLPAPER_POSITION (CENTER0 TILE1 STRETCH2 FIT3 FILL4 SPAN5)
+_DSO_SHUFFLEIMAGES = 0x1
+_CLSCTX_ALL = 0x17
+_COINIT_APARTMENTTHREADED = 0x2
+
+
+class _GUID(ctypes.Structure):
+    _fields_ = [("Data1", ctypes.c_uint32),
+                ("Data2", ctypes.c_uint16),
+                ("Data3", ctypes.c_uint16),
+                ("Data4", ctypes.c_ubyte * 8)]
+
+
+def _guid(s: str) -> "_GUID":
+    g = _GUID()
+    hr = ctypes.windll.ole32.CLSIDFromString(s, ctypes.byref(g))
+    if hr != 0:
+        raise OSError(f"CLSIDFromString({s}) failed: 0x{hr & 0xFFFFFFFF:08X}")
+    return g
+
+
+def _vtbl(ptr, index, restype, argtypes):
+    """COM インターフェースポインタ ptr の vtable[index] を呼べる callable を返す。
+    第1引数は this ポインタ。"""
+    vtable = ctypes.cast(ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)))[0]
+    proto = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)
+    return proto(vtable[index])
+
+
+def _com_release(ptr) -> None:
+    if ptr:
+        _vtbl(ptr, 2, ctypes.c_ulong, [])(ptr)  # IUnknown::Release (slot 2)
+
+
+def _desktop_wallpaper():
+    """IDesktopWallpaper を生成 (要 CoInitialize 済み)。呼び出し側が _com_release する。"""
+    ptr = ctypes.c_void_p()
+    clsid = _guid(_CLSID_DesktopWallpaper)
+    iid = _guid(_IID_IDesktopWallpaper)
+    hr = ctypes.windll.ole32.CoCreateInstance(
+        ctypes.byref(clsid), None, _CLSCTX_ALL, ctypes.byref(iid), ctypes.byref(ptr))
+    if hr < 0:
+        raise ctypes.WinError(hr)
+    return ptr
+
+
+def _win_set_wallpaper(p: str) -> None:
+    try:
+        _win_com_set_wallpaper(p)
+    except OSError as e:
+        # 万一 COM が使えない環境ではレガシー SPI に退避する (多層防御)。
+        print(f"[wallpaper] IDesktopWallpaper failed ({e}); SPI fallback", file=sys.stderr)
+        _win_set_wallpaper_spi(p)
+
+
+def _win_com_set_wallpaper(p: str) -> None:
+    ctypes.windll.ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
+    try:
+        dw = _desktop_wallpaper()
+        try:
+            # SetWallpaper(monitorID=NULL, wallpaper=path) → 全モニタ (slot 3)
+            _vtbl(dw, 3, ctypes.HRESULT, [ctypes.c_wchar_p, ctypes.c_wchar_p])(dw, None, p)
+            # SetPosition(FILL) (slot 10)
+            _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
+        finally:
+            _com_release(dw)
+    finally:
+        ctypes.windll.ole32.CoUninitialize()
+
+
+def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -> None:
+    ctypes.windll.ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
+    psi = ctypes.c_void_p()
+    psia = ctypes.c_void_p()
+    dw = None
+    try:
+        dw = _desktop_wallpaper()
+        iid_si = _guid(_IID_IShellItem)
+        iid_sia = _guid(_IID_IShellItemArray)
+        # フォルダの IShellItem → IShellItemArray を作って SetSlideshow に渡す
+        hr = ctypes.windll.shell32.SHCreateItemFromParsingName(
+            ctypes.c_wchar_p(str(folder)), None, ctypes.byref(iid_si), ctypes.byref(psi))
+        if hr < 0:
+            raise ctypes.WinError(hr)
+        hr = ctypes.windll.shell32.SHCreateShellItemArrayFromShellItem(
+            psi, ctypes.byref(iid_sia), ctypes.byref(psia))
+        if hr < 0:
+            raise ctypes.WinError(hr)
+        # SetSlideshow(items) (slot 12)
+        _vtbl(dw, 12, ctypes.HRESULT, [ctypes.c_void_p])(dw, psia)
+        # SetSlideshowOptions(options, tickMs) (slot 14)。最小 tick は 1000ms。
+        opts = _DSO_SHUFFLEIMAGES if shuffle else 0
+        _vtbl(dw, 14, ctypes.HRESULT, [ctypes.c_int, ctypes.c_uint])(
+            dw, opts, int(interval_s * 1000))
+        # SetPosition(FILL) (slot 10)
+        _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
+    finally:
+        _com_release(psia)
+        _com_release(psi)
+        _com_release(dw)
+        ctypes.windll.ole32.CoUninitialize()
+
+
+def _win_set_wallpaper_spi(p: str) -> None:
+    """レガシー SPI フォールバック (COM が使えない時用)。表示スタイルを fill に。"""
     try:
         import winreg
 
@@ -172,23 +325,17 @@ def _set_wallpaper_windows(p: str) -> None:
             winreg.SetValueEx(key, "WallpaperStyle", 0, winreg.REG_SZ, "10")  # 10 = Fill
             winreg.SetValueEx(key, "TileWallpaper", 0, winreg.REG_SZ, "0")
     except OSError:
-        pass  # スタイル設定の失敗は致命的ではない。壁紙自体の設定は続行する
-
-    # SPI_SETDESKWALLPAPER=20, SPIF_UPDATEINIFILE|SPIF_SENDWININICHANGE=0x01|0x02=3。
-    # ...W は wide-string を取るので argtypes を明示してから絶対パスを渡す。
-    # use_last_error=True で開かないと ctypes.get_last_error() が GetLastError を
-    # 拾わない (失敗時に誤った "Error 0" を投げてしまう) ので、専用に開き直す。
+        pass
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     spi = user32.SystemParametersInfoW
     spi.argtypes = [ctypes.c_uint, ctypes.c_uint, ctypes.c_wchar_p, ctypes.c_uint]
     spi.restype = ctypes.c_int
-    if not spi(20, 0, p, 3):
+    if not spi(20, 0, p, 3):  # SPI_SETDESKWALLPAPER, SPIF_UPDATEINIFILE|SPIF_SENDWININICHANGE
         raise ctypes.WinError(ctypes.get_last_error())
 
 
-def _set_wallpaper_macos(p: str) -> None:
-    # AppleScript 文字列としてパスを安全に埋め込む (json.dumps で " をエスケープ)。
-    # 「POSIX file」ラッパーよりプレーンな POSIX パス文字列指定の方が確実。
+# ---- macOS: System Events ----------------------------------------------------
+def _mac_set_wallpaper(p: str) -> None:
     script = (
         'tell application "System Events" to tell every desktop '
         f"to set picture to {json.dumps(p)}"
@@ -196,10 +343,60 @@ def _set_wallpaper_macos(p: str) -> None:
     subprocess.run(["osascript", "-e", script], check=True)
 
 
-def _set_wallpaper_linux(p: str) -> None:
-    uri = pathlib.Path(p).as_uri()  # file:///...
-    # GNOME 系: light/dark 両方の picture-uri を更新し、全画面フィルになるよう zoom も。
-    # picture-uri-dark は GNOME 42+ のキーなので、無い環境では check=False で握りつぶす。
+def _mac_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -> None:
+    # System Events の「フォルダを指定して一定間隔で回す」純正ローテーション。
+    # picture rotation: 0=オフ, 1=インターバル, 2=ログイン/スリープ復帰。
+    lines = [
+        'tell application "System Events"',
+        'tell every desktop',
+        f"set pictures folder to {json.dumps(str(folder))}",
+        "set picture rotation to 1",
+        f"set change interval to {float(interval_s)}",
+        f"set random order to {'true' if shuffle else 'false'}",
+        "end tell",
+        "end tell",
+    ]
+    cmd = ["osascript"]
+    for ln in lines:
+        cmd += ["-e", ln]
+    subprocess.run(cmd, check=True)
+
+
+# ---- Linux (GNOME): slideshow XML --------------------------------------------
+_IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+
+
+def _xml_escape(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _linux_set_wallpaper(p: str) -> None:
+    _linux_apply_uri(pathlib.Path(p).as_uri(), feh_path=p)
+
+
+def _linux_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -> None:
+    imgs = sorted(str(p) for p in folder.iterdir()
+                  if p.is_file() and p.suffix.lower() in _IMG_EXTS)
+    if not imgs:
+        raise OSError("no images for slideshow")
+    # GNOME の純正スライドショーは <background> XML を picture-uri に指す方式。各画像を
+    # duration 秒表示し、次へ transition する連鎖を書く (最後は先頭へ戻してループ)。
+    dur, trans = float(interval_s), 1.5
+    parts = ['<?xml version="1.0"?>', "<background>"]
+    for i, img in enumerate(imgs):
+        nxt = imgs[(i + 1) % len(imgs)]
+        parts.append(f"  <static><duration>{dur:.1f}</duration>"
+                     f"<file>{_xml_escape(img)}</file></static>")
+        parts.append(f"  <transition><duration>{trans:.1f}</duration>"
+                     f"<from>{_xml_escape(img)}</from><to>{_xml_escape(nxt)}</to></transition>")
+    parts.append("</background>")
+    xml_path = folder / "slideshow.xml"
+    xml_path.write_text("\n".join(parts), encoding="utf-8")
+    # GNOME 以外 (feh) は時間回転ができないので先頭1枚を静止にフォールバック。
+    _linux_apply_uri(xml_path.as_uri(), feh_path=imgs[0])
+
+
+def _linux_apply_uri(uri: str, feh_path: str) -> None:
     try:
         subprocess.run(["gsettings", "set", "org.gnome.desktop.background",
                         "picture-uri", uri], check=True)
@@ -210,62 +407,10 @@ def _set_wallpaper_linux(p: str) -> None:
         return
     except (FileNotFoundError, subprocess.CalledProcessError):
         pass
-    # GNOME でない WM / DE 向けフォールバック: feh があれば使う。
-    # shutil.which なら `which` バイナリの有無に依存せず存在確認できる。
     if shutil.which("feh"):
-        subprocess.run(["feh", "--bg-fill", p], check=True)
+        subprocess.run(["feh", "--bg-fill", feh_path], check=True)
         return
     raise OSError("No supported wallpaper backend (tried gsettings, feh)")
-
-
-# ---------------------------------------------------------------------------
-# スライドショー (壁紙の自動ローテーション)
-# ---------------------------------------------------------------------------
-class Slideshow:
-    """選択スキンの splash を一定間隔で順に壁紙に設定するバックグラウンドスレッド。
-
-    start / stop は複数の HTTP ハンドラスレッドから呼ばれ得るので Lock で保護する。
-    待機は Event.wait で行い、stop が即応する (長い interval を uninterruptible に
-    しない)。
-    """
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._thread: threading.Thread | None = None
-        self._stop = threading.Event()
-
-    def start(self, urls: list[str], interval_s: float) -> int:
-        urls = [u for u in urls if validate_url(u)]
-        interval_s = max(MIN_INTERVAL_S, float(interval_s))
-        with self._lock:
-            self._stop_locked()
-            self._stop = threading.Event()
-            self._thread = threading.Thread(
-                target=self._run, args=(urls, interval_s, self._stop), daemon=True)
-            self._thread.start()
-        return len(urls)
-
-    def stop(self) -> None:
-        with self._lock:
-            self._stop_locked()
-
-    def _stop_locked(self) -> None:
-        if self._thread and self._thread.is_alive():
-            self._stop.set()
-        self._thread = None
-
-    def _run(self, urls: list[str], interval_s: float, stop: threading.Event) -> None:
-        i = 0
-        while urls and not stop.is_set():
-            try:
-                set_wallpaper(download_image(urls[i % len(urls)]))
-            except Exception as e:  # 1枚失敗してもローテーションは止めない
-                print(f"[slideshow] skip: {e}", file=sys.stderr)
-            i += 1
-            stop.wait(interval_s)
-
-
-SLIDESHOW = Slideshow()
 
 
 # ---------------------------------------------------------------------------
@@ -309,7 +454,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "app": "OpenLeagueDisplay",
                 "local": True,
                 "platform": platform.system(),
-                "features": ["wallpaper", "slideshow"],
+                "features": ["wallpaper"],
             })
             return
         super().do_GET()  # それ以外は通常の静的配信
@@ -331,11 +476,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = self._read_json()
             if path == "/api/wallpaper":
                 self._handle_wallpaper(body)
-            elif path == "/api/slideshow":
-                self._handle_slideshow(body)
-            elif path == "/api/slideshow/stop":
-                SLIDESHOW.stop()
-                self._json(200, {"ok": True})
             else:
                 self._json(404, {"ok": False, "error": "not found"})
         except Exception as e:  # 何が起きても JSON で返す (フロントは ok を見る)
@@ -347,24 +487,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return json.loads(raw or b"{}")
 
     def _handle_wallpaper(self, body: dict) -> None:
-        url = str(body.get("url", ""))
-        if not validate_url(url):
-            self._json(400, {"ok": False, "error": "invalid url"})
-            return
-        SLIDESHOW.stop()  # 単発設定は走行中のローテーションより優先 (競合回避)
-        path = download_image(url)
-        set_wallpaper(path)
-        self._json(200, {"ok": True, "path": str(path)})
+        """選択 URL 群を current フォルダに一括 DL し、枚数で静止/スライドショーに振り分ける。
 
-    def _handle_slideshow(self, body: dict) -> None:
+        body: {urls: [...], interval: ms, shuffle: bool}。後方互換で単数 url も受ける。
+        1枚 → 静止壁紙 (スライドショー解除も兼ねる)、2枚以上 → OS 純正スライドショー。
+        """
         urls = [str(u) for u in (body.get("urls") or [])]
+        if not urls and body.get("url"):
+            urls = [str(body["url"])]  # 旧 {url} 形式の後方互換
         urls = [u for u in urls if validate_url(u)]
         if not urls:
             self._json(400, {"ok": False, "error": "no valid urls"})
             return
-        interval_s = float(body.get("interval", 300000)) / 1000.0
-        count = SLIDESHOW.start(urls, interval_s)
-        self._json(200, {"ok": True, "count": count})
+
+        folder = reset_current_set()  # 前回セットを消し、選んだ画像だけ入れる
+        paths = [download_image(u, folder) for u in urls]
+
+        if len(paths) == 1:
+            set_wallpaper_static(paths[0])
+            mode = "static"
+        else:
+            interval_s = float(body.get("interval", 300000)) / 1000.0
+            set_slideshow(folder, interval_s, shuffle=bool(body.get("shuffle", False)))
+            mode = "slideshow"
+        self._json(200, {"ok": True, "count": len(paths), "mode": mode})
 
 
 # ---------------------------------------------------------------------------

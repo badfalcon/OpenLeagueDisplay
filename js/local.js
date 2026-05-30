@@ -1,6 +1,6 @@
-// ローカル実行モード (local_app.py 経由) の検知と、壁紙設定 / スライドショー API
-// クライアント。GitHub Pages では /api/ping が無いので probeLocal() は false に倒れ、
-// この module の公開関数を使う UI 自体が出ない (= 静的サイトとして従来通り動く)。
+// ローカル実行モード (local_app.py 経由) の検知と、壁紙の一括設定 API クライアント。
+// GitHub Pages では /api/ping が無いので probeLocal() は false に倒れ、この module の
+// 公開関数を使う UI 自体が出ない (= 静的サイトとして従来通り動く)。
 //
 // 依存は state.js だけ (i18n.js は import しない)。toast() は呼び出し側で翻訳済みの
 // 文字列を受け取る設計にして、render.js → local.js → i18n.js → render.js という
@@ -8,13 +8,9 @@
 
 import { state, $ } from "./state.js";
 
-// 壁紙スライドショーの既定間隔。ライトボックスの 7s (state.lb.interval) は流用しない
-// — デスクトップ壁紙を数秒ごとに切り替えるのは過剰なので、別物として 5 分を既定にする。
-export const WALLPAPER_SS_INTERVAL = 5 * 60 * 1000;
-
-// 走行中フラグ。ギャラリーのツールバーは毎 render で作り直され DOM に状態が残らないので、
-// 再描画時のボタン文言 (開始/停止) はこのフラグを見て決める。
-let _ssRunning = false;
+// 壁紙スライドショーの既定間隔 (ms)。確認モーダルの間隔ピッカー初期値。サーバは
+// 2枚以上選択時に OS 純正スライドショーへこの間隔を渡す。
+export const WALLPAPER_INTERVAL_DEFAULT = 5 * 60 * 1000;
 
 const CSRF_HEADERS = { "Content-Type": "application/json", "X-OLD-Local": "1" };
 
@@ -31,7 +27,6 @@ export async function probeLocal() {
       const f = info.features || [];
       state.local = {
         wallpaper: f.includes("wallpaper"),
-        slideshow: f.includes("slideshow"),
         platform: info.platform || "",
       };
       return true;
@@ -54,14 +49,6 @@ export function isLocalWallpaper() {
   return !!(state.local && state.local.wallpaper);
 }
 
-export function isLocalSlideshow() {
-  return !!(state.local && state.local.slideshow);
-}
-
-export function isWallpaperSlideshowRunning() {
-  return _ssRunning;
-}
-
 async function postJSON(path, payload) {
   const res = await fetch(path, {
     method: "POST",
@@ -73,28 +60,14 @@ async function postJSON(path, payload) {
   return data;
 }
 
-export async function setWallpaper(url, name) {
-  // 単発設定はサーバ側で走行中スライドショーを止める。成功した時だけフラグも倒す
-  // (失敗時はサーバに届かず回転が続いている可能性があるので状態を変えない)。
-  const data = await postJSON("./api/wallpaper", { url, name: name || "" });
-  _ssRunning = false;
-  return data;
-}
-
-export async function startWallpaperSlideshow(urls, interval) {
-  const data = await postJSON("./api/slideshow", {
+// 選択スプラッシュの URL 群を壁紙に一括適用する。サーバ側が枚数で振り分ける:
+// 1枚 → 静止壁紙 (スライドショー解除も兼ねる)、2枚以上 → OS 純正スライドショー。
+// interval は ms (2枚以上のときだけ意味を持つ)。返り値 data.mode = "static" | "slideshow"。
+export async function applyWallpaper(urls, interval) {
+  return postJSON("./api/wallpaper", {
     urls,
-    interval: interval || WALLPAPER_SS_INTERVAL,
+    interval: interval || WALLPAPER_INTERVAL_DEFAULT,
   });
-  _ssRunning = true;
-  return data;
-}
-
-export async function stopWallpaperSlideshow() {
-  // 成功した時だけ停止済みにする (失敗時はサーバで回転が続いている可能性があり、
-  // ボタンを「停止」のままにして再試行できるようにする)。setWallpaper / start と同じ方針。
-  await postJSON("./api/slideshow/stop", {});
-  _ssRunning = false;
 }
 
 // 依存ゼロの簡易トースト。視覚表示は #toast、スクリーンリーダー通知は既存の

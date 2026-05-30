@@ -30,7 +30,7 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
-import { probeLocal, setWallpaper, toast } from "./local.js";
+import { probeLocal } from "./local.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -205,20 +205,6 @@ function wireEvents() {
   $("lb-close").addEventListener("click", closeLightbox);
   $("lb-prev").addEventListener("click", prevSlide);
   $("lb-next").addEventListener("click", nextSlide);
-  // 壁紙設定ボタン (ローカル実行モードでのみ updateMeta が表示する)。url/name は
-  // ライトボックスが dataset に stash 済み。クリックハンドラの配線は1回だけここで行う。
-  $("lb-wallpaper").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      await setWallpaper(btn.dataset.url, btn.dataset.name);
-      toast(t("wallpaper_set"));
-    } catch (err) {
-      toast(t("wallpaper_failed", err.message), "err");
-    } finally {
-      btn.disabled = false;
-    }
-  });
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
     $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");

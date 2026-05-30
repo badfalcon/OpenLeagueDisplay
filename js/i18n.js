@@ -58,15 +58,18 @@ export const UI_STRINGS = {
     ss_interval: "⏱ {0}s",
     ss_pause: "⏸ Pause",
     ss_resume: "▶ Resume",
-    lb_wallpaper: "★ Set as wallpaper",
+    wallpaper_set_btn: "🖥 Set as wallpaper",
+    wallpaper_confirm_title: "Set as wallpaper",
+    wallpaper_interval_label: "Change every",
+    wallpaper_interval_min: "{0} min",
+    wallpaper_apply: "Set wallpaper",
+    wallpaper_cancel: "Cancel",
+    wallpaper_none: "Select at least one splash first.",
+    wallpaper_note_single: "This image will be set as your desktop wallpaper.",
+    wallpaper_note_slideshow: "These {0} images will rotate as a desktop slideshow — handled by the OS, so it keeps going after you close the app.",
     wallpaper_set: "Wallpaper set ✓",
+    wallpaper_slideshow_set: "Slideshow set ✓ ({0} images)",
     wallpaper_failed: "Couldn't set wallpaper: {0}",
-    slideshow_desktop: "🖥 Slideshow on desktop",
-    slideshow_stop: "■ Stop desktop slideshow",
-    slideshow_started: "Desktop wallpaper slideshow started",
-    slideshow_stopped: "Desktop wallpaper slideshow stopped",
-    slideshow_interval_aria: "Wallpaper rotation interval",
-    slideshow_interval_min: "{0} min",
     jszip_load_failed: "Failed to load JSZip CDN (10s).",
     offline_banner: "You are offline — splash images may not load.",
     slideshow_empty: "Add skins to My Gallery first to use the slideshow.",
@@ -142,15 +145,18 @@ export const UI_STRINGS = {
     ss_interval: "⏱ 間隔 {0}秒",
     ss_pause: "⏸ 一時停止",
     ss_resume: "▶ 再開",
-    lb_wallpaper: "★ 壁紙に設定",
+    wallpaper_set_btn: "🖥 壁紙にする",
+    wallpaper_confirm_title: "壁紙に設定",
+    wallpaper_interval_label: "切り替え間隔",
+    wallpaper_interval_min: "{0} 分",
+    wallpaper_apply: "壁紙に設定する",
+    wallpaper_cancel: "キャンセル",
+    wallpaper_none: "先にスプラッシュを選択してください",
+    wallpaper_note_single: "この画像をデスクトップの壁紙に設定します。",
+    wallpaper_note_slideshow: "選んだ {0} 枚をデスクトップのスライドショーとして順に表示します（OS 管理なのでアプリを閉じても継続します）。",
     wallpaper_set: "壁紙を設定しました ✓",
+    wallpaper_slideshow_set: "スライドショーを設定しました ✓ ({0} 枚)",
     wallpaper_failed: "壁紙を設定できませんでした: {0}",
-    slideshow_desktop: "🖥 デスクトップでスライドショー",
-    slideshow_stop: "■ スライドショーを停止",
-    slideshow_started: "デスクトップ壁紙のスライドショーを開始しました",
-    slideshow_stopped: "デスクトップ壁紙のスライドショーを停止しました",
-    slideshow_interval_aria: "壁紙の切替間隔",
-    slideshow_interval_min: "{0} 分",
     jszip_load_failed: "JSZip CDN の読込に失敗しました (10秒)",
     offline_banner: "オフラインです — スプラッシュ画像は表示されないことがあります",
     slideshow_empty: "先にマイギャラリーにスキンを追加してください",
@@ -1756,10 +1762,6 @@ export function applyStaticUIStrings() {
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
-  // 壁紙ボタンは静的要素なので locale 切替時にラベルを当て直す (gallery 側のボタンは
-  // 毎 render で t() 生成されるのでここでは触らない)
-  const wpBtn = $("lb-wallpaper");
-  if (wpBtn) wpBtn.textContent = t("lb_wallpaper");
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
   const disclaimer = $("footer-disclaimer");

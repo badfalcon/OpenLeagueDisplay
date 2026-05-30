@@ -99,14 +99,18 @@ Nothing to install — just open
 ### Desktop app (set wallpaper directly)
 
 The web version can't touch your wallpaper (browsers are sandboxed). For the
-full LeagueDisplays experience — pick a splash, click, it's your wallpaper — run
+full LeagueDisplays experience — pick splashes and make them your wallpaper — run
 the **local app**, which is the exact same UI wrapped in a native window plus a
 tiny local helper that sets the wallpaper for you.
 
-- **Download a build** from the [Releases](../../releases) page and run it. It
-  opens a native window; in any splash a **★ Set as wallpaper** button appears,
-  and **My Gallery** gains a **🖥 Slideshow on desktop** toggle with a rotation
-  interval picker (1 / 5 / 15 / 30 / 60 min, remembered next time).
+- **Download a build** from the [Releases](../../releases) page and run it.
+  Select one or more splashes in **My Gallery**, click **🖥 Set as wallpaper**,
+  review them in the confirmation dialog, and apply. **One** image becomes a
+  static wallpaper; **two or more** become a desktop **slideshow** with a change
+  interval (1 / 5 / 15 / 30 / 60 min). The slideshow uses your OS's *native*
+  slideshow (Windows `IDesktopWallpaper`, macOS System Events, GNOME slideshow
+  XML), so it keeps rotating even after you close the app and shows up correctly
+  as a slideshow in your system settings.
   - **Windows — installer (recommended):**
     `OpenLeagueDisplay-windows-setup.exe` installs per-user (no admin prompt),
     adds a **Start Menu** entry and an optional **desktop shortcut**, and
@@ -122,8 +126,10 @@ tiny local helper that sets the wallpaper for you.
   pywebview` for the native window; without it, it just opens your default
   browser. The same site on GitHub Pages is unaffected — the wallpaper UI only
   appears when the local helper is detected.
-- **Platform notes**: Windows uses the desktop wallpaper API (fill style),
-  macOS uses `osascript`, Linux uses GNOME `gsettings` with an `feh` fallback.
+- **Platform notes**: Windows uses the `IDesktopWallpaper` COM API (fill style;
+  falls back to the legacy `SystemParametersInfoW` if unavailable), macOS uses
+  System Events via `osascript`, Linux uses GNOME `gsettings` with an `feh`
+  fallback (single image only on non-GNOME).
   On Windows 10 the native window needs Microsoft's WebView2 runtime (bundled on
   Windows 11); if it's missing, install the Evergreen Runtime or the app falls
   back to the browser. macOS builds are unsigned, so Gatekeeper will warn on
@@ -166,8 +172,9 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 │   ├── i18n.js                      #   UI_STRINGS, locale loader, name maps
 │   ├── render.js                    #   view rendering (home / champion / lines / line)
 │   ├── zip.js                       #   bulk ZIP download (JSZip)
-│   ├── lightbox.js                  #   fullscreen viewer + slideshow
-│   └── local.js                     #   local-app detection + wallpaper/slideshow API client
+│   ├── lightbox.js                  #   fullscreen viewer + (in-app) slideshow
+│   ├── local.js                     #   local-app detection + wallpaper API client
+│   └── wallpaper.js                 #   wallpaper confirm modal (select → confirm → apply)
 ├── sw.js                            # Service Worker (app-shell cache)
 ├── manifest.webmanifest             # PWA manifest (install / add to home screen)
 ├── favicon.svg                      # Site icon (also the manifest "any" icon)

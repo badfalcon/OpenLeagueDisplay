@@ -787,16 +787,6 @@
     margin-bottom: 12px;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   }
-  /* 「壁紙に設定」ボタン (ローカル実行モードのみ表示)。親 .lb-overlay は
-     pointer-events:none なので、.slideshow-controls と同様にここで auto に戻す。
-     背景を少し濃くして明るいスプラッシュ上でも読めるようにする */
-  .lb-wallpaper {
-    margin-top: 18px;
-    pointer-events: auto;
-    background: rgba(12, 11, 20, 0.65);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  }
-  .lb-wallpaper:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   .lb-close, .lb-nav {
     position: absolute;
     background: rgba(12, 11, 20, 0.65);
@@ -1011,19 +1001,6 @@
     margin: 0 0 20px;
     align-items: center;
   }
-  /* 壁紙スライドショーの間隔ピッカー (ローカル実行モードのみ)。トグルボタンの
-     高さ/トーンに揃える。色は CSS 変数で統一 */
-  .gallery-wp-interval {
-    height: var(--ctrl-h);
-    padding: 0 12px;
-    background: var(--bg-1);
-    border: 1px solid var(--rule-bold);
-    color: var(--gold-hi);
-    font-family: var(--font-eyebrow);
-    font-size: 10.5px; letter-spacing: 0.14em;
-    cursor: pointer;
-  }
-  .gallery-wp-interval:hover { border-color: var(--gold); }
   /* 空状態の追加方法ヒント (gallery_empty の下に小さく) */
   .gallery-hint {
     margin-top: 8px;
@@ -1516,3 +1493,70 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast[data-kind="err"] { border-color: #d46a6a; color: #f4c0c0; }
+
+  /* 壁紙の確認モーダル (ローカル実行モードのみ。js/wallpaper.js が遅延生成する)。
+     選択 → 確認 → 一括設定の "確認" 画面。色/グラスは既存のライトボックス・トーストに揃える */
+  .wp-modal {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wp-modal[hidden] { display: none; }
+  .wp-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(4, 3, 8, 0.78);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .wp-dialog {
+    position: relative;
+    width: min(680px, 92vw);
+    max-height: 88vh; overflow-y: auto;
+    padding: 28px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  }
+  .wp-title {
+    font-family: var(--font-display);
+    color: var(--gold-hi);
+    font-size: 22px; margin: 0 0 18px;
+    letter-spacing: 0.06em;
+  }
+  .wp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .wp-thumb {
+    width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+    border: 1px solid var(--rule-bold);
+    background: var(--bg);
+  }
+  .wp-interval-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .wp-interval-row[hidden] { display: none; }
+  .wp-interval-row label {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; letter-spacing: 0.14em;
+    color: var(--gold-hi); text-transform: uppercase;
+  }
+  #wp-interval {
+    height: var(--ctrl-h);
+    padding: 0 12px;
+    background: var(--bg);
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; letter-spacing: 0.14em;
+    cursor: pointer;
+  }
+  #wp-interval:hover { border-color: var(--gold); }
+  .wp-note {
+    font-size: 13px; opacity: 0.78;
+    margin: 0 0 20px; line-height: 1.5;
+  }
+  .wp-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+  }

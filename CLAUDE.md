@@ -30,8 +30,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
-│   ├── lightbox.js                  #   ライトボックス + スライドショー
-│   └── local.js                     #   ローカル実行検知 + 壁紙/スライドショー API クライアント
+│   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
+│   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
+│   └── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
 ├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
@@ -64,11 +65,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
   `shuffle` / `buildSelectedList` も内製 (render.js からは独立)
-- **local.js**: ローカル実行 (local_app.py) の検知と壁紙/スライドショー API クライアント、
-  簡易 `toast`。**import は state.js のみ** (i18n.js を import しないことで
-  `render→local→i18n→render` の循環を作らない。`toast` は呼び出し側で翻訳済み文字列を
-  受け取る)。Pages では `probeLocal()` が false に倒れ、この module を使う UI が一切
-  出ない (= 静的サイトとして従来通り)
+- **local.js**: ローカル実行 (local_app.py) の検知と壁紙一括設定 API クライアント
+  (`applyWallpaper`)、簡易 `toast`。**import は state.js のみ** (i18n.js を import しない
+  ことで `render→local→i18n→render` の循環を作らない。`toast` は呼び出し側で翻訳済み
+  文字列を受け取る)。Pages では `probeLocal()` が false に倒れ、この module を使う UI が
+  一切出ない (= 静的サイトとして従来通り)
+- **wallpaper.js**: 壁紙の確認モーダル (My Gallery で複数選択 → 「壁紙にする」→ 確認 →
+  `applyWallpaper` で一括設定)。モーダル DOM は初回に遅延生成 (index.html を汚さない、
+  toast と同手法)。import は state / i18n / local。1枚=静止、2枚以上=OS純正スライド
+  ショー (サーバが枚数で振り分け)。ローカル実行時のみ render.js が起動ボタンを出す
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する
 
@@ -120,7 +125,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   ZIP内では `STORE` (無圧縮格納) で処理時間を短縮
 - **ローカル実行モード (壁紙を直接設定)**: ブラウザはサンドボックスで壁紙を触れないので、
   本家 LeagueDisplays 風に「選ぶ → そのまま壁紙」を実現する `local_app.py` を用意した。
-  設計上の要点:
+  UX は **複数選択 → 確認モーダル → 一括設定** (`js/wallpaper.js`)。設計上の要点:
   - **serve.py は触らず別ファイル**: serve.py は「ただの静的サーバ」の役割
     (CLAUDE.md / PyCharm run config が前提) を壊さない。壁紙設定はダウンロード・OS
     呼び出し・SSRF/CSRF 面など別の関心事なので `local_app.py` に分離 (起動を切替える
@@ -129,9 +134,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     モード」を feature-detect (`js/local.js` の `probeLocal`)。Pages では 404 になり
     壁紙 UI を一切出さない (段階的デグレード)。CSP は `connect-src 'self'` で `/api` を
     既に許可済み、画像はサーバ側取得なので変更不要
-  - **壁紙設定は stdlib のみ**: Windows=`ctypes` SystemParametersInfoW (+`winreg` で
-    fill スタイル)、macOS=`osascript`、Linux=GNOME `gsettings` (+`feh` fallback)。
-    pywebview だけが任意の追加依存 (あればネイティブ窓、無ければブラウザ起動)
+  - **エンドポイントは `/api/wallpaper` 1本** (`{urls, interval}`)。サーバが選択画像を
+    専用フォルダ (`%LOCALAPPDATA%/.../current`) に一括 DL し、**枚数で振り分け**: 1枚=静止
+    壁紙、2枚以上=OS 純正スライドショー (フォルダを参照させる)。1枚パスは「スライドショー
+    解除」も兼ねる
+  - **壁紙設定は stdlib のみ / OS 純正機構を使う**: Windows=`IDesktopWallpaper` COM を
+    ctypes で直叩き (vtable: `SetWallpaper`=3 / `SetPosition`=10 / `SetSlideshow`=12 /
+    `SetSlideshowOptions`=14。設定アプリ自身が使う API なので背景種類・最近使った画像と
+    整合し、スライドショーは OS 管理 = アプリ終了後も継続。失敗時はレガシー
+    `SystemParametersInfoW`+`winreg` にフォールバック)、macOS=`osascript` (静止は picture、
+    スライドショーは System Events の pictures folder + picture rotation)、
+    Linux=GNOME `gsettings` (静止は picture-uri、スライドショーは生成した
+    slideshow XML を指す。非 GNOME は `feh` で先頭1枚静止)。COM 関連 (WINFUNCTYPE /
+    windll / HRESULT) は Windows 専用なので参照は必ず関数本体内に置く (mac/Linux で
+    import しても壊れない)。pywebview だけが任意の追加依存
   - **セキュリティ** (多層防御): ①`127.0.0.1` bind + 取得元を
     `raw.communitydragon.org` https に固定 (SSRF)、リダイレクト先も
     `_SafeRedirectHandler` で毎回再検証 ②`/api` はカスタムヘッダ `X-OLD-Local` 必須
@@ -139,8 +155,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     限定** (DNS リバインディングで same-origin 化されカスタムヘッダ防御を抜けてくる
     攻撃を `_host_ok()` で遮断) ④保存名は URL の sha1 (path traversal 回避)、壁紙設定は
     subprocess を argv list で呼ぶ (shell 不使用 → コマンドインジェクション無し)
-  - **永続キャッシュ必須**: Linux(gsettings)/macOS は壁紙を「パス参照」で設定する
-    (コピーしない) ので、`/tmp` だと再起動で壁紙が消える。ユーザ専用の永続 dir
+  - **永続キャッシュ必須**: Linux(gsettings)/macOS/Windows いずれも純正スライドショーは
+    壁紙を「フォルダ/パス参照」で設定する (コピーしない) ので、`/tmp` だと再起動で
+    壁紙が消える。ユーザ専用の永続 dir
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
   - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
@@ -239,12 +256,18 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~コレクション別フィルタ (PROJECT, Star Guardian 等)~~ → スキンラインビューで対応
 - [x] ~~お気に入り機能~~ → 選択モード + ZIPまとめDLで実用上カバー
 - [x] ~~ローカルの実行ファイル化 + そのまま壁紙設定 (本家 LeagueDisplays 風)~~ →
-  `local_app.py` (stdlib + 任意 pywebview) で実装。ライトボックスの「★ 壁紙に設定」と
-  ギャラリーの「🖥 デスクトップでスライドショー」(間隔ピッカー付き)。各 OS バイナリは
+  `local_app.py` (stdlib + 任意 pywebview) で実装。My Gallery で複数選択 → 確認モーダル
+  (`js/wallpaper.js`) → 「壁紙にする」で一括設定 (`POST /api/wallpaper`)。各 OS バイナリは
   `release.yml` が tag push 時に build & Release。Web (Pages) 版は feature-detect で
   従来通り
-- [x] ~~壁紙スライドショー回転~~ → ローカル実行モードで実装 (`/api/slideshow`、間隔は
-  1/5/15/30/60 分から選択・localStorage 永続化)
+- [x] ~~壁紙スライドショー回転~~ → **OS 純正スライドショー**に作り直した。当初は Python の
+  タイマースレッドで静止画を設定し直す自前方式だったが、設定アプリの背景種類が
+  「スライドショー」にならず・アプリを閉じると止まる問題があったため、各 OS の純正機構に
+  寄せた: 2枚以上選択時は Windows=`IDesktopWallpaper` COM (ctypes 直叩き) /
+  macOS=System Events のフォルダローテーション / Linux(GNOME)=slideshow XML を構成する。
+  これで OS が回し続け (アプリ終了後も継続)、設定アプリにも「スライドショー」と出る。
+  間隔は確認モーダルの 1/5/15/30/60 分ピッカー (localStorage 永続化) を OS に渡す。
+  1枚だけなら静止壁紙にする (=スライドショー解除も兼ねる)
 - [x] ~~OGP/Twitter Card メタタグ追加 (シェア時のサムネ)~~ → `ogp.png`
   (1200x630 ブランドカード) を追加、`twitter:card` を `summary_large_image`
   に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
