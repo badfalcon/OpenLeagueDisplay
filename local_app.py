@@ -39,6 +39,16 @@ import urllib.parse
 import urllib.request
 import webbrowser
 
+# Windows の既定コンソール encoding (cp932 / cp1252) だと起動ログの非ASCII文字 (em dash
+# 等) を print した瞬間 UnicodeEncodeError で落ちる。stdout/stderr を UTF-8 に固定する
+# (windowed ビルドでは None になり得るので存在チェック付き)。generate_data.py と同方針。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if _stream is not None:
+            _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 HOST = "127.0.0.1"  # 外向きには公開しない (SSRF / 横取りを防ぐ第一の関門)
 
 # PyInstaller の onefile は実体を sys._MEIPASS に展開する。通常実行ではこのファイルの
