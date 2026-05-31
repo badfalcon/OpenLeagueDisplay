@@ -686,7 +686,15 @@ def main() -> None:
             server_thread.start()
             try:
                 webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
-                webview.start()
+                # Windows のタスクバー/タイトルバーアイコンを明示指定する。pywebview は
+                # 無指定だと実行 exe からアイコンを抽出する (winforms.py) が、UPX 圧縮等で
+                # 抽出に失敗すると既定アイコンになる。同梱した icon.ico を直接渡して確実にする。
+                # mac は .icns 形式が別物、Linux は backend 依存なので Windows でだけ渡す。
+                start_kwargs = {}
+                icon_path = os.path.join(BASE_DIR, "icon.ico")
+                if sys.platform == "win32" and os.path.isfile(icon_path):
+                    start_kwargs["icon"] = icon_path
+                webview.start(**start_kwargs)
             except Exception as e:
                 print(f"(native window unavailable: {e}) opening browser instead", file=sys.stderr)
                 webbrowser.open(url)
