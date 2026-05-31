@@ -116,6 +116,36 @@ def reset_current_set() -> pathlib.Path:
     return d
 
 
+def prune_current_set(keep: set) -> pathlib.Path:
+    """current_set_dir 内の、keep (ファイル名集合) に含まれないファイルを削除して返す。
+
+    reset_current_set (全消し) との違いは「今表示中のファイルだけ残す」用途。OS 純正
+    スライドショーは表示中の画像パスを保持するので、それを消すと存在しないパスを指して
+    画面が真っ黒になる (Windows で実機確認)。適用のたびに live を keep に入れて呼ぶことで、
+    旧セットは掃除しつつ表示中ファイルだけ残し、黒画面を防ぐ。
+    """
+    d = current_set_dir()
+    for p in d.iterdir():
+        if p.is_file() and p.name not in keep:
+            p.unlink()
+    return d
+
+
+def live_wallpaper_names() -> set:
+    """今まさにデスクトップに表示中の壁紙ファイル名 (basename) の集合。
+
+    黒画面防止のため「消してはいけないファイル」を知るのに使う。Windows のみ実装
+    (純正スライドショーが表示中パスを保持するのが問題なので)。他 OS / 取得失敗は空集合
+    = 旧セットを全削除 (従来どおり) に倒れる。
+    """
+    if platform.system() == "Windows":
+        try:
+            return _win_live_wallpaper_names()
+        except Exception:
+            return set()
+    return set()
+
+
 def validate_url(url: str) -> bool:
     """https かつ ALLOWED_HOST のみ許可 (file:// や内部 IP を弾く SSRF 対策)。"""
     try:
@@ -279,16 +309,95 @@ def _win_set_wallpaper(p: str) -> None:
 
 def _win_com_set_wallpaper(p: str) -> None:
     ctypes.windll.ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
+    dw = None
     try:
         dw = _desktop_wallpaper()
-        try:
-            # SetWallpaper(monitorID=NULL, wallpaper=path) → 全モニタ (slot 3)
-            _vtbl(dw, 3, ctypes.HRESULT, [ctypes.c_wchar_p, ctypes.c_wchar_p])(dw, None, p)
-            # SetPosition(FILL) (slot 10)
-            _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
-        finally:
-            _com_release(dw)
+        # SetWallpaper(NULL, path) は直前がスライドショーだと反映されないことがあるため、
+        # モニタ毎に明示設定する (_win_pin_current_image)。これでスライドショーは解除され
+        # 静止壁紙になる (1枚指定 = スライドショー解除も兼ねる、の意図どおり)。
+        _win_pin_current_image(dw, p)
+        # SetPosition(FILL) (slot 10)
+        _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
     finally:
+        if dw:
+            _com_release(dw)
+        ctypes.windll.ole32.CoUninitialize()
+
+
+def _win_pin_current_image(dw, image_path: str) -> None:
+    """各モニタの「今表示する壁紙」を実在ファイル image_path に明示設定する。
+
+    SetWallpaper(NULL, path) は直前がスライドショーだと効かないことがあるので、
+    GetMonitorDevicePathAt で得た各モニタ ID を指定して SetWallpaper する。静止壁紙設定
+    (_win_com_set_wallpaper) と、スライドショー設定後に表示画像が存在しないパスを指して
+    しまった異常系の復帰 (_win_set_slideshow のフォールバック) の両方で使う。この呼び出しは
+    スライドショーを解除して静止に倒す副作用があるので、正常系のスライドショー設定では
+    使わない (黒画面は「表示中ファイルを消さない」= prune_current_set 側で防ぐ)。
+    GetMonitorDevicePathAt が返す文字列は CoTaskMem なので明示解放する。
+    """
+    count = ctypes.c_uint(0)
+    # GetMonitorDevicePathCount (slot 6)
+    if _vtbl(dw, 6, ctypes.HRESULT, [ctypes.POINTER(ctypes.c_uint)])(dw, ctypes.byref(count)) < 0:
+        return
+    for i in range(count.value):
+        mid = ctypes.c_void_p()
+        # GetMonitorDevicePathAt (slot 5)
+        if _vtbl(dw, 5, ctypes.HRESULT, [ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p)])(
+                dw, i, ctypes.byref(mid)) < 0:
+            continue
+        try:
+            monitor_id = ctypes.wstring_at(mid) if mid else None
+            if monitor_id:
+                # SetWallpaper(monitorID, path) (slot 3)
+                _vtbl(dw, 3, ctypes.HRESULT, [ctypes.c_wchar_p, ctypes.c_wchar_p])(
+                    dw, monitor_id, image_path)
+        finally:
+            if mid:
+                ctypes.windll.ole32.CoTaskMemFree(mid)
+
+
+def _win_current_wallpaper_paths(dw) -> list:
+    """各モニタが今表示している壁紙ファイルのパス一覧 (GetWallpaper, slot 4)。
+
+    返り値が存在しないパスを含むなら「表示中ファイルが消えて真っ黒」の状態。
+    出力文字列は CoTaskMem なので解放する。
+    """
+    out = []
+    count = ctypes.c_uint(0)
+    if _vtbl(dw, 6, ctypes.HRESULT, [ctypes.POINTER(ctypes.c_uint)])(dw, ctypes.byref(count)) < 0:
+        return out
+    for i in range(count.value):
+        mid = ctypes.c_void_p()
+        if _vtbl(dw, 5, ctypes.HRESULT, [ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p)])(
+                dw, i, ctypes.byref(mid)) < 0:
+            continue
+        wp = ctypes.c_void_p()
+        try:
+            monitor_id = ctypes.wstring_at(mid) if mid else None
+            # GetWallpaper(monitorID, out) (slot 4)
+            if _vtbl(dw, 4, ctypes.HRESULT, [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_void_p)])(
+                    dw, monitor_id, ctypes.byref(wp)) == 0 and wp:
+                out.append(ctypes.wstring_at(wp))
+        finally:
+            if mid:
+                ctypes.windll.ole32.CoTaskMemFree(mid)
+            if wp:
+                ctypes.windll.ole32.CoTaskMemFree(wp)
+    return out
+
+
+def _win_live_wallpaper_names() -> set:
+    """Windows が今表示中の壁紙ファイル名 (basename) の集合。失敗時は空集合。"""
+    ctypes.windll.ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
+    dw = None
+    try:
+        dw = _desktop_wallpaper()
+        return {os.path.basename(p) for p in _win_current_wallpaper_paths(dw) if p}
+    except OSError:
+        return set()
+    finally:
+        if dw:
+            _com_release(dw)
         ctypes.windll.ole32.CoUninitialize()
 
 
@@ -299,9 +408,9 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
     dw = None
     try:
         dw = _desktop_wallpaper()
+        # フォルダの IShellItem → IShellItemArray を作って SetSlideshow に渡す
         iid_si = _guid(_IID_IShellItem)
         iid_sia = _guid(_IID_IShellItemArray)
-        # フォルダの IShellItem → IShellItemArray を作って SetSlideshow に渡す
         hr = ctypes.windll.shell32.SHCreateItemFromParsingName(
             ctypes.c_wchar_p(str(folder)), None, ctypes.byref(iid_si), ctypes.byref(psi))
         if hr < 0:
@@ -318,6 +427,18 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
             dw, opts, int(interval_s * 1000))
         # SetPosition(FILL) (slot 10)
         _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
+        # SetSlideshow は「今表示中の画像」を切り替えず Windows が保持している現在画像を
+        # そのまま表示し続ける (回転は次の tick から)。呼び出し側が表示中ファイルを消さない
+        # (prune_current_set が live を残す) ので通常は有効画像のまま黒くならない。万一
+        # 現在画像が存在しないパスを指していたら (異常系・既に黒い等)、実在画像を pin して
+        # 復帰させる。この場合スライドショーは静止に落ちうるが、黒画面よりは良い (次回適用で
+        # 表示中ファイルが有効になれば回転に戻る)。
+        current = _win_current_wallpaper_paths(dw)
+        if current and not all(os.path.isfile(p) for p in current):
+            images = sorted(str(p) for p in folder.iterdir()
+                            if p.is_file() and p.suffix.lower() in _IMG_EXTS)
+            if images:
+                _win_pin_current_image(dw, images[0])
     finally:
         _com_release(psia)
         _com_release(psi)
@@ -510,7 +631,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "no valid urls"})
             return
 
-        folder = reset_current_set()  # 前回セットを消し、選んだ画像だけ入れる
+        # 黒画面防止: 前回セットを掃除する前に「今表示中のファイル」を調べ、それだけは残す。
+        # OS 純正スライドショーは表示中の画像パスを保持するので、それを消すと存在しないパスを
+        # 指して画面が真っ黒になる (Windows で実機確認)。表示中ファイルは新セットへ回転する
+        # まで残り、次回適用で (表示中でなくなれば) 掃除される。
+        folder = current_set_dir()
+        keep = live_wallpaper_names() | {safe_filename(u) for u in urls}
+        prune_current_set(keep)
         paths = [download_image(u, folder) for u in urls]
 
         if len(paths) == 1:
