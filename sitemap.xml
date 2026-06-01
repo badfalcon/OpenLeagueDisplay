@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 単一ページの SPA なので URL は1本 (ルート) だけ。チャンピオン/スキンラインは
+     hash ルーティングではなく JS 内 state 遷移なので個別 URL を持たない (= sitemap に
+     列挙できない)。lastmod は data.json の週次更新ごとに update.yml が書き換える。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://badfalcon.github.io/OpenLeagueDisplay/</loc>
+    <lastmod>2026-06-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

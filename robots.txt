@@ -1,0 +1,11 @@
+# OpenLeagueDisplay — allow all crawlers, point them at the sitemap.
+# GitHub Pages serves this from the site root (https://badfalcon.github.io/OpenLeagueDisplay/robots.txt)
+# だが robots.txt は「ドメイン直下」しか参照されない仕様のため、project page
+# (badfalcon.github.io/OpenLeagueDisplay/) では Google はこのファイルではなく
+# https://badfalcon.github.io/robots.txt を見る。ここでの主目的は Sitemap の明示と
+# 「全許可」の意思表示。実際の発見はトップページからの内部リンク + Search Console への
+# sitemap 送信に依存する。
+User-agent: *
+Allow: /
+
+Sitemap: https://badfalcon.github.io/OpenLeagueDisplay/sitemap.xml

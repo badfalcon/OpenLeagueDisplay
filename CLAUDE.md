@@ -18,6 +18,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ```
 .
 ├── index.html                       # マークアップ本体 (styles.css と js/app.js を読み込む、~7KB)
+├── robots.txt                       # クローラ向け: 全許可 + sitemap.xml の場所を明示
+├── sitemap.xml                      # 検索エンジン向けサイトマップ (URL 1本、lastmod は update.yml が更新)
 ├── manifest.webmanifest             # PWA マニフェスト (ホーム画面追加 / インストール用)
 ├── favicon.svg                      # サイトアイコン (manifest の purpose:any アイコンも兼ねる)
 ├── icon-maskable.svg                # PWA maskable アイコン (L を safe zone に縮めた版)
@@ -196,6 +198,18 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   PR ラベル依存なので、ラベルはリリース時に手で貼るか、必要になったら PR タイトルの
   prefix (`feat:`/`fix:`/...) からラベルを自動付与する workflow を足す (現状は未導入)。
   週次の data.json 自動更新は PR ではなく main への直 push なのでノートには出ない
+- **SEO (検索エンジン発見性)**: 当初 OGP/description だけ持っていたが「Google 検索に
+  出ない」ため、クロール可能性の基礎を足した: ①`robots.txt` (全許可 + Sitemap 行) ②
+  `sitemap.xml` (URL は SPA なのでルート1本。lastmod は `update.yml` が data.json 更新時に
+  今日へ進める) ③`index.html` に `<link rel="canonical">` (末尾スラッシュ/?query 違いの
+  重複ページ回避) + `<meta name="robots" content="index, follow">` ④schema.org の
+  JSON-LD (`WebApplication`: 無料 Web アプリだと Google に明示。CSP の `'unsafe-inline'`
+  配下で type="application/ld+json" を許可) ⑤`<noscript>` に説明テキスト (本体は JS
+  レンダリングの SPA で初期 HTML が "LOADING" しか無く、JS 非実行クローラ対策の保険)。
+  **コードで足せるのはここまで**: 実際に検索結果へ載せるにはオーナーが Google Search
+  Console で本 URL を登録し sitemap を送信 → インデックス登録をリクエストする必要がある
+  (新規 GitHub Pages の project site は被リンクが無く自然クロールされにくい)。og:* /
+  description / JSON-LD の文言は互いに同期させること
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
 - **デザイン**: 深い黒紫 (`--bg: #07060b` / `--bg-1: #0c0b14`) × 落ち着いた
   ゴールド (`--gold: #d4a857`)。Google Fonts は Cinzel (eyebrow / 見出し) +

@@ -28,6 +28,13 @@
 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
+<!-- SEO: canonical で正規 URL を1本に固定 (Pages の末尾スラッシュ有無/?query 違いで
+     重複ページ扱いされるのを防ぐ)。robots は明示的にインデックス許可 (デフォルトと
+     同じだが意思表示)。実際に検索結果へ載せるには Google Search Console で本 URL を
+     登録し sitemap.xml を送信する必要がある (それが無いと新規 Pages サイトは
+     クロールされにくい) -->
+<link rel="canonical" href="https://badfalcon.github.io/OpenLeagueDisplay/">
+<meta name="robots" content="index, follow">
 <!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
      できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
      summary_large_image の推奨比 1.91:1)、リポジトリ直下の静的アセット。
@@ -66,6 +73,28 @@
         integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
         crossorigin="anonymous" defer></script>
 <link rel="stylesheet" href="styles.css">
+<!-- 構造化データ (schema.org / JSON-LD): Google にサイトの正体 (無料の Web アプリ /
+     名前 / 説明 / 提供者) を明示してリッチリザルト・サイト名表示の対象にする。
+     type="application/ld+json" は実行されないデータブロック (CSP の 'unsafe-inline'
+     配下で許可済み)。内容は head の og:* / description と同期させること -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "OpenLeagueDisplay",
+  "url": "https://badfalcon.github.io/OpenLeagueDisplay/",
+  "description": "A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper. An open successor to League Displays.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Requires JavaScript.",
+  "inLanguage": ["en", "ja", "ko", "zh", "fr", "de", "es"],
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "image": "https://badfalcon.github.io/OpenLeagueDisplay/ogp.png",
+  "author": { "@type": "Person", "name": "badfalcon", "url": "https://github.com/badfalcon" },
+  "license": "https://github.com/badfalcon/OpenLeagueDisplay/blob/HEAD/LICENSE"
+}
+</script>
 <script type="module" src="js/app.js"></script>
 </head>
 <body>
@@ -135,6 +164,18 @@
 
 <main id="root">
   <div class="loading"><h2 id="loading-title">LOADING</h2><p id="loading-msg">Loading manifest…</p></div>
+  <!-- noscript: 本体は JS レンダリングの SPA なので、JS を実行しないクローラ/ユーザーには
+       初期 HTML が "LOADING" しか見えない。検索エンジン向けに最低限の説明テキストを
+       静的に置いておく (Googlebot は JS を描画するが、保険 + 軽量クローラ対策)。 -->
+  <noscript>
+    <div class="loading">
+      <h2>OpenLeagueDisplay</h2>
+      <p>A splash art viewer for every League of Legends champion and skin — an open
+         successor to League Displays. Browse champions and skin lines, pick your
+         favorites, download them as a ZIP, or set them as your desktop wallpaper.
+         This viewer requires JavaScript to run.</p>
+    </div>
+  </noscript>
 </main>
 
 <div class="progress-overlay" id="progress-overlay" role="dialog" aria-modal="true" aria-hidden="true">
