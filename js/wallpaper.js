@@ -73,6 +73,51 @@ function closeModal() {
   unlockScroll();
 }
 
+// 適用成功後の「完了！楽しんでね〜」モーダル。確認モーダルとは別物 (トーストの代わり)。
+// 確認モーダルのレイアウトを汚さないよう独立した小さなモーダルとして遅延生成する。
+function ensureDoneModal() {
+  let el = $("wp-done-modal");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "wp-done-modal";
+  el.className = "wp-modal";
+  el.hidden = true;
+  el.innerHTML = `
+    <div class="wp-backdrop" id="wp-done-backdrop"></div>
+    <div class="wp-dialog wp-done-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-done-title">
+      <div class="wp-done-emoji" aria-hidden="true">🎉</div>
+      <h2 class="wp-title" id="wp-done-title">${esc(t("wallpaper_done_title"))}</h2>
+      <p class="wp-done-detail" id="wp-done-detail"></p>
+      <p class="wp-done-enjoy">${esc(t("wallpaper_done_enjoy"))}</p>
+      <div class="wp-actions">
+        <button class="btn primary" id="wp-done-ok">${esc(t("wallpaper_done_ok"))}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  $("wp-done-ok").addEventListener("click", closeDone);
+  $("wp-done-backdrop").addEventListener("click", closeDone);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !el.hidden) closeDone();
+  });
+  return el;
+}
+
+function closeDone() {
+  const el = $("wp-done-modal");
+  if (!el || el.hidden) return;
+  el.hidden = true;
+  unlockScroll();
+}
+
+function openDone(data) {
+  ensureDoneModal();
+  // 枚数で振り分けた結果に応じた一言 (静止 / スライドショー枚数)。
+  $("wp-done-detail").textContent =
+    data.mode === "slideshow" ? t("wallpaper_slideshow_set", data.count) : t("wallpaper_set");
+  $("wp-done-modal").hidden = false;
+  lockScroll();
+}
+
 function showProgress(done, total) {
   $("wp-progress").hidden = false;
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -104,9 +149,9 @@ async function onApply() {
     const interval = parseInt($("wp-interval").value, 10) || WALLPAPER_INTERVAL_DEFAULT;
     const data = await applyWallpaper(urls, interval);
     showProgress(urls.length, urls.length);
-    // サーバが枚数で振り分けた結果 (static/slideshow) に応じた文言を出す。
-    toast(data.mode === "slideshow" ? t("wallpaper_slideshow_set", data.count) : t("wallpaper_set"));
+    // 成功時はトーストではなく「完了！楽しんでね〜」モーダルでお祝いする。
     closeModal();
+    openDone(data);
   } catch (err) {
     toast(t("wallpaper_failed", err.message), "err");
   } finally {
