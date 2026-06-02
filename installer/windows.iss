@@ -19,11 +19,23 @@
 #define AppPublisher "OpenLeagueDisplay"
 #define AppURL "https://github.com/badfalcon/OpenLeagueDisplay"
 
+; ウィザードのタイトル/ようこそ画面に出る表示名 (AppVerName)。未指定だと Inno は
+; "AppName version AppVersion" を使い、ドライラン (dev) では「OpenLeagueDisplay バージョン
+; dev セットアップ」と不格好になる。dev ではバージョンを出さず、実リリース (vX.Y.Z) の
+; ときだけ "OpenLeagueDisplay X.Y.Z" と出す。
+#if AppVersion == "dev"
+  #define AppDisplayName AppName
+#else
+  #define AppDisplayName AppName + " " + AppVersion
+#endif
+
 [Setup]
 ; AppId はアンインストール登録キーを安定させるため固定する (絶対に変えない)。
 AppId={{8F4C2A91-3B6D-4E27-9A1F-2C5D8E0B7A43}
 AppName={#AppName}
 AppVersion={#AppVersion}
+; 表示名はバージョン分岐 (上の #define 参照)。AppVersion はアンインストール登録に残す。
+AppVerName={#AppDisplayName}
 AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
