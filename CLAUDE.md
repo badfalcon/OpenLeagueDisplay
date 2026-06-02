@@ -186,6 +186,16 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     好まない人向けに従来の単一 exe も Release に併置 (生成コストはほぼゼロ)
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
     ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
+  - **既インストール検知 (`[Code] InitializeSetup`)**: setup 再実行時に挙動を分ける。
+    **同一バージョンが既に入っている** → 「修復(再インストール)/アンインストール/
+    キャンセル」の 3択 MsgBox。**別バージョン** (上げ/下げ) → 何も出さず黙って上書き
+    更新 (Inno の既定 = AppId 固定なので in-place アップグレード)。**未インストール** →
+    通常インストール。Inno には MSI 的な Modify/Repair/Remove ページが無いので
+    `InitializeSetup` で HKCU(無ければ HKLM) の `…\Uninstall\{AppId}_is1` の
+    `DisplayVersion`/`UninstallString` を読んで判定する。GUID は `#define MyGuid` に
+    切り出して `[Setup] AppId` と `[Code]` で共用 (アンインストールキーは波括弧付き
+    `{GUID}_is1` なのでコード側はリテラルの波括弧を連結する)。版判定は文字列一致のみ
+    (セマンティックな大小比較はしない)
   - **無署名**: コード署名証明書を持たないので setup.exe / exe とも無署名。Windows は
     SmartScreen で「詳細情報 → 実行」が要る (README に明記)。証明書を入手したら
     `[Setup] SignTool` と署名ステップを足す
