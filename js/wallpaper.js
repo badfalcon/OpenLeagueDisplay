@@ -7,7 +7,7 @@
 
 import { state, $, esc, lockScroll, unlockScroll, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
 import { t, champName, skinLabel } from "./i18n.js";
-import { applyWallpaper, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
+import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
 
 // 切り替え間隔の選択肢 (分)。value はミリ秒。2枚以上のときだけ表示する。
 const WP_INTERVALS = [1, 5, 15, 30, 60];
@@ -42,6 +42,10 @@ function ensureModal() {
           <select id="wp-interval"></select>
         </div>
         <p class="wp-note" id="wp-note"></p>
+        <div class="wp-progress" id="wp-progress" hidden>
+          <div class="wp-prog-track"><div class="wp-prog-fill" id="wp-prog-fill"></div></div>
+          <span class="wp-prog-label" id="wp-prog-label"></span>
+        </div>
         <div class="wp-actions">
           <button class="btn" id="wp-cancel">${esc(t("wallpaper_cancel"))}</button>
           <button class="btn primary" id="wp-apply">${esc(t("wallpaper_apply"))}</button>
@@ -69,21 +73,47 @@ function closeModal() {
   unlockScroll();
 }
 
+function showProgress(done, total) {
+  $("wp-progress").hidden = false;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  $("wp-prog-fill").style.width = `${pct}%`;
+  $("wp-prog-label").textContent = t("wallpaper_applying", `${done}/${total}`);
+}
+
+function hideProgress() {
+  const box = $("wp-progress");
+  if (box) box.hidden = true;
+}
+
 async function onApply() {
   const apply = $("wp-apply");
+  const cancel = $("wp-cancel");
   const urls = _items.map((it) => it.skin.splash).filter(Boolean);
   if (!urls.length) return;
+  // 適用中はボタンを無効化し、進捗ゲージを出す。サーバの POST は全画像 DL 完了まで
+  // ブロックするので、別途 /api/wallpaper/progress をポーリングして done/total を反映する
+  // (枚数が多いと「固まった」ように見えるのを防ぐ)。
   apply.disabled = true;
+  cancel.disabled = true;
+  showProgress(0, urls.length);
+  const poll = setInterval(async () => {
+    const p = await fetchWallpaperProgress();
+    if (p && p.total) showProgress(p.done, p.total);
+  }, 300);
   try {
     const interval = parseInt($("wp-interval").value, 10) || WALLPAPER_INTERVAL_DEFAULT;
     const data = await applyWallpaper(urls, interval);
+    showProgress(urls.length, urls.length);
     // サーバが枚数で振り分けた結果 (static/slideshow) に応じた文言を出す。
     toast(data.mode === "slideshow" ? t("wallpaper_slideshow_set", data.count) : t("wallpaper_set"));
     closeModal();
   } catch (err) {
     toast(t("wallpaper_failed", err.message), "err");
   } finally {
+    clearInterval(poll);
+    hideProgress();
     apply.disabled = false;
+    cancel.disabled = false;
   }
 }
 
@@ -95,6 +125,7 @@ export function openWallpaperConfirm(items) {
     return;
   }
   ensureModal();
+  hideProgress();  // 前回適用の進捗表示が残っていれば消す
   // サムネイル一覧 (CDragon から直接。壁紙設定はサーバ側で取得するのでここは表示専用)
   $("wp-grid").innerHTML = _items.map((it) => {
     const alt = `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`;

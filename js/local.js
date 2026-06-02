@@ -70,6 +70,18 @@ export async function applyWallpaper(urls, interval) {
   });
 }
 
+// 適用中の進捗 (done/total) を取得する。applyWallpaper の POST が DL 完了までブロックする間、
+// 確認モーダルが別途これをポーリングしてゲージを出す。取得失敗時は null (ポーリング側で無視)。
+export async function fetchWallpaperProgress() {
+  try {
+    const res = await fetch("./api/wallpaper/progress", { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 // 依存ゼロの簡易トースト。視覚表示は #toast、スクリーンリーダー通知は既存の
 // #sr-status (aria-live) を流用する (share.js のコピー完了通知と同じ手法)。
 export function toast(msg, kind = "ok") {

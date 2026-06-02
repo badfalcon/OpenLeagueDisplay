@@ -69,6 +69,19 @@ MIN_INTERVAL_S = 10
 # ダウンロード上限。巨大ファイル / 非画像レスポンスを弾く多層防御。
 MAX_BYTES = 25 * 1024 * 1024
 
+# 壁紙適用の進捗。/api/wallpaper は全画像を順次 DL し終えるまで 1 リクエストでブロックする
+# ので、フロントは別スレッドの GET /api/wallpaper/progress でこの done/total をポーリング
+# して進捗ゲージを出す (枚数が多いと「固まった」ように見えるのを防ぐ)。ThreadingHTTPServer
+# なので POST 実行中でも GET を別スレッドで捌ける。適用は同時に1件しか起きない想定。
+_wp_progress = {"done": 0, "total": 0}
+_wp_progress_lock = threading.Lock()
+
+
+def set_wp_progress(done: int, total: int) -> None:
+    with _wp_progress_lock:
+        _wp_progress["done"] = done
+        _wp_progress["total"] = total
+
 
 # ---------------------------------------------------------------------------
 # 画像キャッシュ
@@ -552,7 +565,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ログを少し静かに (ヘルスチェック的な GET /api/ping を毎回出さない)
     def log_message(self, fmt: str, *args) -> None:
-        if "/api/ping" in (self.path or ""):
+        p = self.path or ""
+        if "/api/ping" in p or "/api/wallpaper/progress" in p:  # 頻繁なポーリングは黙らせる
             return
         super().log_message(fmt, *args)
 
@@ -577,7 +591,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return hostname in ("127.0.0.1", "localhost", "::1")
 
     def do_GET(self) -> None:
-        if self._path() == "/api/ping":
+        path = self._path()
+        if path == "/api/ping":
             if not self._host_ok():
                 self._json(403, {"ok": False, "error": "bad host"})
                 return
@@ -587,6 +602,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "platform": platform.system(),
                 "features": ["wallpaper"],
             })
+            return
+        if path == "/api/wallpaper/progress":
+            # 適用中の進捗ポーリング用 (読み取り専用なので CSRF ヘッダは不要、Host だけ確認)。
+            if not self._host_ok():
+                self._json(403, {"ok": False, "error": "bad host"})
+                return
+            with _wp_progress_lock:
+                self._json(200, {"done": _wp_progress["done"], "total": _wp_progress["total"]})
             return
         super().do_GET()  # それ以外は通常の静的配信
 
@@ -638,7 +661,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         folder = current_set_dir()
         keep = live_wallpaper_names() | {safe_filename(u) for u in urls}
         prune_current_set(keep)
-        paths = [download_image(u, folder) for u in urls]
+        # 1枚ずつ DL しながら進捗を更新する (フロントが /api/wallpaper/progress でポーリング)。
+        set_wp_progress(0, len(urls))
+        paths = []
+        for u in urls:
+            paths.append(download_image(u, folder))
+            set_wp_progress(len(paths), len(urls))
 
         if len(paths) == 1:
             set_wallpaper_static(paths[0])

@@ -1573,3 +1573,25 @@
   .wp-actions {
     display: flex; gap: 10px; justify-content: flex-end;
   }
+  /* 適用中の進捗ゲージ (サーバの DL 進捗を /api/wallpaper/progress でポーリングして反映)。 */
+  .wp-progress {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .wp-progress[hidden] { display: none; }
+  .wp-prog-track {
+    flex: 1; height: 6px;
+    background: var(--bg);
+    border: 1px solid var(--rule-bold);
+    overflow: hidden;
+  }
+  .wp-prog-fill {
+    height: 100%; width: 0%;
+    background: var(--gold);
+    transition: width 0.2s ease;
+  }
+  .wp-prog-label {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; letter-spacing: 0.14em;
+    color: var(--gold-hi); white-space: nowrap;
+  }
