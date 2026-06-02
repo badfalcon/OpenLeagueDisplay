@@ -503,7 +503,50 @@ function bulkToggleKeys(keys) {
     else state.selected.add(k);
   }
   saveSelected();
-  render();
+  // 以前は render() で全描画し直していたが、表示中の全カードの <img> が一斉に再マウントされ
+  // 画面が一瞬暗くなっていた。選択状態は state.selected から派生する見た目だけなので、
+  // 表示中カードのクラス/バッジをその場で更新する (img は触らない = フラッシュしない)。
+  applyCardSelectionStates();
+  refreshGalleryBtn();
+  // 詳細画面 (champion/line) の主ボタンは「全選択 ⇄ 全解除」でラベルが変わる。toggle 後は
+  // allSel が反転した状態 (allSel だった→今は全解除 / でなければ→今は全選択済み)。
+  if (state.view === "champion" || state.view === "line") {
+    const btn = $("primary-action");
+    if (btn && !btn.hidden)
+      btn.textContent = allSel ? t("select_all") : t("select_all_done");
+  }
+}
+
+// 表示中の全カード (champ / line / skin) の選択状態 (.selected / .partial + 件数バッジ) を
+// state.selected から再計算してその場で反映する。render() と違い <img> を作り直さないので、
+// 一括選択でも画面がちらつかない。
+function applyCardSelectionStates() {
+  const vc = $("view-content");
+  if (!vc) return;
+  const setState = (el, sel, total) => {
+    el.classList.toggle("selected", total > 0 && sel === total);
+    el.classList.toggle("partial", sel > 0 && sel < total);
+    const cb = el.querySelector(".sel-checkbox");
+    if (cb) cb.textContent = (sel > 0 && sel < total) ? `${sel}/${total}` : "";
+  };
+  vc.querySelectorAll(".champ-card").forEach(el => {
+    const c = DATA.champions.find(x => x.alias === el.dataset.alias);
+    if (!c) return;
+    const sel = c.skins.reduce((n, s) => n + (state.selected.has(SELECT_KEY(c.alias, s.label)) ? 1 : 0), 0);
+    setState(el, sel, c.skins.length);
+  });
+  vc.querySelectorAll(".line-card").forEach(el => {
+    const idx = LINE_INDEX.get(String(el.dataset.line));
+    if (!idx) return;
+    const sel = idx.members.reduce((n, m) => n + (state.selected.has(SELECT_KEY(m.c.alias, m.s.label)) ? 1 : 0), 0);
+    setState(el, sel, idx.count);
+  });
+  vc.querySelectorAll(".skin-card").forEach(el => {
+    const on = state.selected.has(el.dataset.key);
+    el.classList.toggle("selected", on);
+    const cb = el.querySelector(".sel-checkbox");
+    if (cb) cb.title = on ? t("gallery_remove") : t("gallery_add");
+  });
 }
 // 詳細画面 (champion/line) の主アクション。Web=ZIP DL、ローカル=全部選択トグル。
 // ローカルでは DL を隠し、ギャラリー → 壁紙スライドショー導線に寄せる。全選択済みなら
