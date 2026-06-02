@@ -289,7 +289,7 @@
     padding: 0;
     font-family: var(--font-display);
     font-size: 18px;
-    font-style: italic;
+    font-style: normal;
     font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
     letter-spacing: 0;
   }
