@@ -36,14 +36,16 @@ function ensureModal() {
     <div class="wp-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-title">
       <h2 class="wp-title" id="wp-title">${esc(t("wallpaper_confirm_title"))}</h2>
       <div class="wp-grid" id="wp-grid"></div>
-      <div class="wp-interval-row" id="wp-interval-row">
-        <label for="wp-interval">${esc(t("wallpaper_interval_label"))}</label>
-        <select id="wp-interval"></select>
-      </div>
-      <p class="wp-note" id="wp-note"></p>
-      <div class="wp-actions">
-        <button class="btn" id="wp-cancel">${esc(t("wallpaper_cancel"))}</button>
-        <button class="btn primary" id="wp-apply">${esc(t("wallpaper_apply"))}</button>
+      <div class="wp-footer">
+        <div class="wp-interval-row" id="wp-interval-row">
+          <label for="wp-interval">${esc(t("wallpaper_interval_label"))}</label>
+          <select id="wp-interval"></select>
+        </div>
+        <p class="wp-note" id="wp-note"></p>
+        <div class="wp-actions">
+          <button class="btn" id="wp-cancel">${esc(t("wallpaper_cancel"))}</button>
+          <button class="btn primary" id="wp-apply">${esc(t("wallpaper_apply"))}</button>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(el);

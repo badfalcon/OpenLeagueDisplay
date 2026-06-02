@@ -1509,23 +1509,36 @@
   .wp-dialog {
     position: relative;
     width: min(680px, 92vw);
-    max-height: 88vh; overflow-y: auto;
+    /* flex 縦並びにして「サムネ一覧 (.wp-grid) だけスクロール / フッター (間隔・注記・
+       ボタン) は常に見える」を実現する。ダイアログ自体はスクロールさせない。 */
+    display: flex; flex-direction: column;
+    max-height: 88vh; overflow: hidden;
     padding: 28px;
     background: var(--bg-1);
     border: 1px solid var(--gold);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
   }
   .wp-title {
+    flex: 0 0 auto;
     font-family: var(--font-display);
     color: var(--gold-hi);
     font-size: 22px; margin: 0 0 18px;
     letter-spacing: 0.06em;
   }
   .wp-grid {
+    /* 唯一スクロールする領域。選択枚数が多くてもボタンは下に固定されたまま。
+       min-height: 0 で flex の縮小を許可しないと overflow が効かない。 */
+    flex: 0 1 auto;
+    min-height: 0; overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
-    margin-bottom: 18px;
+  }
+  /* スクロールするサムネ一覧と、固定フッター (間隔・注記・ボタン) を罫線で切り分ける。 */
+  .wp-footer {
+    flex: 0 0 auto;
+    margin-top: 18px; padding-top: 18px;
+    border-top: 1px solid var(--rule-bold);
   }
   .wp-thumb {
     width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
