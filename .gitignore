@@ -14,3 +14,6 @@ unmapped_regions.json
 # 無視する (配布は release.yml が Release アセットとして行う)。spec 本体は別 (コミットする)
 build/
 dist/
+# Inno Setup (installer/windows.iss) のビルド成果物 (setup.exe)。同上の理由で無視。
+# iss 本体はコミットする
+installer/out/

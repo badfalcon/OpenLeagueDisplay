@@ -270,6 +270,17 @@ ISCC.exe /DAppVersion=1.2.3 installer\windows.iss
 # → installer\out\OpenLeagueDisplay-windows-setup.exe
 ```
 
+`build_installer.py` is a small stdlib wrapper for step 2: it checks the exe was
+built, locates `ISCC.exe` (PATH, `Program Files`, or winget's per-user
+`%LOCALAPPDATA%\Programs\Inno Setup 6`), and runs it — e.g.
+`python build_installer.py 1.2.3` (version defaults to `dev`). Inno Setup is
+free/open-source: `winget install JRSoftware.InnoSetup`.
+
+In PyCharm, **Run ▸ "Build desktop exe (PyInstaller)"** and
+**"Build installer (Inno Setup)"** do these two steps; **"Run desktop app
+(local_app.py)"** launches the local wallpaper mode. (Build outputs `dist/`,
+`build/`, `installer/out/` are git-ignored — binaries aren't committed.)
+
 ### Deploying it to your own account
 
 ≈5 minutes if you have Python installed.
