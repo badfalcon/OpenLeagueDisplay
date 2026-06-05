@@ -1409,11 +1409,12 @@
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
     .lb-next { right: 12px; }
-    /* 狭幅では .lb-prev/.lb-next を下隅に移したので、再生コントロールはその上へ。
-       96px は (下隅ナビ 64px + 余白 12px) を超えつつ、2 行になり得る lb-overlay 内の
-       skin name (例: "K/DA ALL OUT Akali Prestige Edition") に被らない高さ。
+    /* 再生コントロールは下部に置くと、description (lore) を持つスキンで lb-overlay の
+       キャプションが伸びた時に説明文へ被る (固定 bottom では可変高を避けきれない)。
+       画像は object-fit:contain で上下にレターボックスが出るので、上ツールバー
+       (badge ~32px) の直下=黒余白へ移し、最下部キャプションと構造的に分離する。
        opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
-    .slideshow-controls { bottom: 96px; }
+    .slideshow-controls { top: calc(var(--safe-top) + 50px); bottom: auto; }
 
     /* ギャラリーツールバー: 狭幅ではボタンを詰めて折り返す */
     .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
