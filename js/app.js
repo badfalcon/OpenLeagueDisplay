@@ -4,12 +4,12 @@
 
 import {
   state, DATA, $, esc, setData,
-  LS_LOCALE_KEY, LS_SORT_KEY,
+  LS_LOCALE_KEY, LS_SORT_KEY, LS_LB_FIT_KEY,
   lsGet, lsSet,
   buildIndexes, SKIN_BY_KEY, loadSelectedFromStorage, saveSelected,
 } from "./state.js";
 import {
-  UI_STRINGS, t, syncPauseButton,
+  UI_STRINGS, t, syncPauseButton, syncFitButton,
   applyStaticUIStrings, equalizeTabs,
   localeFlagURL, setLangButton, closeLangMenu,
   pickInitialLocale, loadLocale,
@@ -46,6 +46,11 @@ async function init() {
   const savedSort = lsGet(LS_SORT_KEY);
   if (savedSort === "default" || savedSort === "name_asc" || savedSort === "name_desc") {
     state.sortOrder = savedSort;
+  }
+  // ライトボックスの画像フィットも復元 ("contain" / "cover" のみ受理)
+  const savedFit = lsGet(LS_LB_FIT_KEY);
+  if (savedFit === "contain" || savedFit === "cover") {
+    state.lb.fit = savedFit;
   }
   applyStaticUIStrings();
   // ローカル実行 (local_app.py) かを検知。data.json fetch と並行で走らせ、初回 render の
@@ -219,6 +224,14 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
+  // 画像フィット切替 (contain ↔ cover)。縦長スマホの黒帯を潰す。
+  // .fill クラスで CSS の object-fit を切替え、設定は localStorage に永続化する
+  $("lb-fit").addEventListener("click", () => {
+    state.lb.fit = state.lb.fit === "cover" ? "contain" : "cover";
+    $("lightbox").classList.toggle("fill", state.lb.fit === "cover");
+    lsSet(LS_LB_FIT_KEY, state.lb.fit);
+    syncFitButton();
+  });
   // オフライン検知: CDragon のスプラッシュ画像はキャッシュ対象外なので、
   // オフラインだと画像が一斉に出ない。「壊れている」誤解を避けるため理由を告知する
   const offlineBanner = $("offline-banner");
@@ -274,6 +287,24 @@ function wireEvents() {
   });
 }
 
+// sticky な topbar の実高さを CSS 変数 --topbar-h に書き出す。ギャラリーの
+// sticky ツールバーが topbar 直下に正しく貼り付くための基準値。topbar は
+// 2 段構成 + locale 差 + モバイルでの行2 下部固定化で高さが変わるため、CSS の
+// 固定値ではなく ResizeObserver で実測して追従させる。
+function trackTopbarHeight() {
+  const topbar = document.querySelector(".topbar");
+  if (!topbar) return;
+  const setVar = () => {
+    document.documentElement.style.setProperty("--topbar-h", topbar.offsetHeight + "px");
+  };
+  if ("ResizeObserver" in window) {
+    new ResizeObserver(setVar).observe(topbar);
+  } else {
+    window.addEventListener("resize", setVar);
+  }
+  setVar();
+}
+
 // Service Worker 登録: アプリシェルをキャッシュして再訪を高速化し、インストール可能
 // 要件を満たす。初回ロードの帯域と競合させないよう load 後に登録する。
 // 失敗 (file:// 直開き / 非対応ブラウザ) してもビューア本体の動作には影響しない
@@ -286,6 +317,7 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  trackTopbarHeight();
   init();
   registerSW();
 }

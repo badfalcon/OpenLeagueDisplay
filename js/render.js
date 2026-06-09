@@ -136,8 +136,55 @@ export function refreshGalleryBtn() {
   btn.classList.toggle("primary", state.view === "selected");
 }
 
+// フィルタチップ: role / rarity / region のローカライズ語をワンタップで検索クエリへ
+// 投入する。renderHome の既存マルチ軸検索 (名前/ロール/地域/rarity) をそのまま使うので
+// 専用フィルタエンジンは持たない。表示には現状使っていなかった ROLE/RARITY/REGION_LABELS
+// を「発見可能な入口」として可視化するのが狙い。キー列挙は locale 非依存で安定する
+// .default の Object.keys を基準にし、ラベルだけ現在 locale (無ければ default) で当てる。
+// active (現在の検索語と一致) なチップを再タップすると検索を解除する (トグル)。
+function filterChipsHTML() {
+  const q = state.searchQuery.toLowerCase();
+  const seen = new Set();
+  const chips = [];
+  for (const map of [ROLE_LABELS, RARITY_LABELS, REGION_LABELS]) {
+    const loc = map[state.locale] || {};
+    for (const key of Object.keys(map.default)) {
+      const label = loc[key] || map.default[key];
+      const low = label.toLowerCase();
+      // locale 差で同綴りが出ても 1 つに畳む (例: 未登録 locale の region は全部英語)
+      if (seen.has(low)) continue;
+      seen.add(low);
+      const active = low === q ? " active" : "";
+      chips.push(`<button type="button" class="filter-chip${active}" data-filter="${esc(label)}">${esc(label)}</button>`);
+    }
+  }
+  // 可視ラベルの span を aria-labelledby で参照し、グループ名を一度だけ読み上げる
+  // (aria-label と可視 span の二重読み上げを避ける)
+  return `<div class="filter-chips" role="group" aria-labelledby="filter-chips-label">`
+    + `<span class="filter-chips-label" id="filter-chips-label">${esc(t("filters_label"))}</span>`
+    + chips.join("") + `</div>`;
+}
+
+function wireFilterChips(root) {
+  root.querySelectorAll(".filter-chip").forEach(el => {
+    el.addEventListener("click", () => {
+      // active を再タップ → 解除。それ以外 → そのフィルタ語で検索。
+      const next = el.classList.contains("active") ? "" : el.dataset.filter;
+      // 検索ボックスに値を入れて input を発火し、既存の debounce 検索経路に合流させる。
+      // state.searchQuery を直接書いて render() すると、直前のタイプで仕込まれた
+      // debounce タイマー (app.js) が 90ms 後に古い値で上書きしてしまう。input 経由なら
+      // そのタイマーが clear+張り直しされて競合せず、検索ロジックの二重実装も避けられる。
+      const search = $("search");
+      search.value = next;
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+}
+
 function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
+  // home view の先頭に常設するフィルタチップ列 (検索の有無に関わらず出す)
+  const chips = filterChipsHTML();
   // 検索キーワードは複数軸を OR で AND しない、つまり「どの軸でもヒットすれば残す」。
   // 軸 (チャンピオン側): チャンピオン名 (alias/英語名/翻訳名)、ロール (Mage 等)、
   // 地域 (Demacia 等)。軸 (スキン側): スキン名 (英語/翻訳)、rarity (Legendary 等)。
@@ -168,8 +215,9 @@ function renderHome(root) {
     const list = DATA.champions.slice();
     sortChamps(list);
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
-    $("view-content").innerHTML = `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
     wireChampCards(root);
+    wireFilterChips(root);
     return;
   }
 
@@ -194,7 +242,8 @@ function renderHome(root) {
 
   if (champMatches.length === 0 && skinMatches.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
-    $("view-content").innerHTML = `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
+    $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
+    wireFilterChips(root);
     return;
   }
 
@@ -217,9 +266,10 @@ function renderHome(root) {
     setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length) });
     parts.push(`<div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
   }
-  $("view-content").innerHTML = parts.join("");
+  $("view-content").innerHTML = chips + parts.join("");
   wireChampCards(root);
   wireSearchSkinCards(root, skinMatches);
+  wireFilterChips(root);
 }
 
 function renderChampCards(list) {

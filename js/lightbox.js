@@ -32,6 +32,8 @@ export function openLightbox(list, idx, mode) {
   document.body.classList.add("lightbox-open");
   lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
+  // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
+  lb.classList.toggle("fill", state.lb.fit === "cover");
   $("ss-controls").style.display = mode === "slideshow" ? "" : "none";
   // 前回 pause したまま閉じた時にラベル/見た目が「再開」のまま残るのを防ぐ
   // (paused は上で false に戻したので、開いた瞬間に必ず再生中表示へ同期する)
