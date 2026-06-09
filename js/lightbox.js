@@ -2,7 +2,7 @@
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
-import { t, toLightboxItem } from "./i18n.js";
+import { t, toLightboxItem, syncPauseButton } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -33,6 +33,9 @@ export function openLightbox(list, idx, mode) {
   lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
   $("ss-controls").style.display = mode === "slideshow" ? "" : "none";
+  // 前回 pause したまま閉じた時にラベル/見た目が「再開」のまま残るのを防ぐ
+  // (paused は上で false に戻したので、開いた瞬間に必ず再生中表示へ同期する)
+  syncPauseButton();
   // 間隔ボタンは上ツールバー側 (常時表示) に置いたので、スライドショー時のみ表示する
   $("ss-interval").style.display = mode === "slideshow" ? "" : "none";
   $("lb-mode").textContent = mode === "slideshow" ? t("mode_slideshow") : t("mode_viewer");

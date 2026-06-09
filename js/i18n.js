@@ -1730,6 +1730,17 @@ export function equalizeTabs() {
   tabs.forEach(el => { el.style.minWidth = max + "px"; });
 }
 
+// スライドショーの一時停止/再生ボタンを state.lb.paused に同期させる。ラベル
+// (Pause↔Resume) と見た目 (.active = 再生中はゴールド点灯) を必ず一致させ、
+// openLightbox / クリック / locale 再適用の 3 経路で取り違えが起きないようにする。
+// アクションラベル方式なので aria-pressed は付けない (可視テキストが状態を伝える)。
+export function syncPauseButton() {
+  const btn = $("ss-pause");
+  if (!btn) return;
+  btn.textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
+  btn.classList.toggle("active", !state.lb.paused);
+}
+
 // 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
@@ -1768,7 +1779,7 @@ export function applyStaticUIStrings() {
   $("lb-close").setAttribute("aria-label", t("lb_close_aria"));
   $("lb-prev").setAttribute("aria-label", t("lb_prev_aria"));
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
-  $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
+  syncPauseButton();
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");

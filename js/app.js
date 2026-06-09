@@ -9,7 +9,7 @@ import {
   buildIndexes, SKIN_BY_KEY, loadSelectedFromStorage, saveSelected,
 } from "./state.js";
 import {
-  UI_STRINGS, t,
+  UI_STRINGS, t, syncPauseButton,
   applyStaticUIStrings, equalizeTabs,
   localeFlagURL, setLangButton, closeLangMenu,
   pickInitialLocale, loadLocale,
@@ -207,7 +207,7 @@ function wireEvents() {
   $("lb-next").addEventListener("click", nextSlide);
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
-    $("ss-pause").textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
+    syncPauseButton();
     // setTimeout 連鎖モデルなので、再開時にタイマーを再点火する必要がある
     if (state.lb.paused) stopSlideshow();
     else if (state.lb.mode === "slideshow") scheduleNext();

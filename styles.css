@@ -850,6 +850,10 @@
     letter-spacing: 0.22em; text-transform: uppercase;
   }
   .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+  /* 再生中はゴールド点灯 (app 共通の active 表現 = .tab.active 等と揃える)。
+     停止中はゴーストのまま → 「点灯=再生中 / 消灯=停止中」を一目で判別できる。
+     #ss-pause 限定: 同じ .ss-btn を使う間隔ボタン #ss-interval には効かせない */
+  #ss-pause.active { background: var(--gold); color: #1a1208; border-color: var(--gold); }
 
   /* === FOOTER ======================================================
      border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
