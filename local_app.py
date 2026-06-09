@@ -68,6 +68,9 @@ CSRF_HEADER = "X-OLD-Local"
 MIN_INTERVAL_S = 10
 # ダウンロード上限。巨大ファイル / 非画像レスポンスを弾く多層防御。
 MAX_BYTES = 25 * 1024 * 1024
+# /api への POST ボディ上限。正規の {urls:[...], interval} は数十 KB で収まるので
+# 1MB あれば十分 (巨大ボディをメモリへ読み込まないための上限)。
+MAX_BODY_BYTES = 1 * 1024 * 1024
 
 # 壁紙適用の進捗。/api/wallpaper は全画像を順次 DL し終えるまで 1 リクエストでブロックする
 # ので、フロントは別スレッドの GET /api/wallpaper/progress でこの done/total をポーリング
@@ -120,19 +123,10 @@ def current_set_dir() -> pathlib.Path:
     return d
 
 
-def reset_current_set() -> pathlib.Path:
-    """current_set_dir を空にして返す (前回のセットを残さない)。"""
-    d = current_set_dir()
-    for p in d.iterdir():
-        if p.is_file():
-            p.unlink()
-    return d
-
-
 def prune_current_set(keep: set) -> pathlib.Path:
     """current_set_dir 内の、keep (ファイル名集合) に含まれないファイルを削除して返す。
 
-    reset_current_set (全消し) との違いは「今表示中のファイルだけ残す」用途。OS 純正
+    単純な全消しではなく「今表示中のファイルだけ残す」のがポイント。OS 純正
     スライドショーは表示中の画像パスを保持するので、それを消すと存在しないパスを指して
     画面が真っ黒になる (Windows で実機確認)。適用のたびに live を keep に入れて呼ぶことで、
     旧セットは掃除しつつ表示中ファイルだけ残し、黒画面を防ぐ。
@@ -432,14 +426,20 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
             psi, ctypes.byref(iid_sia), ctypes.byref(psia))
         if hr < 0:
             raise ctypes.WinError(hr)
-        # SetSlideshow(items) (slot 12)
+        # SetSlideshow(items) (slot 12)。restype=HRESULT は失敗 (負値) で OSError を
+        # 自動 raise する (ctypes の仕様) ので、本丸の失敗は呼び出し元へ伝播して
+        # フロントに「失敗」として返る。
         _vtbl(dw, 12, ctypes.HRESULT, [ctypes.c_void_p])(dw, psia)
-        # SetSlideshowOptions(options, tickMs) (slot 14)。最小 tick は 1000ms。
+        # SetSlideshowOptions(options, tickMs) (slot 14、最小 tick は 1000ms) と
+        # SetPosition(FILL) (slot 10) は装飾系。ここまで来ればスライドショー自体は
+        # 成立しているので、失敗してもログだけ残して適用成功として続行する。
         opts = _DSO_SHUFFLEIMAGES if shuffle else 0
-        _vtbl(dw, 14, ctypes.HRESULT, [ctypes.c_int, ctypes.c_uint])(
-            dw, opts, int(interval_s * 1000))
-        # SetPosition(FILL) (slot 10)
-        _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
+        try:
+            _vtbl(dw, 14, ctypes.HRESULT, [ctypes.c_int, ctypes.c_uint])(
+                dw, opts, int(interval_s * 1000))
+            _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
+        except OSError as e:
+            print(f"[wallpaper] slideshow options/position failed: {e}", file=sys.stderr)
         # SetSlideshow は「今表示中の画像」を切り替えず Windows が保持している現在画像を
         # そのまま表示し続ける (回転は次の tick から)。呼び出し側が表示中ファイルを消さない
         # (prune_current_set が live を残す) ので通常は有効画像のまま黒くならない。万一
@@ -637,6 +637,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", 0) or 0)
+        if length > MAX_BODY_BYTES:
+            raise ValueError("request body too large")
         raw = self.rfile.read(length) if length else b""
         return json.loads(raw or b"{}")
 

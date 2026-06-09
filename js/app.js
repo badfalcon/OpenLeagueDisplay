@@ -177,6 +177,9 @@ function wireEvents() {
     if (e.key === "Escape" && !$("lang-menu").hidden) {
       closeLangMenu();
       $("lang-btn").focus();
+      // この Escape は「メニューを閉じる」で消費済み。後続の document keydown
+      // (goBack / ライトボックス) まで同時に発火させない
+      e.stopImmediatePropagation();
     }
   });
   $("prog-cancel").addEventListener("click", () => {
@@ -186,10 +189,13 @@ function wireEvents() {
   // 入力中に毎キーストロークで render() を回すと、Lines タブ (~2000 スキン分の
   // 選択集計を含む) で体感がもたつくので 90ms debounce
   let searchTimer = null;
-  $("search").addEventListener("input", (e) => {
-    const value = e.target.value.trim();
+  $("search").addEventListener("input", () => {
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
+      // 入力イベント時点の値ではなく発火時点の値を読む。タイマー保留中に
+      // goHome 等が input をクリアした場合に古いクエリを書き戻さないため
+      const value = $("search").value.trim();
+      if (value === state.searchQuery) return;
       state.searchQuery = value;
       // home/lines のフィルタとして動く。詳細画面で検索したら一覧に戻す
       if (state.view === "champion") state.view = "home";

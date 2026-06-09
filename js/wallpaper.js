@@ -12,8 +12,8 @@ import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAU
 // 切り替え間隔の選択肢 (分)。value はミリ秒。2枚以上のときだけ表示する。
 const WP_INTERVALS = [1, 5, 15, 30, 60];
 
-let _items = [];   // 現在モーダルが対象にしている選択アイテム
-let _wired = false;
+let _items = [];     // 現在モーダルが対象にしている選択アイテム
+let _applying = false; // 適用中フラグ。POST 完了までモーダルを閉じさせない (Esc/背景クリック含む)
 
 function intervalOptionsHTML() {
   const saved = parseInt(lsGet(LS_WP_INTERVAL_KEY, ""), 10);
@@ -62,11 +62,12 @@ function ensureModal() {
   });
   $("wp-interval").addEventListener("change", (e) => lsSet(LS_WP_INTERVAL_KEY, e.target.value));
   $("wp-apply").addEventListener("click", onApply);
-  _wired = true;
   return el;
 }
 
 function closeModal() {
+  // 適用中は閉じさせない (Cancel ボタンは disabled だが Esc / 背景クリックも同じ扱いにする)
+  if (_applying) return;
   const el = $("wp-modal");
   if (!el || el.hidden) return;
   el.hidden = true;
@@ -138,6 +139,7 @@ async function onApply() {
   // 適用中はボタンを無効化し、進捗ゲージを出す。サーバの POST は全画像 DL 完了まで
   // ブロックするので、別途 /api/wallpaper/progress をポーリングして done/total を反映する
   // (枚数が多いと「固まった」ように見えるのを防ぐ)。
+  _applying = true;
   apply.disabled = true;
   cancel.disabled = true;
   showProgress(0, urls.length);
@@ -150,11 +152,14 @@ async function onApply() {
     const data = await applyWallpaper(urls, interval);
     showProgress(urls.length, urls.length);
     // 成功時はトーストではなく「完了！楽しんでね〜」モーダルでお祝いする。
+    // closeModal は _applying 中ガードされるので先にフラグを下ろす
+    _applying = false;
     closeModal();
     openDone(data);
   } catch (err) {
     toast(t("wallpaper_failed", err.message), "err");
   } finally {
+    _applying = false;
     clearInterval(poll);
     hideProgress();
     apply.disabled = false;

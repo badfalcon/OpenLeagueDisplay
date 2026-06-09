@@ -343,7 +343,8 @@ function renderLines(root) {
     })
     .filter(e => e.count > 0)
     .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    // 同数時の名前順は他 view と同じく現在 locale で比較する
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
@@ -550,7 +551,7 @@ function applyCardSelectionStates() {
 }
 // 詳細画面 (champion/line) の主アクション。Web=ZIP DL、ローカル=全部選択トグル。
 // ローカルでは DL を隠し、ギャラリー → 壁紙スライドショー導線に寄せる。全選択済みなら
-// 「全部解除」になる (bulkToggleKeys が render() を呼ぶのでラベルは再描画で更新される)。
+// 「全部解除」になる (ラベル更新は bulkToggleKeys が primary-action を直接書き換える)。
 function detailPrimary(keys, zipLabel, zipClick) {
   if (!isLocal()) return { primaryLabel: zipLabel, primaryClick: zipClick };
   const allSel = keys.length > 0 && keys.every(k => state.selected.has(k));
