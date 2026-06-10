@@ -38,7 +38,7 @@ TIMEOUT = 30
 RETRY = 3
 
 # CDragon のスキン rarity 値。kNoRarity は大多数 (= 1350 等) でノイズなので落とす。
-# 既知の rarity だけを data.json に書き出し、index.html 側の RARITY_LABELS と
+# 既知の rarity だけを data.json に書き出し、js/i18n.js 側の RARITY_LABELS と
 # 1:1 で対応させる (UI 翻訳の無い未知 rarity が混ざらないように)
 KNOWN_RARITIES = {"kEpic", "kLegendary", "kMythic", "kUltimate"}
 
@@ -140,7 +140,7 @@ def fetch_json(url: str) -> dict | list:
                     flush=True,
                 )
                 SSL_INSECURE = True
-                continue  # attemptを消費せず即リトライ
+                continue  # 待ち時間なしで再試行 (この失敗も attempt を 1 回消費する)
             last_err = e
             if attempt < RETRY - 1:
                 time.sleep(1 + attempt)
@@ -156,7 +156,7 @@ def fetch_json(url: str) -> dict | list:
 # (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
 # not authori...` の AccessDenied)。CDragon にも champion→region のマッピングは
 # 無いため、やむを得ずハードコードで持つ。新チャンピオンが追加された時はここに
-# 1 行足す。新地域なら REGION_NAMES と index.html の REGION_LABELS にも追加する。
+# 1 行足す。新地域なら REGION_NAMES と js/i18n.js の REGION_LABELS にも追加する。
 REGION_NAMES: dict[str, str] = {
     "demacia": "Demacia",
     "noxus": "Noxus",
@@ -424,7 +424,7 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
 
     # スキン rarity (Legendary, Ultimate, Mythic, ...) — 検索キーワードに使う。
     # CDragon は "kEpic" / "kLegendary" / "kUltimate" / "kMythic" / "kNoRarity" を
-    # 返す。UI 側 (index.html の RARITY_LABELS) に翻訳マップを持たせる都合で、
+    # 返す。UI 側 (js/i18n.js の RARITY_LABELS) に翻訳マップを持たせる都合で、
     # 既知集合 KNOWN_RARITIES に絞る。新しい rarity が出たら両側を更新する想定。
     rarity = skin_obj.get("rarity")
     if isinstance(rarity, str) and rarity in KNOWN_RARITIES:
@@ -634,8 +634,8 @@ def build_locale_index(
     # 自動フォールバックするので i18n ファイルが小さくなる
     skin_descs_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
-    # 地域名の locale 翻訳は index.html の REGION_LABELS に hardcode してるので
-    # i18n ファイルには含めない。index.html 側も state.i18n.regions は参照しない。
+    # 地域名の locale 翻訳は js/i18n.js の REGION_LABELS に hardcode してるので
+    # i18n ファイルには含めない。ブラウザ側も state.i18n.regions は参照しない。
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)

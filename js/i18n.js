@@ -1796,7 +1796,11 @@ export function syncFitButton() {
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
 export function applyStaticUIStrings() {
-  document.documentElement.lang = state.locale === "default" ? "en" : state.locale.split("_")[0];
+  // 中文だけは言語コード "zh" では簡体/繁体が区別できないので script subtag で分ける
+  const LANG_TAG_OVERRIDES = { zh_cn: "zh-Hans", zh_tw: "zh-Hant" };
+  document.documentElement.lang = state.locale === "default"
+    ? "en"
+    : LANG_TAG_OVERRIDES[state.locale] || state.locale.split("_")[0];
   $("search").placeholder = t("search_placeholder");
   $("lang-btn").setAttribute("aria-label", t("lang_aria"));
   $("tab-home").textContent = t("nav_home");
@@ -1900,7 +1904,10 @@ export async function loadLocale(code) {
     return;
   }
   try {
-    const res = await fetch(`./i18n/${code}.json`, { cache: "force-cache" });
+    // data.json (no-cache) と鮮度を揃える。force-cache だと一度入った HTTP キャッシュが
+    // 無期限に使われ、週次更新後も新スキンの翻訳が当たらない (sw.js の network-first も
+    // Request の cache mode を引き継ぐため迂回できない)。ETag 再検証は 304 で軽い
+    const res = await fetch(`./i18n/${code}.json`, { cache: "no-cache" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const json = await res.json();
     state.locale = code;
