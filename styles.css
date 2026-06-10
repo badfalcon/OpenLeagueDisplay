@@ -1435,14 +1435,21 @@
       font-size: 11px;
       letter-spacing: 0.06em;
     }
-    /* 下部ナビでは件数を右上の角バッジにして、ラベルは全幅を使えるようにする
-       (テキスト連結 "(19)" だと等幅 25vw に収まらない)。.btn は position:relative
-       なのでボタン基準で角に貼り付く。ボタン内に収め overflow:hidden に切られない */
-    .header-secondary .header-actions .btn .gallery-count {
-      position: absolute; top: 3px; right: 3px;
+    /* 下部ナビの「マイギャラリー」だけ件数バッジをボタン上辺の外へ浮かせる。
+       ボタン内の角に置くとラベル (中央寄せで幅いっぱい) と重なって読みづらいため、
+       テキストの真上の空きへ逃がす。#gallery-btn 限定で overflow:visible にし
+       (slideshow など他ボタンの ellipsis は維持)、ラベルは span 側で ellipsis を保つ */
+    .header-secondary #gallery-btn { overflow: visible; }
+    .header-secondary #gallery-btn .btn-label {
+      display: block; min-width: 0; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .header-secondary #gallery-btn .gallery-count {
+      position: absolute; top: -4px; right: 4px;
       margin: 0;
       min-width: 15px; height: 14px; padding: 0 3px;
       font-size: 8.5px;
+      border: 1px solid var(--bg);
     }
 
     header {

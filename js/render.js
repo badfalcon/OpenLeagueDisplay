@@ -135,7 +135,13 @@ export function refreshGalleryBtn() {
   const btn = $("gallery-btn");
   if (!btn) return;
   const n = state.selected.size;
-  btn.textContent = t("select_mode");
+  // ラベルは span に包む: モバイル下部ナビでボタンを overflow:visible にして件数バッジを
+  // ボタン上辺の外 (テキストの真上の空き) へ浮かせても、ラベル側の ellipsis を保てる
+  btn.textContent = "";
+  const label = document.createElement("span");
+  label.className = "btn-label";
+  label.textContent = t("select_mode");
+  btn.appendChild(label);
   if (n > 0) {
     const badge = document.createElement("span");
     badge.className = "gallery-count";
