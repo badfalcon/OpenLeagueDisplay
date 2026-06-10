@@ -821,7 +821,9 @@
     margin-bottom: 12px;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   }
-  .lb-close, .lb-nav {
+  /* ナビ矢印 (‹ ›) はタップしやすさ優先で左右中央に大きく残す。閉じる (✕) は
+     上ツールバーの 1 列に集約したので、この大きな丸ボタンは矢印専用になった */
+  .lb-nav {
     position: absolute;
     background: rgba(12, 11, 20, 0.65);
     border: 1px solid var(--rule-bold);
@@ -833,16 +835,18 @@
     font-size: 22px; font-style: normal;
     transition: all 0.18s;
   }
-  .lb-close:hover, .lb-nav:hover {
+  .lb-nav:hover {
     background: var(--gold); color: #1a1208; border-color: var(--gold);
   }
-  .lb-close { top: 28px; right: 28px; }
   .lb-prev { top: 50%; left: 28px; transform: translateY(-50%); }
   .lb-next { top: 50%; right: 28px; transform: translateY(-50%); }
+  /* 操作系を 1 本のバーに集約: counter は左、操作ボタン (一時停止/fit/⚙/閉じる) は
+     右に寄せて閉じるを右端に。左右いっぱいに伸ばして spacer で押し分ける */
   .lb-toolbar {
-    position: absolute; top: 28px; left: 28px;
-    display: flex; gap: 8px; font-size: 11px;
+    position: absolute; top: 28px; left: 28px; right: 28px;
+    display: flex; gap: 8px; align-items: center; font-size: 11px;
   }
+  .lb-toolbar-spacer { flex: 1 1 auto; }
   .lb-toolbar .badge {
     padding: 9px 14px;
     background: rgba(12, 11, 20, 0.65);
@@ -860,11 +864,17 @@
     padding: 9px 14px; font-size: 10px;
     background: rgba(12, 11, 20, 0.65);
   }
+  /* アイコンのみのボタン (⛶ / ⚙ / ✕) は字面が小さいので少しグリフを大きく、
+     正方形寄りの padding にして 1 列の中で粒を揃える */
+  .lb-toolbar .lb-icon {
+    padding: 9px 11px; font-size: 14px; line-height: 1;
+  }
   /* ⚙ ボタンと、その下にドロップする設定メニュー (間隔 / キャプション) を
      束ねる相対配置のラッパ。メニューはこの基準で絶対配置する */
   .ss-options-wrap { position: relative; }
+  /* ⚙ はバー右側にあるので、メニューはギア右端に揃えて左へ広げる (画面外に出さない) */
   .ss-menu {
-    position: absolute; top: calc(100% + 8px); left: 0; z-index: 2;
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 2;
     display: flex; flex-direction: column; gap: 6px;
     padding: 8px;
     background: rgba(12, 11, 20, 0.92);
@@ -876,20 +886,10 @@
   /* メニュー内のボタンは横幅を揃えて左寄せ。値が変わっても折り返さない */
   .ss-menu .ss-btn { width: 100%; text-align: left; white-space: nowrap; }
 
-  .slideshow-controls {
-    position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 8px; opacity: 0; transition: opacity 0.25s;
-    /* 透明 (フェードアウト中) は当たり判定も消す。pointer-events:auto のままだと
-       見えないのにクリック/タップを吸う透明な死角が残る。表示される時だけ auto に戻す */
-    pointer-events: none;
-  }
-  .lightbox.slideshow:hover .slideshow-controls { opacity: 1; pointer-events: auto; }
-  /* hover が無いデバイス (touch / pen) では再生コントロールを常時表示。
-     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う。
-     スライドショー時 (.lightbox.slideshow) に限定して、ビューア表示では当たり判定も
-     見た目も出さない (JS の display:none と二重で担保) */
+  /* 一時停止 (#ss-pause) は上ツールバーの 1 列に移したので、独立配置の
+     .slideshow-controls とフェード/ホバー制御は廃止。表示/非表示は JS の
+     display 切替 (スライドショー時のみ) で担保する */
   @media (hover: none) {
-    .lightbox.slideshow .slideshow-controls { opacity: 1; pointer-events: auto; }
     /* タッチ端末は hover で前に出せないので ＋ を常時不透明にする */
     .sel-checkbox { opacity: 1; }
   }
@@ -1410,11 +1410,10 @@
     .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
     .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
     .lb-overlay { padding: 48px 24px 24px; }
-    .lb-close, .lb-nav { width: 44px; height: 44px; }
-    .lb-close { top: 16px; right: 16px; }
+    .lb-nav { width: 44px; height: 44px; }
     .lb-prev { left: 16px; }
     .lb-next { right: 16px; }
-    .lb-toolbar { top: 16px; left: 16px; }
+    .lb-toolbar { top: 16px; left: 16px; right: 16px; }
     .progress-box { min-width: auto; padding: 28px 24px; }
     .progress-box h3 { font-size: 22px; }
   }
@@ -1423,8 +1422,8 @@
      - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
      - header は 2 段固定 (行1: brand + ?/lang / 行2: tabs + 操作ボタン)。
        行2 は入りきらない時だけ flex-wrap で折返す
-     - lightbox の :hover 依存 (slideshow-controls) や中央サイドナビを
-       タッチで操作できる形へ作り直す */
+     - lightbox の操作系は上ツールバーの 1 列に集約し、中央サイドナビは
+       タッチで操作しやすい下隅へ作り直す */
   @media (max-width: 600px) {
     /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有。
        --bottom-nav-h は下部固定ナビ (header-secondary) の本体高さ (safe-area は別途加算) */
@@ -1571,30 +1570,20 @@
     .champ-card.selected .sel-checkbox::before,
     .line-card.selected .sel-checkbox::before { font-size: 22px; }
 
-    /* lightbox: 画像領域を優先、close/nav は 48px に拡大、サイドナビは
-       下端に寄せて片手親指で届く位置へ。slideshow-controls は :hover が効かない
-       touch で永久に隠れる長年のバグ (line 725) を opacity: 1 で解消 */
+    /* lightbox: 画像領域を優先、ナビ矢印は 48px に拡大して下端へ寄せ片手親指で
+       届く位置に。閉じる/一時停止/fit/⚙ は上ツールバーの 1 列に集約済み */
     .lb-overlay { padding: 56px 16px 18px; }
     .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
     .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
     .lb-desc    { margin-top: 10px; max-width: 92vw; font-size: 13px; line-height: 1.5; }
-    .lb-close, .lb-nav { width: 48px; height: 48px; font-size: 24px; }
-    .lb-close   { top: var(--safe-top); right: 12px; }
-    .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }
+    .lb-nav { width: 48px; height: 48px; font-size: 24px; }
+    .lb-toolbar { top: var(--safe-top); left: 12px; right: 12px; gap: 6px; }
     .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
-    /* モバイルでは mode バッジ (VIEWER / SLIDESHOW) を常に畳んで上ツールバーの横幅を空ける。
-       スライドショーか否かは再生コントロールの有無で分かり、狭幅 (320px) で
-       counter / fit / interval と並べるとはみ出すため (この rule はモード非依存で常時適用) */
-    .lb-toolbar #lb-mode { display: none; }
+    /* ナビ矢印は下隅へ (上ツールバーの操作列・最下部キャプションと縦に分離。
+       片手の親指で届きやすい)。閉じる/一時停止は上ツールバーの 1 列に集約済み */
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
     .lb-next { right: 12px; }
-    /* 再生コントロールは下部に置くと、description (lore) を持つスキンで lb-overlay の
-       キャプションが伸びた時に説明文へ被る (固定 bottom では可変高を避けきれない)。
-       画像は object-fit:contain で上下にレターボックスが出るので、上ツールバー
-       (badge ~32px) の直下=黒余白へ移し、最下部キャプションと構造的に分離する。
-       opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
-    .slideshow-controls { top: calc(var(--safe-top) + 50px); bottom: auto; }
 
     /* ギャラリーツールバー: 狭幅ではボタンを詰めて折り返す */
     .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
