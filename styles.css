@@ -1609,6 +1609,13 @@
     .tut-nav { gap: 6px; }
   }
 
+  /* モバイル縦画面はレターボックスで画像下の余白が大きいので、説明枠を 6 行ぶんまで
+     確保して長めの lore でもスキン名の高さがほぼ動かないようにする。横画面/デスクトップは
+     縦の余裕が無いので既定の ~3 行 (4.6em) のまま */
+  @media (max-width: 600px) and (orientation: portrait) {
+    .lb-desc { min-height: 9em; }
+  }
+
   /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
      skin/line は 1 列、champ は 3 列固定にする */
   @media (max-width: 400px) {
