@@ -57,6 +57,10 @@ export const state = {
     list: [], idx: 0, mode: "manual",
     timer: null, interval: 7000, paused: false, frontIsA: true,
     seq: 0, lastFocus: null,
+    // 画像の収め方: "contain" (全体表示・上下/左右に黒帯) ↔ "cover" (画面いっぱい・
+    // 一部クロップ)。縦長スマホで 16:9 スプラッシュの黒帯が大きいので切替えられる。
+    // localStorage で永続化し、ライトボックスを開く度に反映する
+    fit: "contain",
   },
   // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた
   // 要素 (閉じた時に戻すため)。state.lb と同じ形に揃える
@@ -75,6 +79,8 @@ export const LS_LOCALE_KEY = "old.locale";
 export const LS_SORT_KEY = "old.sort";
 // 壁紙スライドショーの切替間隔 (ミリ秒) を永続化。ローカル実行モードでのみ使う。
 export const LS_WP_INTERVAL_KEY = "old.wpInterval";
+// ライトボックスの画像フィット ("contain" / "cover") を永続化。
+export const LS_LB_FIT_KEY = "old.lbFit";
 // 初回訪問チュートリアルの既読フラグ。値は "1" (見せたら立てる) で、未設定なら未読扱い。
 // ヘッダの ? ボタン / ? キーから再表示する場合はこのフラグを変更しない (既読のまま)
 export const LS_TUTORIAL_KEY = "old.tutorial.seen";

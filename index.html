@@ -164,6 +164,9 @@
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
     <span class="badge" id="lb-mode"></span>
+    <!-- 画像フィット切替: contain (全体) ↔ cover (画面いっぱい)。縦長スマホで
+         16:9 スプラッシュの黒帯を潰せる。アイコンで状態を示し aria-label は固定 -->
+    <button class="ss-btn" id="lb-fit" aria-label="Toggle image fit">⛶</button>
     <!-- 間隔は「一度決めたら固定」の設定なので、操作 (一時停止) とは分離して
          常時表示の上ツールバーに置く。スライドショー時のみ JS で表示する -->
     <button class="ss-btn" id="ss-interval" style="display:none">⏱ 7s</button>
@@ -174,9 +177,10 @@
   <div class="lb-overlay">
     <div class="lb-champ" id="lb-champ"></div>
     <div class="lb-skin" id="lb-skin"></div>
-    <!-- スキンの説明文 (lore/flavor)。description を持つスキンは少数なので、
-         無いときは js 側で hidden 属性を立てて畳む -->
-    <div class="lb-desc" id="lb-desc" hidden></div>
+    <!-- スキンの説明文 (lore/flavor)。description を持つスキンは少数だが、無い時も
+         領域 (min-height) を確保して、説明の有無でスキン名の高さがズレないようにする
+         (畳まない)。テキストは js が入れる -->
+    <div class="lb-desc" id="lb-desc"></div>
   </div>
   <div class="slideshow-controls" id="ss-controls">
     <button class="ss-btn" id="ss-pause">⏸ Pause</button>
