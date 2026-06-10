@@ -1783,7 +1783,8 @@ export function syncPauseButton() {
 
 // ライトボックスの画像フィット切替ボタンを state.lb.fit に同期させる。アイコン (⛶) は
 // 固定で、cover (画面いっぱい) の時だけゴールド点灯 (.active) で状態を示す
-// (syncPauseButton と同じ「状態反映だけ」の関数)。aria-label は固定の説明文。
+// (syncPauseButton と同じ「状態反映だけ」の関数)。aria-label は contain/cover の状態では
+// 変えず一定の説明文 (locale には t() で追従する)。
 export function syncFitButton() {
   const btn = $("lb-fit");
   if (!btn) return;

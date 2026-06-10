@@ -1506,20 +1506,14 @@
     }
     .champ-header-controls > #search {
       flex: 1 1 140px;
-      width: auto;
       min-width: 0;
-      max-width: none;
     }
     .champ-header-controls > .ctrl-select {
       flex: 0 0 auto;
-      width: auto;
-      max-width: none;
     }
     /* 戻るボタンは内容幅に収めて場所を空ける (左寄せの小さな矢印ボタン) */
     .champ-header-controls > #back-btn {
       flex: 0 0 auto;
-      width: auto;
-      max-width: none;
       padding-left: 14px; padding-right: 14px;
     }
 
@@ -1560,8 +1554,9 @@
     .lb-close   { top: var(--safe-top); right: 12px; }
     .lb-toolbar { top: var(--safe-top); left: 12px; gap: 6px; }
     .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
-    /* スライドショー時は counter / mode / fit / interval が並ぶ。狭幅では mode バッジを
-       畳む (再生コントロールの有無でモードは分かる) ことで横はみ出しを防ぐ */
+    /* モバイルでは mode バッジ (VIEWER / SLIDESHOW) を常に畳んで上ツールバーの横幅を空ける。
+       スライドショーか否かは再生コントロールの有無で分かり、狭幅 (320px) で
+       counter / fit / interval と並べるとはみ出すため (この rule はモード非依存で常時適用) */
     .lb-toolbar #lb-mode { display: none; }
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
@@ -1619,6 +1614,12 @@
   }
   @media (max-width: 600px) and (orientation: portrait) and (min-height: 500px) {
     .lb-desc { min-height: 9em; }
+  }
+  /* 予約を効かせない短い画面 (高さ <500px) では、説明なしスキンの .lb-desc は常時 DOM に
+     残るので margin-top だけが残り名前を ~10-14px 押し上げる。:empty の時だけ margin も
+     消して旧 hidden 相当に畳む (高さ余裕のある画面は予約のため margin を残す = 一貫性維持) */
+  @media (max-height: 499px) {
+    .lb-desc:empty { margin-top: 0; }
   }
 
   /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため

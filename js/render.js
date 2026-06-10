@@ -157,8 +157,7 @@ export function refreshGalleryBtn() {
 // を「発見可能な入口」として可視化するのが狙い。キー列挙は locale 非依存で安定する
 // .default の Object.keys を基準にし、ラベルだけ現在 locale (無ければ default) で当てる。
 // active (現在の検索語と一致) なチップを再タップすると検索を解除する (トグル)。
-function filterChipsHTML() {
-  const q = state.searchQuery.toLowerCase();
+function filterChipsHTML(q) {
   const seen = new Set();
   const chips = [];
   for (const map of [ROLE_LABELS, RARITY_LABELS, REGION_LABELS]) {
@@ -199,7 +198,7 @@ function wireFilterChips(root) {
 function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
   // home view の先頭に常設するフィルタチップ列 (検索の有無に関わらず出す)
-  const chips = filterChipsHTML();
+  const chips = filterChipsHTML(q);
   // 検索キーワードは複数軸を OR で AND しない、つまり「どの軸でもヒットすれば残す」。
   // 軸 (チャンピオン側): チャンピオン名 (alias/英語名/翻訳名)、ロール (Mage 等)、
   // 地域 (Demacia 等)。軸 (スキン側): スキン名 (英語/翻訳)、rarity (Legendary 等)。
