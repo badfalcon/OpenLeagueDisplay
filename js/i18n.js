@@ -1865,7 +1865,16 @@ export function skinLabel(c, s) {
 // スキンの説明文 (lore/flavor)。大半のスキンには無いので空文字を返すケースが多い。
 // 翻訳が無い locale では英語 (data.json の s.desc) にフォールバック
 export function skinDescription(c, s) {
-  return state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc || "";
+  const own = state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc;
+  if (own) return own;
+  // Classic/base は skin 固有の説明文を持たないので champion 紹介文 (bio) で補完する。
+  // 非 base で desc 欠落のスキンは従来どおり空のまま (= ライトボックスで畳まれる)
+  if (s.label.endsWith("_Classic")) return championBio(c);
+  return "";
+}
+// チャンピオン紹介文 (shortBio)。翻訳が無ければ data.json の英語 c.bio にフォールバック
+export function championBio(c) {
+  return state.i18n.champion_descriptions[c.alias] || c.bio || "";
 }
 export function lineName(lid) {
   return state.i18n.lines[String(lid)] || (DATA && DATA.skin_lines || {})[String(lid)] || `Line ${lid}`;
@@ -1901,7 +1910,7 @@ export function pickInitialLocale(available) {
 export async function loadLocale(code) {
   if (code === "default") {
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} };
     return;
   }
   try {
@@ -1916,12 +1925,14 @@ export async function loadLocale(code) {
       champions: json.champions || {},
       skins: json.skins || {},
       skin_descriptions: json.skin_descriptions || {},
+      // 旧 i18n ファイル (champion_descriptions 追加前) でも参照が壊れないよう || {}
+      champion_descriptions: json.champion_descriptions || {},
       lines: json.lines || {},
     };
   } catch (e) {
     // i18n ファイルが無い/壊れている時は静かに英語にフォールバック。UI は動く
     console.warn(`i18n: ${code} の読み込み失敗、英語にフォールバック`, e);
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} };
   }
 }
