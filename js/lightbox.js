@@ -151,13 +151,10 @@ function updateMeta() {
   if (!item) return;
   $("lb-champ").textContent = item.champ;
   $("lb-skin").textContent = item.skin;
-  // 説明文はめったに付いていないので、無いときは要素ごと畳む (CSS でなく hidden 属性で)
+  // 説明文はめったに付いていないが、無くても領域は CSS の min-height で確保しておき、
+  // 説明の有無でスキン名の高さがズレないようにする (畳まない)。テキストだけ差し替える
   const descEl = $("lb-desc");
-  if (descEl) {
-    const desc = item.desc || "";
-    descEl.textContent = desc;
-    descEl.hidden = !desc;
-  }
+  if (descEl) descEl.textContent = item.desc || "";
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
 }
 function showCurrent() {

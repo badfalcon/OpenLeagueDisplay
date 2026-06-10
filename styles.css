@@ -788,10 +788,12 @@
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
   }
   /* description を持つスキンはごく少数 (Legendary/Ultimate や questSkinInfo の
-     一部のみ)。本文サイズで読みやすい幅にクランプし、長文でも崩れないよう
-     2行程度を想定した line-height にしておく */
+     一部のみ)。本文サイズで読みやすい幅にクランプ。無い時も min-height で領域を
+     確保し、説明の有無でスキン名の高さがズレないようにする (≈3 行ぶん。これより
+     長い説明だけは名前が上に動くが、無し⇔短い説明では一定) */
   .lb-desc {
     margin-top: 14px;
+    min-height: 4.6em;
     max-width: min(720px, 70vw);
     font-family: var(--font-body);
     font-size: clamp(13px, 1.05vw, 15px);
