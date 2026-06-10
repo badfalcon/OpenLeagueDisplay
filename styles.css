@@ -766,6 +766,12 @@
     from { transform: scale(1.0) translate(0, 0); }
     to   { transform: scale(1.08) translate(-1.5%, -1%); }
   }
+  /* スマホ拡大時スライドショー用 (適用は @media (max-width:600px) 側)。
+     cover のクロップ窓を画像左端→右端へ動かし、ズームせず横幅全体を順に見せる */
+  @keyframes lb-panx {
+    from { object-position: 0% center; }
+    to   { object-position: 100% center; }
+  }
   .lb-overlay {
     position: absolute; left: 0; right: 0; bottom: 0;
     /* 明るいスプラッシュ (例: Star Guardian 系) でも文字が読めるよう、
@@ -1574,6 +1580,17 @@
        (badge ~32px) の直下=黒余白へ移し、最下部キャプションと構造的に分離する。
        opacity: 1 は @media (hover: none) 側で担保するのでここでは位置だけ */
     .slideshow-controls { top: calc(var(--safe-top) + 50px); bottom: auto; }
+    /* スマホ + 拡大 (.fill=cover) のスライドショーは kenburns ズームを止め、
+       object-position の左右パンで切れた左右まで全体を見せる (cover は画像をボックスに
+       クリップするので transform 移動では黒帯が出るだけ)。resting を終点 100% に固定して
+       .show 解除時 (退場フェード) の中央スナップを防ぐ。パン長は 1 スライド表示時間
+       (= --lb-pan-dur ← state.lb.interval) に合わせ左→右を 1 回通す。.fill 追加で
+       kenburns (.lightbox.slideshow .lb-img.show) より詳細度が高く animation を上書き */
+    .lightbox.slideshow.fill .lb-img { object-position: 100% center; }
+    .lightbox.slideshow.fill .lb-img.show {
+      animation: lb-panx var(--lb-pan-dur, 7000ms) ease-in-out both;
+      transform: none;  /* 念のため kenburns 由来の transform を打ち消す */
+    }
 
     /* ギャラリーツールバー: 狭幅ではボタンを詰めて折り返す */
     .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
@@ -1608,6 +1625,16 @@
     .tut-body  { font-size: 13px; line-height: 1.65; min-height: 13em; margin-bottom: 20px; }
     .tut-actions .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
     .tut-nav { gap: 6px; }
+  }
+
+  /* モーション控えめ設定では kenburns ズームも lb-panx パンも止めて静止表示にする
+     (fill のクロップは中央へ)。既存 kenburns も未対応だったので併せて対応。
+     上のモバイルブロックより後ろに置くことで、等詳細度の object-position:center が
+     resting 100% に後勝ちする */
+  @media (prefers-reduced-motion: reduce) {
+    .lightbox.slideshow .lb-img.show,
+    .lightbox.slideshow.fill .lb-img.show { animation: none; }
+    .lightbox.slideshow.fill .lb-img { object-position: center; }
   }
 
   /* 説明枠の領域確保 (説明の有無でスキン名がズレないように) は「縦に余裕がある時だけ」
