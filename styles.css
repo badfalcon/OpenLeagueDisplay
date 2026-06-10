@@ -800,6 +800,13 @@
     color: var(--ink);
     line-height: 1.55;
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.75);
+    /* Classic スキンは champion 紹介文 (bio) を出すが ~300-600 字と長いので、
+       lb-overlay が splash を覆って上に伸びないよう行数で上限を切る (溢れ分は ...)。
+       予約用の min-height (下の @media) と対になり、説明枠は実質「固定 N 行」になる */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
   }
   .lb-champ {
     font-family: var(--font-eyebrow);
@@ -1613,7 +1620,8 @@
     .lb-desc { min-height: 4.6em; }
   }
   @media (max-width: 600px) and (orientation: portrait) and (min-height: 500px) {
-    .lb-desc { min-height: 9em; }
+    /* 縦スマホは下のレターボックス余白が大きいので予約 6 行・clamp も 6 行に揃える */
+    .lb-desc { min-height: 9em; -webkit-line-clamp: 6; }
   }
   /* 予約を効かせない短い画面 (高さ <500px) では、説明なしスキンの .lb-desc は常時 DOM に
      残るので margin-top だけが残り名前を ~10-14px 押し上げる。:empty の時だけ margin も
