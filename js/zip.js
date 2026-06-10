@@ -136,6 +136,9 @@ async function downloadAsZip(items, zipName, opts = {}) {
       $("prog-count").textContent = t("zip_bundling_pct", meta.percent.toFixed(0));
     },
   );
+  // 圧縮フェーズ中のキャンセル (Cancel/Esc は packAbort を立てるだけで generateAsync は
+  // 走り切る) をここで拾う。捨てるのは生成済み blob だけなので保存せず終了する
+  if (state.packAbort) { hideProgress(); return; }
   saveBlob(blob, zipName);
   hideProgress();
   if (failed > 0) {

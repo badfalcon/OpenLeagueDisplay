@@ -31,6 +31,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
+│   ├── tutorial.js                  #   初回訪問チュートリアル (3ステップ。? ボタン / ? キーで再表示)
+│   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   └── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
 ├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
@@ -40,7 +42,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
 ├── build_installer.py               # installer/windows.iss を ISCC で叩くローカルビルド用ラッパー (stdlib)
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
-├── data.json                        # チャンピオン/スキンのマニフェスト (~1.1MB、初回 generate_data.py で生成)
+├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
 ├── .github/workflows/release.yml    # タグ push で各 OS のデスクトップバイナリを build & Release

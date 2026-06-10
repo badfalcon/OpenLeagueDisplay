@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import http.server
-import socketserver
 import sys
 
 HOST = "127.0.0.1"  # 外向きには公開しない (開発用)
@@ -23,7 +22,9 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 
 def main() -> None:
     handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer((HOST, PORT), handler) as httpd:
+    # 素の socketserver.TCPServer と違い allow_reuse_address=1 なので、Ctrl+C 直後の
+    # 再起動でも TIME_WAIT の "Address already in use" にならない
+    with http.server.HTTPServer((HOST, PORT), handler) as httpd:
         print(f"Serving at http://{HOST}:{PORT}  (Ctrl+C to stop)")
         try:
             httpd.serve_forever()
