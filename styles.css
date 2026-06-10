@@ -850,13 +850,17 @@
   .slideshow-controls {
     position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 8px; opacity: 0; transition: opacity 0.25s;
-    pointer-events: auto;
+    /* 透明 (フェードアウト中) は当たり判定も消す。pointer-events:auto のままだと
+       見えないのにクリック/タップを吸う透明な死角が残る。表示される時だけ auto に戻す */
+    pointer-events: none;
   }
-  .lightbox:hover .slideshow-controls { opacity: 1; }
+  .lightbox.slideshow:hover .slideshow-controls { opacity: 1; pointer-events: auto; }
   /* hover が無いデバイス (touch / pen) では再生コントロールを常時表示。
-     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う */
+     スマホ/タブレット/タッチノート全部 viewport 幅に依存せず正しく拾う。
+     スライドショー時 (.lightbox.slideshow) に限定して、ビューア表示では当たり判定も
+     見た目も出さない (JS の display:none と二重で担保) */
   @media (hover: none) {
-    .slideshow-controls { opacity: 1; }
+    .lightbox.slideshow .slideshow-controls { opacity: 1; pointer-events: auto; }
     /* タッチ端末は hover で前に出せないので ＋ を常時不透明にする */
     .sel-checkbox { opacity: 1; }
   }
