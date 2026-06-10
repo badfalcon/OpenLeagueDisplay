@@ -34,6 +34,9 @@ export function openLightbox(list, idx, mode) {
   lb.classList.toggle("slideshow", mode === "slideshow");
   // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
   lb.classList.toggle("fill", state.lb.fit === "cover");
+  // スマホ拡大時の左右パン (CSS lb-panx) の長さを 1 スライドの表示時間に合わせる。
+  // showImage が初回 .show を付ける前に設定しないと 1 枚目だけ CSS 既定 7000ms を読む
+  lb.style.setProperty("--lb-pan-dur", state.lb.interval + "ms");
   // 一時停止ボタンは上ツールバーの 1 列に同居 (独立コンテナは廃止)。
   // スライドショー時のみ表示する
   $("ss-pause").style.display = mode === "slideshow" ? "" : "none";
@@ -192,6 +195,9 @@ export function scheduleNext() {
 }
 export function startSlideshow() {
   stopSlideshow();
+  // 間隔ボタン (app.js) は再生中ここを呼び直すので、左右パンの長さも追従させる
+  // (走行中アニメには反映されず次スライドから効く)
+  $("lightbox").style.setProperty("--lb-pan-dur", state.lb.interval + "ms");
   // 初回画像のロード完了後に scheduleNext が呼ばれるので、ここで明示的に開始する必要なし。
   // ただし初回画像がキャッシュ済みで onload 発火タイミングが微妙な場合に備え、
   // フォールバックで interval 後に1回開始する
