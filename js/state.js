@@ -39,10 +39,11 @@ export const state = {
   currentChamp: null,
   currentLine: null,       // skin line id (string)
   searchQuery: "",
-  // ホーム画面のチャンピオン並び順。"default" は data.json の順 (= CDragon の
-  // リリース順、Annie が先頭)。"name_asc"/"name_desc" は localized name で
-  // localeCompare。locale を切替えると比較基準も同じ locale で再計算される
-  sortOrder: "default",
+  // ホーム画面のチャンピオン並び順。既定は "name_asc" (チャンピオン名の昇順)。
+  // "name_desc" は降順。どちらも localized name で localeCompare するので、
+  // locale を切替えると比較基準も同じ locale で再計算される。"release" は
+  // data.json の順 (= CDragon のリリース順、Annie が先頭) をそのまま使う
+  sortOrder: "name_asc",
   // 選択キー (= マイギャラリーの中身): `${alias}//${skinLabel}` (label はスキン側でユニーク)。
   // 選択は常時有効 (モード概念なし): 各カードの ＋ で個別 toggle する
   selected: new Set(),

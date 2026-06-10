@@ -211,9 +211,9 @@ function renderHome(root) {
   const localeRegions = REGION_LABELS[state.locale] || {};
   const hit = (s) => typeof s === "string" && s.toLowerCase().includes(q);
 
-  // 並び替え: "default" は data.json の順 (リリース順) をそのまま使うので何もしない。
-  // 名前順は localized name で localeCompare。比較に Intl 経路を使うため、
-  // 日本語/韓国語/中文 でもクライアントの自然な並びになる
+  // 並び替え: 既定の "name_asc"/"name_desc" は localized name で localeCompare。
+  // 比較に Intl 経路を使うため、日本語/韓国語/中文 でもクライアントの自然な並びになる。
+  // "release" は data.json の順 (リリース順) をそのまま使うので何もしない (sortSign=0)
   const sortSign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const cmpLocale = cmpTag();
   const sortChamps = (arr) => sortSign && arr.sort((a, b) =>

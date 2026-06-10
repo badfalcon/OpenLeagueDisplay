@@ -42,9 +42,12 @@ async function init() {
   // localStorage に保存があればそれを先に当てて初回フラッシュを減らす。
   const savedLoc = lsGet(LS_LOCALE_KEY);
   if (savedLoc && UI_STRINGS[savedLoc]) state.locale = savedLoc;
-  // 並び順も再訪時に復元。未知の値が来てたら無視して default のまま
+  // 並び順も再訪時に復元。未知の値が来てたら無視して既定 (name_asc) のまま。
+  // 旧バージョンの "default" (= リリース順) は新しい "release" にマップして挙動を保つ
   const savedSort = lsGet(LS_SORT_KEY);
-  if (savedSort === "default" || savedSort === "name_asc" || savedSort === "name_desc") {
+  if (savedSort === "default") {
+    state.sortOrder = "release";
+  } else if (savedSort === "release" || savedSort === "name_asc" || savedSort === "name_desc") {
     state.sortOrder = savedSort;
   }
   // ライトボックスの画像フィットも復元 ("contain" / "cover" のみ受理)
