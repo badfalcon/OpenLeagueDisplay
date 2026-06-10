@@ -788,12 +788,11 @@
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
   }
   /* description を持つスキンはごく少数 (Legendary/Ultimate や questSkinInfo の
-     一部のみ)。本文サイズで読みやすい幅にクランプ。無い時も min-height で領域を
-     確保し、説明の有無でスキン名の高さがズレないようにする (≈3 行ぶん。これより
-     長い説明だけは名前が上に動くが、無し⇔短い説明では一定) */
+     一部のみ)。本文サイズで読みやすい幅にクランプ。無い時の領域確保 (min-height) は
+     縦に余裕がある画面だけ効かせたいので base には置かず、下の高さ門番付き @media で
+     与える (横向きスマホ等の短い画面で空予約が名前を押し上げないように) */
   .lb-desc {
     margin-top: 14px;
-    min-height: 4.6em;
     max-width: min(720px, 70vw);
     font-family: var(--font-body);
     font-size: clamp(13px, 1.05vw, 15px);
@@ -1609,10 +1608,16 @@
     .tut-nav { gap: 6px; }
   }
 
-  /* モバイル縦画面はレターボックスで画像下の余白が大きいので、説明枠を 6 行ぶんまで
-     確保して長めの lore でもスキン名の高さがほぼ動かないようにする。横画面/デスクトップは
-     縦の余裕が無いので既定の ~3 行 (4.6em) のまま */
-  @media (max-width: 600px) and (orientation: portrait) {
+  /* 説明枠の領域確保 (説明の有無でスキン名がズレないように) は「縦に余裕がある時だけ」
+     効かせる。短い画面 (横向きスマホ ≤430px 高さ等) で予約すると、空の予約分だけ
+     スキン名が上に押し上がって中央サイドナビ等に近づくため、min-height:500px で門番する
+     (縦スマホは ~568px+ なので常に通過、横向きスマホ ~320-430px は通過しない)。
+     - 縦に余裕あり (デスクトップ/タブレット/縦スマホ): ~3 行 (4.6em)
+     - 縦スマホ (レターボックスで下に余白大): 6 行 (9em) */
+  @media (min-height: 500px) {
+    .lb-desc { min-height: 4.6em; }
+  }
+  @media (max-width: 600px) and (orientation: portrait) and (min-height: 500px) {
     .lb-desc { min-height: 9em; }
   }
 
