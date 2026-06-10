@@ -221,10 +221,11 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   必要時にだけ locale ファイルを fetch するので、英語利用者は追加帯域ゼロ。
   画像URLは locale 非依存 (CDragon の global asset は1セットのみ) なので i18n
   ファイルは「名前マップ + 説明文」だけ (`champions` / `skins` /
-  `skin_descriptions` / `champion_descriptions` / `lines`)。全チャンピオン分の
-  紹介文 (`champion_descriptions`) を持つため 1 locale あたり ~110-220KB
-  (id_id/th_th はスキン名翻訳が 170-180 件しか無く小さめだが、説明文・紹介文は
-  ほぼ全訳されるので相応に膨らむ)。
+  `skin_descriptions` / `champion_descriptions` / `lines`)。スキン説明文と
+  全チャンピオン紹介文を含むため 1 locale あたり ~650KB-1.5MB
+  (id_id ~650KB / ja_jp ~930KB / th_th・el_gr は CJK・ギリシャ文字で 1.4-1.6MB)。
+  `champion_descriptions` 追加分は +100-220KB/locale 程度で、大半は既存の
+  `skin_descriptions` 由来。各 locale は必要時のみ fetch、英語利用者は追加帯域ゼロ。
 - **i18n キーは英語の `<alias>//<skin label>`**: SELECT_KEY と同じ命名。ブラウザは
   `state.i18n.skins[key] || s.label` のフォールバックで、翻訳が無いキー (新スキンで
   未訳など) は英語にフォールバックして表示が壊れない。skins[] は locale 間で
