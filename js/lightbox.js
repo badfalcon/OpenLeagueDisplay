@@ -2,7 +2,7 @@
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
-import { t, toLightboxItem, syncPauseButton } from "./i18n.js";
+import { t, toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -34,13 +34,18 @@ export function openLightbox(list, idx, mode) {
   lb.classList.toggle("slideshow", mode === "slideshow");
   // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
   lb.classList.toggle("fill", state.lb.fit === "cover");
-  $("ss-controls").style.display = mode === "slideshow" ? "" : "none";
+  // 一時停止ボタンは上ツールバーの 1 列に同居 (独立コンテナは廃止)。
+  // スライドショー時のみ表示する
+  $("ss-pause").style.display = mode === "slideshow" ? "" : "none";
   // 前回 pause したまま閉じた時にラベル/見た目が「再開」のまま残るのを防ぐ
   // (paused は上で false に戻したので、開いた瞬間に必ず再生中表示へ同期する)
   syncPauseButton();
-  // 間隔ボタンは上ツールバー側 (常時表示) に置いたので、スライドショー時のみ表示する
-  $("ss-interval").style.display = mode === "slideshow" ? "" : "none";
-  $("lb-mode").textContent = mode === "slideshow" ? t("mode_slideshow") : t("mode_viewer");
+  syncCaptionButton();
+  // 間隔・キャプションの ⚙ メニューはスライドショー時のみ。開いた瞬間は必ず畳む
+  $("ss-options-wrap").style.display = mode === "slideshow" ? "" : "none";
+  $("ss-menu").hidden = true;
+  $("ss-options").setAttribute("aria-expanded", "false");
+  applyCaption();
   // 初回メディアはクロスフェード不要。動画スキンなら動画、それ以外は静止画を直接表示
   const seq = ++state.lb.seq;
   const item = state.lb.list[idx];
@@ -156,6 +161,16 @@ function updateMeta() {
   const descEl = $("lb-desc");
   if (descEl) descEl.textContent = item.desc || "";
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
+}
+// キャプション表示量を lightbox ルートの class に反映する。CSS 側で
+// .caption-name は説明文を、.caption-none はオーバーレイ全体を畳む。
+// ビューアモードでは設定 UI (⚙) を出さないので常に full 扱いにして予測可能にする
+// (= スライドショーで none にしても、別途開いた拡大表示には影響させない)。
+export function applyCaption() {
+  const active = state.lb.mode === "slideshow" ? state.lb.caption : "full";
+  const lb = $("lightbox");
+  lb.classList.toggle("caption-name", active === "name");
+  lb.classList.toggle("caption-none", active === "none");
 }
 function showCurrent() {
   const item = state.lb.list[state.lb.idx];

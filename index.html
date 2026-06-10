@@ -161,17 +161,29 @@
          poster に splash 静止画を当てて、動画ロード完了までの繋ぎにする -->
     <video class="lb-video" id="lb-video" muted loop playsinline preload="auto"></video>
   </div>
+  <!-- 操作系は上部の 1 本のバーに集約。counter を左、操作ボタン (一時停止 / fit /
+       ⚙ / 閉じる) を右に寄せて閉じるを右端に。spacer が左右を押し分ける。
+       ナビ矢印 ‹ › だけはタップしやすさ優先で左右中央に大きく残す -->
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
-    <span class="badge" id="lb-mode"></span>
+    <span class="lb-toolbar-spacer"></span>
+    <!-- 一時停止: スライドショー時のみ JS で display 切替して表示 -->
+    <button class="ss-btn" id="ss-pause" style="display:none">⏸ Pause</button>
     <!-- 画像フィット切替: contain (全体) ↔ cover (画面いっぱい)。縦長スマホで
-         16:9 スプラッシュの黒帯を潰せる。アイコンで状態を示し aria-label は固定 -->
-    <button class="ss-btn" id="lb-fit" aria-label="Toggle image fit">⛶</button>
-    <!-- 間隔は「一度決めたら固定」の設定なので、操作 (一時停止) とは分離して
-         常時表示の上ツールバーに置く。スライドショー時のみ JS で表示する -->
-    <button class="ss-btn" id="ss-interval" style="display:none">⏱ 7s</button>
+         16:9 スプラッシュの黒帯を潰せる。アイコンで状態を示し aria-label は固定。
+         ビューア/スライドショー両方で効くので常時表示する -->
+    <button class="ss-btn lb-icon" id="lb-fit" aria-label="Toggle image fit">⛶</button>
+    <!-- 間隔・キャプションは「一度決めたら固定」の設定なので ⚙ メニューに集約する。
+         スライドショー時のみ JS で wrap ごと表示する -->
+    <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
+      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-haspopup="true" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
+      <div class="ss-menu" id="ss-menu" hidden>
+        <button class="ss-btn" id="ss-interval">⏱ 7s</button>
+        <button class="ss-btn" id="ss-caption">💬 Full</button>
+      </div>
+    </div>
+    <button class="ss-btn lb-icon" id="lb-close" aria-label="Close">✕</button>
   </div>
-  <button class="lb-close" id="lb-close" aria-label="Close">✕</button>
   <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">‹</button>
   <button class="lb-nav lb-next" id="lb-next" aria-label="Next">›</button>
   <div class="lb-overlay">
@@ -181,9 +193,6 @@
          領域 (min-height) を確保して、説明の有無でスキン名の高さがズレないようにする
          (畳まない)。テキストは js が入れる -->
     <div class="lb-desc" id="lb-desc"></div>
-  </div>
-  <div class="slideshow-controls" id="ss-controls">
-    <button class="ss-btn" id="ss-pause">⏸ Pause</button>
   </div>
 </div>
 

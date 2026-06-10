@@ -57,6 +57,9 @@ export const state = {
   lb: {
     list: [], idx: 0, mode: "manual",
     timer: null, interval: 7000, paused: false, frontIsA: true,
+    // スライドショー時のキャプション表示量: "full" (名前+説明) / "name" (名前のみ) /
+    // "none" (非表示)。⚙ メニューから循環。ビューアモードでは常に full 扱い (適用しない)
+    caption: "full",
     seq: 0, lastFocus: null,
     // 画像の収め方: "contain" (全体表示・上下/左右に黒帯) ↔ "cover" (画面いっぱい・
     // 一部クロップ)。縦長スマホで 16:9 スプラッシュの黒帯が大きいので切替えられる。

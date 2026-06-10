@@ -67,7 +67,16 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **zip.js**: JSZip 連携。`pMap` / `downloadAsZip` は module 内 private、
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
-  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)
+  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。**操作系は上部の
+  1 本のバー (`.lb-toolbar`) に集約**: 左に counter、右に 一時停止 (`#ss-pause`、
+  スライドショー時のみ) / 画像フィット (`#lb-fit`、contain↔cover) / ⚙ メニュー
+  (`#ss-options`、スライドショー時のみ) / 閉じる (`#lb-close`) を並べ、`#lb-close`
+  が右端。`.lb-toolbar-spacer` (flex:1) が左右を押し分ける。ナビ矢印 (`.lb-nav`
+  ‹ ›) だけはタップしやすさ優先で左右中央に大きく残す (モバイルは下隅)。間隔と
+  キャプションは ⚙ メニュー (`#ss-menu`) にまとめてボタン数を抑える。キャプションは
+  `applyCaption()` が lightbox ルートに `caption-name` (説明文だけ畳む) /
+  `caption-none` (オーバーレイごと隠す) を付与し、full は class なし。ビューアモード
+  では常に full 扱い (⚙ を出さないので none のまま閉じても拡大表示に波及しない)
 - **local.js**: ローカル実行 (local_app.py) の検知と壁紙一括設定 API クライアント
   (`applyWallpaper`)、簡易 `toast`。**import は state.js のみ** (i18n.js を import しない
   ことで `render→local→i18n→render` の循環を作らない。`toast` は呼び出し側で翻訳済み
