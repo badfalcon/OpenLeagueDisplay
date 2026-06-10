@@ -306,6 +306,22 @@
      (#primary-action を home/lines で消すのに必要) */
   .btn[hidden] { display: none; }
 
+  /* マイギャラリーボタンの選択件数バッジ。テキスト連結 "(19)" の代わり (refreshGalleryBtn)。
+     デスクトップはラベル右に小さなゴールドの角バッジとして並べる。モバイルの下部ナビでは
+     下の @media で角バッジ (absolute) に切替えて横幅を食わないようにする */
+  .gallery-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: 7px;
+    min-width: 17px; height: 16px; padding: 0 4px;
+    box-sizing: border-box;
+    background: var(--gold); color: #1a1208;
+    font-family: var(--font-mono);
+    font-size: 9.5px; font-weight: 500; line-height: 1;
+    letter-spacing: 0;
+  }
+  /* ギャラリービュー中 (.primary = ゴールド地) はバッジを反転して埋もれさせない */
+  .btn.primary .gallery-count { background: #1a1208; color: var(--gold-hi); }
+
   /* スクリーンリーダー専用。視覚的には隠すがアクセシビリティツリーには残す。
      共有リンクのコピー完了通知 (#sr-status の aria-live) などに使う */
   .sr-only {
@@ -1418,6 +1434,15 @@
       padding: 0 6px;
       font-size: 11px;
       letter-spacing: 0.06em;
+    }
+    /* 下部ナビでは件数を右上の角バッジにして、ラベルは全幅を使えるようにする
+       (テキスト連結 "(19)" だと等幅 25vw に収まらない)。.btn は position:relative
+       なのでボタン基準で角に貼り付く。ボタン内に収め overflow:hidden に切られない */
+    .header-secondary .header-actions .btn .gallery-count {
+      position: absolute; top: 3px; right: 3px;
+      margin: 0;
+      min-width: 15px; height: 14px; padding: 0 3px;
+      font-size: 8.5px;
     }
 
     header {

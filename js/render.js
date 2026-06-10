@@ -125,14 +125,23 @@ export function render() {
   refreshGalleryBtn();
 }
 
-// ヘッダーの「マイギャラリー」ボタン: ラベルに選択件数を出し、ギャラリービュー中は
+// ヘッダーの「マイギャラリー」ボタン: 選択件数を出し、ギャラリービュー中は
 // .primary でアクティブ表現にする。選択数が変わる箇所 (toggle/bulk/clear) と
-// render() から呼ぶ。locale 切替時は applyStaticUIStrings からも呼ばれる
+// render() から呼ぶ。locale 切替時は applyStaticUIStrings からも呼ばれる。
+// 件数はテキストに "(19)" と連結せず別 span (.gallery-count) で出す: 下部固定ナビ
+// (モバイル) は 4 ボタン等幅で横幅が厳しく、ラベルに数字を足すとはみ出すため。
+// CSS 側でデスクトップ=ラベル右のバッジ / モバイル=角バッジ に振り分ける。
 export function refreshGalleryBtn() {
   const btn = $("gallery-btn");
   if (!btn) return;
   const n = state.selected.size;
-  btn.textContent = n > 0 ? `${t("select_mode")} (${n})` : t("select_mode");
+  btn.textContent = t("select_mode");
+  if (n > 0) {
+    const badge = document.createElement("span");
+    badge.className = "gallery-count";
+    badge.textContent = n;
+    btn.appendChild(badge);
+  }
   btn.classList.toggle("primary", state.view === "selected");
 }
 
