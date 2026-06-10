@@ -1579,6 +1579,12 @@
     .lb-nav { width: 48px; height: 48px; font-size: 24px; }
     .lb-toolbar { top: var(--safe-top); left: 12px; right: 12px; gap: 6px; }
     .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
+    /* 上の一括縮小 (9.5px) はテキスト系 (counter / interval / caption) 向け。
+       操作ボタンは指で押すので、タップ域 (min-height 44px ≒ --ctrl-h) を確保し、
+       アイコン (✕/⛶/⚙) は字面が小さいのでグリフを大きく戻す (上書きより後・同特定度)。
+       特に閉じる ✕ が縮みすぎて押しづらくならないようにする */
+    .lb-toolbar .ss-btn { min-height: 44px; }
+    .lb-toolbar .lb-icon { font-size: 16px; padding: 8px 12px; }
     /* ナビ矢印は下隅へ (上ツールバーの操作列・最下部キャプションと縦に分離。
        片手の親指で届きやすい)。閉じる/一時停止は上ツールバーの 1 列に集約済み */
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
