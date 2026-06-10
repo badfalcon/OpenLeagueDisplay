@@ -1408,8 +1408,8 @@
     }
 
     /* === 下部固定ナビ === 行2 (チャンピオン/シリーズ/マイギャラリー/スライドショー) を
-       上の窮屈な横一列から画面下端のアプリ風ナビに移す。4 ボタンが等幅 (~25vw) に
-       広がるので可読サイズへ戻せる。マークアップ・JS の active/primary ロジックは不変 */
+       上の窮屈な横一列から画面下端のアプリ風ナビに移し、画面幅いっぱいを 4 ボタンで
+       使えるようにして可読サイズへ戻す。マークアップ・JS の active/primary ロジックは不変 */
     .header-secondary {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
       margin: 0;
@@ -1421,19 +1421,24 @@
       -webkit-backdrop-filter: blur(20px) saturate(140%);
       border-top: 1px solid var(--rule-bold);
     }
+    /* 2 グループとも内容幅基準 (flex-basis:auto) で、余白は均等配分。厳密な等幅
+       (flex-basis:0) だと最長ラベル "MY GALLERY" だけが 25% に押し込められて省略
+       されるため、短いラベル (SKIN LINES 等) の余りを長いラベルに回せるようにする */
     .header-secondary .view-tabs,
-    .header-secondary .header-actions { flex: 1; display: flex; gap: 6px; }
+    .header-secondary .header-actions { flex: 1 1 auto; display: flex; gap: 6px; }
     .header-secondary .view-tabs .tab,
     .header-secondary .header-actions .btn {
-      flex: 1 1 0;
+      flex: 1 1 auto;
       /* equalizeTabs() が .view-tabs .tab にインライン min-width(px) を焼くので
-         !important で打ち消して等幅 flex を効かせる */
+         !important で打ち消して flex に委ねる */
       min-width: 0 !important;
       max-width: none;
       height: 44px;
-      padding: 0 6px;
-      font-size: 11px;
-      letter-spacing: 0.06em;
+      /* Cinzel 大文字は幅広なので字間 0・余白薄め・10px に詰めて収める。
+         320px 級は下の 400px ブロックで更に縮める */
+      padding: 0 4px;
+      font-size: 10px;
+      letter-spacing: 0;
     }
     /* 下部ナビの「マイギャラリー」だけ件数バッジをボタン上辺の外へ浮かせる。
        ボタン内の角に置くとラベル (中央寄せで幅いっぱい) と重なって読みづらいため、
@@ -1595,7 +1600,7 @@
      skin/line は 1 列、champ は 3 列固定にする */
   @media (max-width: 400px) {
     :root { --frame-cut: 8px; --container-pad: 10px; }
-    main { padding: 16px var(--container-pad) 96px; }
+    main { padding: 16px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 24px); }
     .skin-grid, .line-grid { grid-template-columns: 1fr; }
     .champ-grid { grid-template-columns: repeat(3, 1fr); }
 
@@ -1610,6 +1615,13 @@
       padding-left: 6px; padding-right: 6px;
       letter-spacing: 0;
       font-size: 9.5px;
+    }
+    /* 下部ナビは別ルール (0,3,0) で上書きされるので、320px 級向けに明示的に更に縮める。
+       "MY GALLERY" 等の最長ラベルを 320px でも省略させず収めるため 9px / 余白薄め */
+    .header-secondary .view-tabs .tab,
+    .header-secondary .header-actions .btn {
+      font-size: 9px;
+      padding: 0 3px;
     }
     .champ-header-controls .ctrl-select { padding-right: 20px; }
     header .view-tabs .tab { max-width: 36vw; }
