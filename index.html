@@ -127,9 +127,9 @@
   <button class="btn" id="back-btn">← Back</button>
   <input type="search" id="search" placeholder="Search champion…">
   <select class="ctrl-select" id="sort-select" aria-label="Sort order">
-    <option value="default">Default</option>
     <option value="name_asc">Name A → Z</option>
     <option value="name_desc">Name Z → A</option>
+    <option value="release">Release date</option>
   </select>
 </div>
 
@@ -163,9 +163,13 @@
   </div>
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
+    <!-- 画像フィット切替: contain (全体) ↔ cover (画面いっぱい)。縦長スマホで
+         16:9 スプラッシュの黒帯を潰せる。アイコンで状態を示し aria-label は固定。
+         ビューア/スライドショー両方で効くので常時表示する -->
+    <button class="ss-btn" id="lb-fit" aria-label="Toggle image fit">⛶</button>
     <!-- 間隔・キャプションは「一度決めたら固定」の設定なので、操作 (一時停止) とは
-         分離して ⚙ メニューに集約する。上ツールバーはカウンタ + ⚙ だけに絞って
-         ごちゃつきを防ぐ。スライドショー時のみ JS で wrap ごと表示する -->
+         分離して ⚙ メニューに集約する。ボタン数を抑えてごちゃつきを防ぐ。
+         スライドショー時のみ JS で wrap ごと表示する -->
     <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
       <button class="ss-btn ss-gear" id="ss-options" aria-haspopup="true" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
       <div class="ss-menu" id="ss-menu" hidden>
@@ -180,9 +184,10 @@
   <div class="lb-overlay">
     <div class="lb-champ" id="lb-champ"></div>
     <div class="lb-skin" id="lb-skin"></div>
-    <!-- スキンの説明文 (lore/flavor)。description を持つスキンは少数なので、
-         無いときは js 側で hidden 属性を立てて畳む -->
-    <div class="lb-desc" id="lb-desc" hidden></div>
+    <!-- スキンの説明文 (lore/flavor)。description を持つスキンは少数だが、無い時も
+         領域 (min-height) を確保して、説明の有無でスキン名の高さがズレないようにする
+         (畳まない)。テキストは js が入れる -->
+    <div class="lb-desc" id="lb-desc"></div>
   </div>
   <div class="slideshow-controls" id="ss-controls">
     <button class="ss-btn" id="ss-pause">⏸ Pause</button>

@@ -225,14 +225,26 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   翻訳名は `i18n/<locale>.json` に分離して持つ。ブラウザは初回 default で起動して
   必要時にだけ locale ファイルを fetch するので、英語利用者は追加帯域ゼロ。
   画像URLは locale 非依存 (CDragon の global asset は1セットのみ) なので i18n
-  ファイルは「名前マップだけ」。1 locale あたり ~15-160KB
-  (大半は ~110KB 前後、id_id/th_th はそもそも CDragon 側のスキン翻訳が
-  170-180 件しか無く 14KB 程度に縮む。el_gr/ru_ru は 150KB 超え)。
+  ファイルは「名前マップ + 説明文」だけ (`champions` / `skins` /
+  `skin_descriptions` / `champion_descriptions` / `lines`)。スキン説明文と
+  全チャンピオン紹介文を含むため 1 locale あたり ~650KB-1.5MB
+  (id_id ~650KB / ja_jp ~930KB / th_th・el_gr は CJK・ギリシャ文字で 1.4-1.6MB)。
+  `champion_descriptions` 追加分は +100-220KB/locale 程度で、大半は既存の
+  `skin_descriptions` 由来。各 locale は必要時のみ fetch、英語利用者は追加帯域ゼロ。
 - **i18n キーは英語の `<alias>//<skin label>`**: SELECT_KEY と同じ命名。ブラウザは
   `state.i18n.skins[key] || s.label` のフォールバックで、翻訳が無いキー (新スキンで
   未訳など) は英語にフォールバックして表示が壊れない。skins[] は locale 間で
   同じ index で並ぶ前提 (CDragon の構造上保証)。`_walk_skins_with_index` が
   default 側で覚えたパス情報を locale ロード時に再使用する。
+- **Classic スキンの説明文は champion 紹介文で補完**: CDragon は Classic/base
+  スキンに skin 単位の `description` を持たないため、ライトボックス/スライドショーで
+  デフォルトスキンの説明欄が常に空になる。対策として generate_data.py が
+  per-champion JSON の `shortBio` を `clean_bio` (HTML タグ除去 + 実体参照復元)
+  して各チャンピオンの `bio` フィールド (data.json) と locale 別
+  `champion_descriptions` (i18n) に格納し、`skinDescription()` が **Classic
+  スキンのときだけ** `championBio()` でフォールバック表示する。非 base で desc
+  欠落のスキンは従来どおり空 (畳まれる)。フォールバック順は skin 翻訳 → skin 英語
+  desc → champion 翻訳 bio → champion 英語 bio。
 
 ## CDragon のパスマッピング (重要)
 

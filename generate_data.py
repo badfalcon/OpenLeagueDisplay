@@ -13,8 +13,10 @@ GitHub Actions から自動実行されますが、ローカルでも手動で�
 
 from __future__ import annotations
 
+import html
 import json
 import os
+import re
 import ssl
 import sys
 import time
@@ -392,6 +394,22 @@ def cdragon_url(asset_path: str) -> str:
     return f"{CDRAGON}/latest/{p}"
 
 
+def clean_bio(raw) -> str:
+    """champion の shortBio をライトボックス表示用に正規化する。
+
+    shortBio には `<br><br>` や `<i>` 等の HTML タグ・`&quot;` 等の実体参照が
+    混ざる。ライトボックスは textContent で出すのでタグはそのまま文字列として
+    見えてしまうため、タグ除去 + 実体参照復元 + 連続空白の畳み込みをする。
+    空 (元から無い / 除去後に空) のときは "" を返す。
+    """
+    if not isinstance(raw, str):
+        return ""
+    # <br> 等は前後を空白に。残りのタグは単純除去
+    text = re.sub(r"<[^>]+>", " ", raw)
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     """1スキン or 1ティアからエントリを作成"""
     skin_name = skin_obj.get("name", "Unknown")
@@ -459,13 +477,14 @@ def _walk_skins_with_index(detail: dict):
                 yield (ti, qi), tier
 
 
-def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
+def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
     """data.json 用の manifest と、i18n パスで使う locale-align 用メタ情報を返す。
 
-    第2返り値の各要素は `(cid, alias, [(path, english_label), ...])`。
+    第2返り値の各要素は `(cid, alias, [(path, english_label, english_desc), ...], english_bio)`。
     `path` は `_walk_skins_with_index` が返すのと同じ `(top_index, quest_index_or_None)`。
     locale 側でも同じ path で同じ論理スキンに到達できるので、英語 label をキーに
-    locale 名を引ける辞書を生成できる。
+    locale 名を引ける辞書を生成できる。末尾の `english_bio` は champion 紹介文の
+    locale 取得時に「未訳 = 英語と同じ」を判定するために持たせる。
     """
     print("==> CDragon からチャンピオン一覧を取得...", flush=True)
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/v1"
@@ -531,7 +550,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
         )
 
     out_champs = []
-    align_meta: list[tuple[int, str, list]] = []
+    align_meta: list[tuple[int, str, list, str]] = []
     for ch in champions:
         cid = ch["id"]
         detail = details.get(cid)
@@ -565,6 +584,10 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
 
         regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
 
+        # チャンピオン紹介文。Classic/base スキンは skin 固有の説明文を持たないので、
+        # ライトボックスで bio をフォールバック表示する材料にする (空なら付けない)。
+        bio = clean_bio(detail.get("shortBio"))
+
         entry = {
             "name": name,
             "alias": alias,
@@ -575,8 +598,11 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
             entry["roles"] = roles
         if regions:
             entry["regions"] = regions
+        if bio:
+            entry["bio"] = bio
         out_champs.append(entry)
-        align_meta.append((cid, alias, paths_for_locale))
+        # 4 要素目に英語 bio を持たせて、locale 取得時の「未訳 = 英語と同じ」判定に使う
+        align_meta.append((cid, alias, paths_for_locale, bio))
 
     total = sum(len(c["skins"]) for c in out_champs)
 
@@ -612,7 +638,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list]]]:
 
 def build_locale_index(
     locale: str,
-    align_meta: list[tuple[int, str, list]],
+    align_meta: list[tuple[int, str, list, str]],
     keep_line_ids: set[str] | None = None,
 ) -> dict:
     """1 locale ぶんの { champions, skins, lines } 辞書を作る。
@@ -633,6 +659,9 @@ def build_locale_index(
     # 文字列一致した場合は「未訳」扱いで省略 — ブラウザは data.json 側の英語に
     # 自動フォールバックするので i18n ファイルが小さくなる
     skin_descs_map: dict[str, str] = {}
+    # チャンピオン紹介文 (shortBio) の翻訳。skin_descs_map と同じく英語と一致なら省略。
+    # Classic スキンのライトボックスで desc が無いときのフォールバックに使う
+    champion_descs_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
     # 地域名の locale 翻訳は js/i18n.js の REGION_LABELS に hardcode してるので
     # i18n ファイルには含めない。ブラウザ側も state.i18n.regions は参照しない。
@@ -645,21 +674,25 @@ def build_locale_index(
         print(f"   [警告] {locale} skinlines.json 失敗: {e}", flush=True)
 
     def _fetch_champ(meta):
-        cid, alias, paths = meta
+        cid, alias, paths, english_bio = meta
         try:
-            return cid, alias, paths, fetch_json(f"{base}/champions/{cid}.json")
+            return cid, alias, paths, english_bio, fetch_json(f"{base}/champions/{cid}.json")
         except Exception:
-            return cid, alias, paths, None
+            return cid, alias, paths, english_bio, None
 
     fail = 0
     with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as ex:
-        for cid, alias, paths, d in ex.map(_fetch_champ, align_meta):
+        for cid, alias, paths, english_bio, d in ex.map(_fetch_champ, align_meta):
             if d is None:
                 fail += 1
                 continue
             cname = d.get("name")
             if cname:
                 champs_map[alias] = cname
+            # 紹介文の翻訳。英語 bio と異なるときだけ載せる (未訳は英語に自動フォールバック)
+            local_bio = clean_bio(d.get("shortBio"))
+            if local_bio and local_bio != english_bio:
+                champion_descs_map[alias] = local_bio
             skins_arr = d.get("skins", []) or []
             for (top_idx, q_idx), english_label, english_desc in paths:
                 try:
@@ -690,6 +723,7 @@ def build_locale_index(
         "champions": champs_map,
         "skins": skins_map,
         "skin_descriptions": skin_descs_map,
+        "champion_descriptions": champion_descs_map,
         "lines": lines_map,
     }
 

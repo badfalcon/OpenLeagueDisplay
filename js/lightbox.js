@@ -32,6 +32,8 @@ export function openLightbox(list, idx, mode) {
   document.body.classList.add("lightbox-open");
   lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
+  // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
+  lb.classList.toggle("fill", state.lb.fit === "cover");
   $("ss-controls").style.display = mode === "slideshow" ? "" : "none";
   // 前回 pause したまま閉じた時にラベル/見た目が「再開」のまま残るのを防ぐ
   // (paused は上で false に戻したので、開いた瞬間に必ず再生中表示へ同期する)
@@ -152,13 +154,10 @@ function updateMeta() {
   if (!item) return;
   $("lb-champ").textContent = item.champ;
   $("lb-skin").textContent = item.skin;
-  // 説明文はめったに付いていないので、無いときは要素ごと畳む (CSS でなく hidden 属性で)
+  // 説明文はめったに付いていないが、無くても領域は CSS の min-height で確保しておき、
+  // 説明の有無でスキン名の高さがズレないようにする (畳まない)。テキストだけ差し替える
   const descEl = $("lb-desc");
-  if (descEl) {
-    const desc = item.desc || "";
-    descEl.textContent = desc;
-    descEl.hidden = !desc;
-  }
+  if (descEl) descEl.textContent = item.desc || "";
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
 }
 // キャプション表示量を lightbox ルートの class に反映する。CSS 側で

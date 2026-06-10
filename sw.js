@@ -10,7 +10,7 @@
 //   スプラッシュ全体で ~600MB あり、キャッシュに載せる方針ではない。
 // - シェル更新時は CACHE_VERSION を上げること (activate で古いキャッシュを掃除する)。
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v6";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // プリキャッシュ対象。sw.js と同階層基準の相対パス (GitHub Pages のサブパス配信に対応)

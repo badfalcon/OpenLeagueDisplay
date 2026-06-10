@@ -39,10 +39,11 @@ export const state = {
   currentChamp: null,
   currentLine: null,       // skin line id (string)
   searchQuery: "",
-  // ホーム画面のチャンピオン並び順。"default" は data.json の順 (= CDragon の
-  // リリース順、Annie が先頭)。"name_asc"/"name_desc" は localized name で
-  // localeCompare。locale を切替えると比較基準も同じ locale で再計算される
-  sortOrder: "default",
+  // ホーム画面のチャンピオン並び順。既定は "name_asc" (チャンピオン名の昇順)。
+  // "name_desc" は降順。どちらも localized name で localeCompare するので、
+  // locale を切替えると比較基準も同じ locale で再計算される。"release" は
+  // data.json の順 (= CDragon のリリース順、Annie が先頭) をそのまま使う
+  sortOrder: "name_asc",
   // 選択キー (= マイギャラリーの中身): `${alias}//${skinLabel}` (label はスキン側でユニーク)。
   // 選択は常時有効 (モード概念なし): 各カードの ＋ で個別 toggle する
   selected: new Set(),
@@ -52,7 +53,7 @@ export const state = {
   // から読み込んだ翻訳マップで上書き表示する。実データ (alias, label, splash URL,
   // SELECT_KEY, ZIP内パス) は locale 非依存で固定。localStorage で永続化
   locale: "default",
-  i18n: { champions: {}, skins: {}, skin_descriptions: {}, lines: {} },
+  i18n: { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} },
   lb: {
     list: [], idx: 0, mode: "manual",
     timer: null, interval: 7000, paused: false, frontIsA: true,
@@ -60,6 +61,10 @@ export const state = {
     // "none" (非表示)。⚙ メニューから循環。ビューアモードでは常に full 扱い (適用しない)
     caption: "full",
     seq: 0, lastFocus: null,
+    // 画像の収め方: "contain" (全体表示・上下/左右に黒帯) ↔ "cover" (画面いっぱい・
+    // 一部クロップ)。縦長スマホで 16:9 スプラッシュの黒帯が大きいので切替えられる。
+    // localStorage で永続化し、ライトボックスを開く度に反映する
+    fit: "contain",
   },
   // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた
   // 要素 (閉じた時に戻すため)。state.lb と同じ形に揃える
@@ -78,6 +83,8 @@ export const LS_LOCALE_KEY = "old.locale";
 export const LS_SORT_KEY = "old.sort";
 // 壁紙スライドショーの切替間隔 (ミリ秒) を永続化。ローカル実行モードでのみ使う。
 export const LS_WP_INTERVAL_KEY = "old.wpInterval";
+// ライトボックスの画像フィット ("contain" / "cover") を永続化。
+export const LS_LB_FIT_KEY = "old.lbFit";
 // 初回訪問チュートリアルの既読フラグ。値は "1" (見せたら立てる) で、未設定なら未読扱い。
 // ヘッダの ? ボタン / ? キーから再表示する場合はこのフラグを変更しない (既読のまま)
 export const LS_TUTORIAL_KEY = "old.tutorial.seen";

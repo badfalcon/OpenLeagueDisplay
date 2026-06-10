@@ -9,6 +9,8 @@ import { renderStats, refreshGalleryBtn } from "./render.js";
 // default (英語) にフォールバック。プレースホルダは {0}, {1} 形式。
 export const UI_STRINGS = {
   default: {
+    filters_label: "Filters",
+    lb_fit_aria: "Toggle image fit",
     search_placeholder: "Search champion or skin…",
     lang_aria: "Display language",
     nav_home: "Champions",
@@ -84,7 +86,7 @@ export const UI_STRINGS = {
     gallery_add: "Add to gallery",
     gallery_remove: "Remove from gallery",
     sort_aria: "Sort order",
-    sort_default: "Default",
+    sort_release: "Release date",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Open guide",
@@ -102,6 +104,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.",
   },
   ja_jp: {
+    filters_label: "フィルタ",
+    lb_fit_aria: "画像の表示サイズを切替",
     search_placeholder: "チャンピオン/スキン検索...",
     lang_aria: "表示言語",
     nav_home: "チャンピオン",
@@ -177,7 +181,7 @@ export const UI_STRINGS = {
     gallery_add: "ギャラリーに追加",
     gallery_remove: "ギャラリーから削除",
     sort_aria: "並び順",
-    sort_default: "デフォルト",
+    sort_release: "リリース日順",
     sort_name_asc: "名前 A → Z",
     sort_name_desc: "名前 Z → A",
     tut_help_aria: "ガイドを開く",
@@ -195,6 +199,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay は Riot Games が承認したものではなく、Riot Games または League of Legends の制作・運営に公式に関与する者の見解や意見を反映するものではありません。League of Legends および Riot Games は Riot Games, Inc. の商標または登録商標です。",
   },
   ko_kr: {
+    filters_label: "필터",
+    lb_fit_aria: "이미지 맞춤 전환",
     search_placeholder: "챔피언/스킨 검색…",
     lang_aria: "표시 언어",
     nav_home: "챔피언",
@@ -252,7 +258,7 @@ export const UI_STRINGS = {
     gallery_add: "갤러리에 추가",
     gallery_remove: "갤러리에서 제거",
     sort_aria: "정렬 순서",
-    sort_default: "기본",
+    sort_release: "출시일순",
     sort_name_asc: "이름 ㄱ → ㅎ",
     sort_name_desc: "이름 ㅎ → ㄱ",
     tut_help_aria: "가이드 열기",
@@ -270,6 +276,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay는 Riot Games의 승인을 받지 않았으며, Riot Games 또는 League of Legends 제작·운영에 공식적으로 관여한 누구의 견해나 의견도 대변하지 않습니다. League of Legends와 Riot Games는 Riot Games, Inc.의 상표 또는 등록 상표입니다.",
   },
   zh_cn: {
+    filters_label: "筛选",
+    lb_fit_aria: "切换图片适配",
     search_placeholder: "搜索英雄/皮肤…",
     lang_aria: "显示语言",
     nav_home: "英雄",
@@ -327,7 +335,7 @@ export const UI_STRINGS = {
     gallery_add: "添加到画廊",
     gallery_remove: "从画廊移除",
     sort_aria: "排序方式",
-    sort_default: "默认",
+    sort_release: "发布日期",
     sort_name_asc: "名称 A → Z",
     sort_name_desc: "名称 Z → A",
     tut_help_aria: "打开指南",
@@ -345,6 +353,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay 未获得 Riot Games 认可，也不代表 Riot Games 或任何正式参与制作或运营《英雄联盟》之人士的观点或意见。《英雄联盟》和 Riot Games 是 Riot Games, Inc. 的商标或注册商标。",
   },
   zh_tw: {
+    filters_label: "篩選",
+    lb_fit_aria: "切換圖片適配",
     search_placeholder: "搜尋英雄/造型…",
     lang_aria: "顯示語言",
     nav_home: "英雄",
@@ -401,7 +411,7 @@ export const UI_STRINGS = {
     gallery_add: "加入畫廊",
     gallery_remove: "從畫廊移除",
     sort_aria: "排序方式",
-    sort_default: "預設",
+    sort_release: "發佈日期",
     sort_name_asc: "名稱 A → Z",
     sort_name_desc: "名稱 Z → A",
     tut_help_aria: "開啟指南",
@@ -419,6 +429,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay 未獲得 Riot Games 認可，亦不代表 Riot Games 或任何正式參與製作或營運《英雄聯盟》之人士的觀點或意見。《英雄聯盟》與 Riot Games 為 Riot Games, Inc. 之商標或註冊商標。",
   },
   fr_fr: {
+    filters_label: "Filtres",
+    lb_fit_aria: "Basculer l'ajustement de l'image",
     search_placeholder: "Rechercher un champion ou un skin…",
     lang_aria: "Langue d'affichage",
     nav_home: "Champions",
@@ -475,7 +487,7 @@ export const UI_STRINGS = {
     gallery_add: "Ajouter à la galerie",
     gallery_remove: "Retirer de la galerie",
     sort_aria: "Ordre de tri",
-    sort_default: "Par défaut",
+    sort_release: "Date de sortie",
     sort_name_asc: "Nom A → Z",
     sort_name_desc: "Nom Z → A",
     tut_help_aria: "Ouvrir le guide",
@@ -493,6 +505,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay n'est pas approuvé par Riot Games et ne reflète pas les points de vue ou les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion de League of Legends. League of Legends et Riot Games sont des marques commerciales ou des marques déposées de Riot Games, Inc.",
   },
   de_de: {
+    filters_label: "Filter",
+    lb_fit_aria: "Bildanpassung umschalten",
     search_placeholder: "Champion oder Skin suchen…",
     lang_aria: "Anzeigesprache",
     nav_home: "Champions",
@@ -549,7 +563,7 @@ export const UI_STRINGS = {
     gallery_add: "Zur Galerie hinzufügen",
     gallery_remove: "Aus Galerie entfernen",
     sort_aria: "Sortierreihenfolge",
-    sort_default: "Standard",
+    sort_release: "Erscheinungsdatum",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Anleitung öffnen",
@@ -567,6 +581,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay wird von Riot Games nicht unterstützt und gibt nicht die Ansichten oder Meinungen von Riot Games oder Personen wieder, die offiziell an der Produktion oder Verwaltung von League of Legends beteiligt sind. League of Legends und Riot Games sind Marken oder eingetragene Marken von Riot Games, Inc.",
   },
   es_es: {
+    filters_label: "Filtros",
+    lb_fit_aria: "Alternar ajuste de imagen",
     search_placeholder: "Buscar campeón o aspecto…",
     lang_aria: "Idioma",
     nav_home: "Campeones",
@@ -623,7 +639,7 @@ export const UI_STRINGS = {
     gallery_add: "Añadir a la galería",
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
-    sort_default: "Predeterminado",
+    sort_release: "Fecha de lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -641,6 +657,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay no está avalado por Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie implicado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pt_br: {
+    filters_label: "Filtros",
+    lb_fit_aria: "Alternar ajuste da imagem",
     search_placeholder: "Buscar campeão ou skin…",
     lang_aria: "Idioma",
     nav_home: "Campeões",
@@ -697,7 +715,7 @@ export const UI_STRINGS = {
     gallery_add: "Adicionar à galeria",
     gallery_remove: "Remover da galeria",
     sort_aria: "Ordem",
-    sort_default: "Padrão",
+    sort_release: "Data de lançamento",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Abrir guia",
@@ -715,6 +733,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay não é endossado pela Riot Games e não reflete as visões ou opiniões da Riot Games nem de ninguém oficialmente envolvido na produção ou gestão de League of Legends. League of Legends e Riot Games são marcas comerciais ou marcas registradas da Riot Games, Inc.",
   },
   ru_ru: {
+    filters_label: "Фильтры",
+    lb_fit_aria: "Переключить масштаб изображения",
     search_placeholder: "Поиск чемпиона или образа…",
     lang_aria: "Язык",
     nav_home: "Чемпионы",
@@ -771,7 +791,7 @@ export const UI_STRINGS = {
     gallery_add: "Добавить в галерею",
     gallery_remove: "Удалить из галереи",
     sort_aria: "Порядок сортировки",
-    sort_default: "По умолчанию",
+    sort_release: "По дате выхода",
     sort_name_asc: "Имя А → Я",
     sort_name_desc: "Имя Я → А",
     tut_help_aria: "Открыть руководство",
@@ -789,6 +809,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay не одобрен Riot Games и не отражает взгляды или мнения Riot Games либо кого-либо, официально занятого в производстве или управлении League of Legends. League of Legends и Riot Games являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.",
   },
   it_it: {
+    filters_label: "Filtri",
+    lb_fit_aria: "Cambia adattamento immagine",
     search_placeholder: "Cerca un campione o una skin…",
     lang_aria: "Lingua di visualizzazione",
     nav_home: "Campioni",
@@ -845,7 +867,7 @@ export const UI_STRINGS = {
     gallery_add: "Aggiungi alla galleria",
     gallery_remove: "Rimuovi dalla galleria",
     sort_aria: "Ordine",
-    sort_default: "Predefinito",
+    sort_release: "Data di uscita",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Apri guida",
@@ -863,6 +885,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay non è approvato da Riot Games e non riflette le opinioni o i punti di vista di Riot Games né di chiunque sia ufficialmente coinvolto nella produzione o gestione di League of Legends. League of Legends e Riot Games sono marchi commerciali o marchi registrati di Riot Games, Inc.",
   },
   es_mx: {
+    filters_label: "Filtros",
+    lb_fit_aria: "Alternar ajuste de imagen",
     search_placeholder: "Buscar campeón o aspecto…",
     lang_aria: "Idioma",
     nav_home: "Campeones",
@@ -919,7 +943,7 @@ export const UI_STRINGS = {
     gallery_add: "Añadir a la galería",
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
-    sort_default: "Predeterminado",
+    sort_release: "Fecha de lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -937,6 +961,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay no cuenta con el respaldo de Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie involucrado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pl_pl: {
+    filters_label: "Filtry",
+    lb_fit_aria: "Przełącz dopasowanie obrazu",
     search_placeholder: "Szukaj bohatera lub skina…",
     lang_aria: "Język wyświetlania",
     nav_home: "Bohaterowie",
@@ -993,7 +1019,7 @@ export const UI_STRINGS = {
     gallery_add: "Dodaj do galerii",
     gallery_remove: "Usuń z galerii",
     sort_aria: "Sortowanie",
-    sort_default: "Domyślnie",
+    sort_release: "Data wydania",
     sort_name_asc: "Nazwa A → Z",
     sort_name_desc: "Nazwa Z → A",
     tut_help_aria: "Otwórz przewodnik",
@@ -1011,6 +1037,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay nie jest wspierany przez Riot Games i nie odzwierciedla poglądów ani opinii Riot Games ani nikogo oficjalnie zaangażowanego w tworzenie lub zarządzanie League of Legends. League of Legends i Riot Games są znakami towarowymi lub zastrzeżonymi znakami towarowymi Riot Games, Inc.",
   },
   tr_tr: {
+    filters_label: "Filtreler",
+    lb_fit_aria: "Görüntü uyumunu değiştir",
     search_placeholder: "Şampiyon veya kostüm ara…",
     lang_aria: "Görüntüleme dili",
     nav_home: "Şampiyonlar",
@@ -1067,7 +1095,7 @@ export const UI_STRINGS = {
     gallery_add: "Galeriye ekle",
     gallery_remove: "Galeriden çıkar",
     sort_aria: "Sıralama",
-    sort_default: "Varsayılan",
+    sort_release: "Çıkış tarihi",
     sort_name_asc: "İsim A → Z",
     sort_name_desc: "İsim Z → A",
     tut_help_aria: "Kılavuzu aç",
@@ -1085,6 +1113,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay, Riot Games tarafından onaylanmamıştır ve Riot Games'in ya da League of Legends'ın yapımında veya yönetiminde resmi olarak yer alan hiç kimsenin görüşlerini veya fikirlerini yansıtmaz. League of Legends ve Riot Games, Riot Games, Inc. şirketinin ticari markaları veya tescilli ticari markalarıdır.",
   },
   cs_cz: {
+    filters_label: "Filtry",
+    lb_fit_aria: "Přepnout přizpůsobení obrázku",
     search_placeholder: "Hledat šampiona nebo vzhled…",
     lang_aria: "Jazyk zobrazení",
     nav_home: "Šampioni",
@@ -1141,7 +1171,7 @@ export const UI_STRINGS = {
     gallery_add: "Přidat do galerie",
     gallery_remove: "Odebrat z galerie",
     sort_aria: "Řazení",
-    sort_default: "Výchozí",
+    sort_release: "Datum vydání",
     sort_name_asc: "Jméno A → Z",
     sort_name_desc: "Jméno Z → A",
     tut_help_aria: "Otevřít průvodce",
@@ -1159,6 +1189,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay není schválen společností Riot Games a neodráží názory ani stanoviska společnosti Riot Games či kohokoli oficiálně zapojeného do tvorby nebo správy League of Legends. League of Legends a Riot Games jsou ochranné známky nebo registrované ochranné známky společnosti Riot Games, Inc.",
   },
   el_gr: {
+    filters_label: "Φίλτρα",
+    lb_fit_aria: "Εναλλαγή προσαρμογής εικόνας",
     search_placeholder: "Αναζήτηση πρωταθλητή ή εμφάνισης…",
     lang_aria: "Γλώσσα εμφάνισης",
     nav_home: "Πρωταθλητές",
@@ -1215,7 +1247,7 @@ export const UI_STRINGS = {
     gallery_add: "Προσθήκη στη συλλογή",
     gallery_remove: "Αφαίρεση από τη συλλογή",
     sort_aria: "Ταξινόμηση",
-    sort_default: "Προεπιλογή",
+    sort_release: "Ημερομηνία κυκλοφορίας",
     sort_name_asc: "Όνομα Α → Ω",
     sort_name_desc: "Όνομα Ω → Α",
     tut_help_aria: "Άνοιγμα οδηγού",
@@ -1233,6 +1265,8 @@ export const UI_STRINGS = {
     disclaimer: "Το OpenLeagueDisplay δεν είναι εγκεκριμένο από τη Riot Games και δεν αντικατοπτρίζει τις απόψεις ή τις γνώμες της Riot Games ή οποιουδήποτε εμπλέκεται επίσημα στην παραγωγή ή τη διαχείριση του League of Legends. Το League of Legends και η Riot Games είναι εμπορικά σήματα ή κατατεθέντα εμπορικά σήματα της Riot Games, Inc.",
   },
   hu_hu: {
+    filters_label: "Szűrők",
+    lb_fit_aria: "Képillesztés váltása",
     search_placeholder: "Hős vagy szkin keresése…",
     lang_aria: "Megjelenítési nyelv",
     nav_home: "Hősök",
@@ -1289,7 +1323,7 @@ export const UI_STRINGS = {
     gallery_add: "Hozzáadás a galériához",
     gallery_remove: "Eltávolítás a galériából",
     sort_aria: "Rendezés",
-    sort_default: "Alapértelmezett",
+    sort_release: "Megjelenés dátuma",
     sort_name_asc: "Név A → Z",
     sort_name_desc: "Név Z → A",
     tut_help_aria: "Útmutató megnyitása",
@@ -1307,6 +1341,8 @@ export const UI_STRINGS = {
     disclaimer: "Az OpenLeagueDisplay nem a Riot Games által jóváhagyott alkalmazás, és nem tükrözi a Riot Games vagy a League of Legends készítésében, illetve kezelésében hivatalosan részt vevő bárki nézeteit vagy véleményét. A League of Legends és a Riot Games a Riot Games, Inc. védjegyei vagy bejegyzett védjegyei.",
   },
   ro_ro: {
+    filters_label: "Filtre",
+    lb_fit_aria: "Comută potrivirea imaginii",
     search_placeholder: "Caută campion sau aspect…",
     lang_aria: "Limba afișată",
     nav_home: "Campioni",
@@ -1363,7 +1399,7 @@ export const UI_STRINGS = {
     gallery_add: "Adaugă în galerie",
     gallery_remove: "Elimină din galerie",
     sort_aria: "Ordine",
-    sort_default: "Implicit",
+    sort_release: "Data lansării",
     sort_name_asc: "Nume A → Z",
     sort_name_desc: "Nume Z → A",
     tut_help_aria: "Deschide ghidul",
@@ -1381,6 +1417,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay nu este aprobat de Riot Games și nu reflectă punctele de vedere sau opiniile Riot Games ori ale oricui implicat oficial în producerea sau gestionarea League of Legends. League of Legends și Riot Games sunt mărci comerciale sau mărci comerciale înregistrate ale Riot Games, Inc.",
   },
   th_th: {
+    filters_label: "ตัวกรอง",
+    lb_fit_aria: "สลับการปรับขนาดภาพ",
     search_placeholder: "ค้นหาแชมเปี้ยนหรือสกิน…",
     lang_aria: "ภาษาที่แสดง",
     nav_home: "แชมเปี้ยน",
@@ -1437,7 +1475,7 @@ export const UI_STRINGS = {
     gallery_add: "เพิ่มลงแกลเลอรี",
     gallery_remove: "นำออกจากแกลเลอรี",
     sort_aria: "การเรียงลำดับ",
-    sort_default: "เริ่มต้น",
+    sort_release: "วันที่วางจำหน่าย",
     sort_name_asc: "ชื่อ A → Z",
     sort_name_desc: "ชื่อ Z → A",
     tut_help_aria: "เปิดคู่มือ",
@@ -1455,6 +1493,8 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay ไม่ได้รับการรับรองจาก Riot Games และไม่ได้สะท้อนมุมมองหรือความคิดเห็นของ Riot Games หรือผู้ที่มีส่วนเกี่ยวข้องอย่างเป็นทางการในการผลิตหรือบริหารจัดการ League of Legends ทั้งนี้ League of Legends และ Riot Games เป็นเครื่องหมายการค้าหรือเครื่องหมายการค้าจดทะเบียนของ Riot Games, Inc.",
   },
   id_id: {
+    filters_label: "Filter",
+    lb_fit_aria: "Alihkan penyesuaian gambar",
     search_placeholder: "Cari juara atau skin…",
     lang_aria: "Bahasa tampilan",
     nav_home: "Juara",
@@ -1511,7 +1551,7 @@ export const UI_STRINGS = {
     gallery_add: "Tambahkan ke galeri",
     gallery_remove: "Hapus dari galeri",
     sort_aria: "Urutan",
-    sort_default: "Bawaan",
+    sort_release: "Tanggal rilis",
     sort_name_asc: "Nama A → Z",
     sort_name_desc: "Nama Z → A",
     tut_help_aria: "Buka panduan",
@@ -1789,6 +1829,18 @@ export function syncCaptionButton() {
   btn.textContent = t("ss_caption_" + state.lb.caption);
 }
 
+// ライトボックスの画像フィット切替ボタンを state.lb.fit に同期させる。アイコン (⛶) は
+// 固定で、cover (画面いっぱい) の時だけゴールド点灯 (.active) で状態を示す
+// (syncPauseButton と同じ「状態反映だけ」の関数)。aria-label は contain/cover の状態では
+// 変えず一定の説明文 (locale には t() で追従する)。
+export function syncFitButton() {
+  const btn = $("lb-fit");
+  if (!btn) return;
+  btn.setAttribute("aria-label", t("lb_fit_aria"));
+  btn.title = t("lb_fit_aria");
+  btn.classList.toggle("active", state.lb.fit === "cover");
+}
+
 // 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
@@ -1814,8 +1866,8 @@ export function applyStaticUIStrings() {
   if (sortSel) {
     sortSel.setAttribute("aria-label", t("sort_aria"));
     // <option> はラベルだけ差し替え (value は固定キーのまま)。
-    // 並び順は data.json の順 → "Default"、A→Z / Z→A は localized name 比較
-    const opts = { default: "sort_default", name_asc: "sort_name_asc", name_desc: "sort_name_desc" };
+    // A→Z / Z→A は localized name 比較、"release" は data.json の順 (リリース順)
+    const opts = { name_asc: "sort_name_asc", name_desc: "sort_name_desc", release: "sort_release" };
     for (const o of sortSel.options) {
       const k = opts[o.value];
       if (k) o.textContent = t(k);
@@ -1833,6 +1885,7 @@ export function applyStaticUIStrings() {
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   syncPauseButton();
   syncCaptionButton();
+  syncFitButton();
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
   const ssOptions = $("ss-options");
   if (ssOptions) ssOptions.setAttribute("aria-label", t("ss_options_aria"));
@@ -1860,7 +1913,16 @@ export function skinLabel(c, s) {
 // スキンの説明文 (lore/flavor)。大半のスキンには無いので空文字を返すケースが多い。
 // 翻訳が無い locale では英語 (data.json の s.desc) にフォールバック
 export function skinDescription(c, s) {
-  return state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc || "";
+  const own = state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc;
+  if (own) return own;
+  // Classic/base は skin 固有の説明文を持たないので champion 紹介文 (bio) で補完する。
+  // 非 base で desc 欠落のスキンは従来どおり空のまま (= ライトボックスで畳まれる)
+  if (s.label.endsWith("_Classic")) return championBio(c);
+  return "";
+}
+// チャンピオン紹介文 (shortBio)。翻訳が無ければ data.json の英語 c.bio にフォールバック
+export function championBio(c) {
+  return state.i18n.champion_descriptions[c.alias] || c.bio || "";
 }
 export function lineName(lid) {
   return state.i18n.lines[String(lid)] || (DATA && DATA.skin_lines || {})[String(lid)] || `Line ${lid}`;
@@ -1896,7 +1958,7 @@ export function pickInitialLocale(available) {
 export async function loadLocale(code) {
   if (code === "default") {
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} };
     return;
   }
   try {
@@ -1911,12 +1973,14 @@ export async function loadLocale(code) {
       champions: json.champions || {},
       skins: json.skins || {},
       skin_descriptions: json.skin_descriptions || {},
+      // 旧 i18n ファイル (champion_descriptions 追加前) でも参照が壊れないよう || {}
+      champion_descriptions: json.champion_descriptions || {},
       lines: json.lines || {},
     };
   } catch (e) {
     // i18n ファイルが無い/壊れている時は静かに英語にフォールバック。UI は動く
     console.warn(`i18n: ${code} の読み込み失敗、英語にフォールバック`, e);
     state.locale = "default";
-    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, lines: {} };
+    state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} };
   }
 }
