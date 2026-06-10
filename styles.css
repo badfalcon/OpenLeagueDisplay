@@ -1490,22 +1490,29 @@
     }
     header .view-tabs .tab { max-width: 40vw; }
 
-    /* champ-header の controls スロットは縦積みに切替 (1100px ブレークの flex-wrap
-       より厳しい層): 320px-幅で back / search / sort が横並びだとはみ出すため */
+    /* controls スロットは横一列 (検索が伸びる + 並び替えはコンパクト) にして縦の
+       占有を半減させる。home (back 非表示) は search+sort が常に 1 行。検索中は
+       back+search+sort で、狭い端末 (~330px 未満) だけ flex-wrap で sort が次行へ
+       逃げる (破綻せずグレースフルに折返す) */
     .champ-header-controls {
-      flex-direction: column;
-      align-items: stretch;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
     }
-    .champ-header-controls > #search,
-    .champ-header-controls > .ctrl-select {
-      flex: 0 0 auto;
-      width: 100%;
+    .champ-header-controls > #search {
+      flex: 1 1 140px;
+      width: auto;
+      min-width: 0;
       max-width: none;
     }
-    /* 戻るボタンは全幅にせず内容幅に収めて場所を空ける (左寄せの小さな矢印ボタン) */
+    .champ-header-controls > .ctrl-select {
+      flex: 0 0 auto;
+      width: auto;
+      max-width: none;
+    }
+    /* 戻るボタンは内容幅に収めて場所を空ける (左寄せの小さな矢印ボタン) */
     .champ-header-controls > #back-btn {
       flex: 0 0 auto;
-      align-self: flex-start;
       width: auto;
       max-width: none;
       padding-left: 14px; padding-right: 14px;
