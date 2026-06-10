@@ -56,6 +56,9 @@ export const state = {
   lb: {
     list: [], idx: 0, mode: "manual",
     timer: null, interval: 7000, paused: false, frontIsA: true,
+    // スライドショー時のキャプション表示量: "full" (名前+説明) / "name" (名前のみ) /
+    // "none" (非表示)。⚙ メニューから循環。ビューアモードでは常に full 扱い (適用しない)
+    caption: "full",
     seq: 0, lastFocus: null,
   },
   // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた

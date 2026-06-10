@@ -163,10 +163,16 @@
   </div>
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
-    <span class="badge" id="lb-mode"></span>
-    <!-- 間隔は「一度決めたら固定」の設定なので、操作 (一時停止) とは分離して
-         常時表示の上ツールバーに置く。スライドショー時のみ JS で表示する -->
-    <button class="ss-btn" id="ss-interval" style="display:none">⏱ 7s</button>
+    <!-- 間隔・キャプションは「一度決めたら固定」の設定なので、操作 (一時停止) とは
+         分離して ⚙ メニューに集約する。上ツールバーはカウンタ + ⚙ だけに絞って
+         ごちゃつきを防ぐ。スライドショー時のみ JS で wrap ごと表示する -->
+    <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
+      <button class="ss-btn ss-gear" id="ss-options" aria-haspopup="true" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
+      <div class="ss-menu" id="ss-menu" hidden>
+        <button class="ss-btn" id="ss-interval">⏱ 7s</button>
+        <button class="ss-btn" id="ss-caption">💬 Full</button>
+      </div>
+    </div>
   </div>
   <button class="lb-close" id="lb-close" aria-label="Close">✕</button>
   <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">‹</button>

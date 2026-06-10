@@ -67,7 +67,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **zip.js**: JSZip 連携。`pMap` / `downloadAsZip` は module 内 private、
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
-  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)
+  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。スライドショー時の
+  間隔とキャプション表示量は上ツールバーの **⚙ メニュー** (`#ss-options` →
+  `#ss-menu`) に集約してボタン数を抑えている。キャプションは `applyCaption()` が
+  lightbox ルートに `caption-name` (説明文だけ畳む) / `caption-none` (オーバーレイごと
+  隠す) を付与し、full は class なし。ビューアモードでは常に full 扱い (⚙ を出さない
+  ので none のまま閉じても拡大表示に波及しない)
 - **local.js**: ローカル実行 (local_app.py) の検知と壁紙一括設定 API クライアント
   (`applyWallpaper`)、簡易 `toast`。**import は state.js のみ** (i18n.js を import しない
   ことで `render→local→i18n→render` の循環を作らない。`toast` は呼び出し側で翻訳済み

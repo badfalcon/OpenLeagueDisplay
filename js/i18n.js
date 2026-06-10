@@ -58,6 +58,10 @@ export const UI_STRINGS = {
     ss_interval: "⏱ {0}s",
     ss_pause: "⏸ Pause",
     ss_resume: "▶ Resume",
+    ss_options_aria: "Slideshow settings",
+    ss_caption_full: "💬 Full",
+    ss_caption_name: "💬 Name",
+    ss_caption_none: "🚫 Off",
     wallpaper_set_btn: "🖥 Set as wallpaper",
     wallpaper_confirm_title: "Set as wallpaper",
     wallpaper_interval_label: "Change every",
@@ -149,6 +153,10 @@ export const UI_STRINGS = {
     ss_interval: "⏱ 間隔 {0}秒",
     ss_pause: "⏸ 一時停止",
     ss_resume: "▶ 再開",
+    ss_options_aria: "スライドショー設定",
+    ss_caption_full: "💬 説明あり",
+    ss_caption_name: "💬 名前のみ",
+    ss_caption_none: "🚫 非表示",
     wallpaper_set_btn: "🖥 壁紙にする",
     wallpaper_confirm_title: "壁紙に設定",
     wallpaper_interval_label: "切り替え間隔",
@@ -1741,6 +1749,14 @@ export function syncPauseButton() {
   btn.classList.toggle("active", !state.lb.paused);
 }
 
+// キャプション切替ボタンのラベルを state.lb.caption に同期させる
+// (full / name / none)。クリック / openLightbox / locale 再適用で共用する。
+export function syncCaptionButton() {
+  const btn = $("ss-caption");
+  if (!btn) return;
+  btn.textContent = t("ss_caption_" + state.lb.caption);
+}
+
 // 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
@@ -1784,14 +1800,14 @@ export function applyStaticUIStrings() {
   $("lb-prev").setAttribute("aria-label", t("lb_prev_aria"));
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   syncPauseButton();
+  syncCaptionButton();
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
+  const ssOptions = $("ss-options");
+  if (ssOptions) ssOptions.setAttribute("aria-label", t("ss_options_aria"));
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
   const disclaimer = $("footer-disclaimer");
   if (disclaimer) disclaimer.textContent = t("disclaimer");
-  if ($("lightbox").classList.contains("open")) {
-    $("lb-mode").textContent = state.lb.mode === "slideshow" ? t("mode_slideshow") : t("mode_viewer");
-  }
   if (DATA) {
     renderStats(DATA.champion_count, DATA.skin_count);
     const date = new Date(DATA.generated_at_utc);

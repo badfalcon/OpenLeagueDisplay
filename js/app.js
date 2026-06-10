@@ -9,7 +9,7 @@ import {
   buildIndexes, SKIN_BY_KEY, loadSelectedFromStorage, saveSelected,
 } from "./state.js";
 import {
-  UI_STRINGS, t, syncPauseButton,
+  UI_STRINGS, t, syncPauseButton, syncCaptionButton,
   applyStaticUIStrings, equalizeTabs,
   localeFlagURL, setLangButton, closeLangMenu,
   pickInitialLocale, loadLocale,
@@ -23,7 +23,7 @@ import {
 } from "./zip.js";
 import {
   closeLightbox, nextSlide, prevSlide, scheduleNext,
-  startSlideshow, stopSlideshow, startGlobalSlideshow,
+  startSlideshow, stopSlideshow, startGlobalSlideshow, applyCaption,
 } from "./lightbox.js";
 import {
   openTutorial, closeTutorial, tutNext, tutPrev,
@@ -225,6 +225,30 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
+  // ⚙ メニューの開閉。間隔・キャプションを 1 つに集約してツールバーのボタン数を抑える。
+  // 開いたまま両方いじれるよう、メニュー内クリックでは閉じない (外側クリック / Esc で閉じる)
+  const closeSsMenu = () => {
+    $("ss-menu").hidden = true;
+    $("ss-options").setAttribute("aria-expanded", "false");
+  };
+  $("ss-options").addEventListener("click", (e) => {
+    // 親の lightbox click (外側クリック判定) に拾われて即閉じしないよう止める
+    e.stopPropagation();
+    const willOpen = $("ss-menu").hidden;
+    $("ss-menu").hidden = !willOpen;
+    $("ss-options").setAttribute("aria-expanded", String(willOpen));
+  });
+  $("ss-caption").addEventListener("click", () => {
+    const modes = ["full", "name", "none"];
+    const i = modes.indexOf(state.lb.caption);
+    state.lb.caption = modes[(i + 1) % modes.length];
+    syncCaptionButton();
+    applyCaption();
+  });
+  // メニュー外をクリックしたら畳む (lightbox 全体で拾い、⚙ メニュー内は除外)
+  $("lightbox").addEventListener("click", (e) => {
+    if (!$("ss-menu").hidden && !$("ss-options-wrap").contains(e.target)) closeSsMenu();
+  });
   // オフライン検知: CDragon のスプラッシュ画像はキャッシュ対象外なので、
   // オフラインだと画像が一斉に出ない。「壊れている」誤解を避けるため理由を告知する
   const offlineBanner = $("offline-banner");
@@ -273,6 +297,8 @@ function wireEvents() {
       }
       return;
     }
+    // ⚙ メニューが開いていれば Esc はまずメニューを畳む (lightbox は閉じない)
+    if (e.key === "Escape" && !$("ss-menu").hidden) { closeSsMenu(); return; }
     if (e.key === "Escape") closeLightbox();
     else if (e.key === "ArrowRight") nextSlide();
     else if (e.key === "ArrowLeft") prevSlide();
