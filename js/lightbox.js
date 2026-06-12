@@ -23,6 +23,12 @@ function shuffle(arr) {
 }
 
 export function openLightbox(list, idx, mode) {
+  // 戻る (Android バックジェスチャ / ブラウザ戻る) で「サイト離脱」ではなく
+  // 「ライトボックスを閉じる」に倒すため、URL は変えずに戻る 1 回分の history
+  // エントリだけ積む。popstate ハンドラ (app.js) はライトボックスが開いていれば
+  // closeLightbox を呼ぶ。判定は DOM の .open クラスで行うので、リロードで
+  // history.state.lb だけ残っても誤動作しない。
+  history.pushState({ lb: 1 }, "", location.href);
   state.lb.list = list; state.lb.idx = idx; state.lb.mode = mode;
   state.lb.paused = false; state.lb.frontIsA = true;
   state.lb.lastFocus = document.activeElement;
@@ -153,6 +159,10 @@ export function closeLightbox() {
   if (state.lb.lastFocus && typeof state.lb.lastFocus.focus === "function") {
     state.lb.lastFocus.focus();
   }
+  // UI からの閉じ (✕ / Esc) の時だけ、openLightbox で積んだ history エントリを
+  // 消費する。popstate 経由 (戻るで閉じる) の場合は既に history が巻き戻っていて
+  // state.lb が消えているので history.back() は発火せず、二重戻りにならない。
+  if (history.state && history.state.lb) history.back();
 }
 function updateMeta() {
   const item = state.lb.list[state.lb.idx];

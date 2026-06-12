@@ -102,6 +102,14 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
   }
 }
 
+// hash ルーティングのフック。app.js が setRouteListener で「現在 state に対応する
+// hash を location.hash に同期する」コールバックを登録する。render.js 自身は
+// history API を一切触らない (ルート⇄state 変換と pushState/popstate の責務は
+// app.js に集約する)。これにより既存のナビゲーション関数群 (openChampion 等) を
+// 書き換えずに、render() が走るたび URL が追従する。
+let onRouteChange = null;
+export function setRouteListener(fn) { onRouteChange = fn; }
+
 export function render() {
   const root = $("root");
   ensureLayout(root);
@@ -123,6 +131,9 @@ export function render() {
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
   refreshGalleryBtn();
+  // 末尾で現在 state に対応する hash を app.js へ通知する。app.js 側は
+  // 「現在の location.hash と違う時だけ pushState」して二重 render を避ける。
+  if (onRouteChange) onRouteChange();
 }
 
 // ヘッダーの「マイギャラリー」ボタン: 選択件数を出し、ギャラリービュー中は

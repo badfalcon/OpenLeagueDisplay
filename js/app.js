@@ -6,7 +6,7 @@ import {
   state, DATA, $, esc, setData,
   LS_LOCALE_KEY, LS_SORT_KEY, LS_LB_FIT_KEY,
   lsGet, lsSet,
-  buildIndexes, SKIN_BY_KEY, loadSelectedFromStorage, saveSelected,
+  buildIndexes, SKIN_BY_KEY, LINE_INDEX, loadSelectedFromStorage, saveSelected,
 } from "./state.js";
 import {
   UI_STRINGS, t, syncPauseButton, syncCaptionButton, syncFitButton,
@@ -16,7 +16,7 @@ import {
 } from "./i18n.js";
 import {
   render, goHome, goBack, openLines, openSelected,
-  imgLoaded, imgErr,
+  imgLoaded, imgErr, setRouteListener,
 } from "./render.js";
 import {
   hideProgress,
@@ -130,10 +130,123 @@ async function init() {
   // ローカルモード検知の確定を待ってから初回 render (壁紙 UI の表示状態を反映するため)
   await localProbe;
 
+  // ディープリンク: 初期 hash があれば state に反映してから 1 度だけ render する
+  // (applyRoute だと render を二重に呼ぶので、ここでは state 設定のみ行い render は下に任せる)。
+  // hash が空 (または不正) なら home に倒れ、不正な場合は #/ に正規化しておく
+  // (アドレスバーに壊れた hash を残さない)。
+  const initialHash = location.hash;
+  setStateFromRoute(initialHash);
+  if (routeFromState() !== (initialHash || "#/")) {
+    history.replaceState(null, "", routeFromState());
+  }
+
   render();
 
   // 初回訪問なら少し遅らせてチュートリアルを自動表示 (UI フェードイン後)
   maybeAutoOpenTutorial();
+}
+
+// ===== hash ルーティング (#/...) =====
+// GitHub Pages 配信なので hash 方式にする (サーバ側の rewrite 設定が不要)。
+// ルート⇄state の変換と popstate 配線は app.js が持ち、render.js は setRouteListener
+// フックで「render 後に URL を同期して」と通知を受けるだけ (history API は触らない)。
+// ルート定義:
+//   #/                  home (チャンピオン一覧)
+//   #/lines             スキンライン一覧
+//   #/champion/<alias>  チャンピオン詳細
+//   #/line/<id>         スキンライン詳細
+//   #/gallery           My Gallery (state.view === "selected")
+// 検索クエリ/ソート順は URL に載せない (state/localStorage のみ。スコープを絞る)。
+
+// 現在 state からルート文字列を作る。詳細 view で対象が未設定なら home 扱い。
+function routeFromState() {
+  switch (state.view) {
+    case "lines": return "#/lines";
+    case "selected": return "#/gallery";
+    case "champion":
+      return state.currentChamp ? `#/champion/${encodeURIComponent(state.currentChamp)}` : "#/";
+    case "line":
+      return state.currentLine ? `#/line/${encodeURIComponent(state.currentLine)}` : "#/";
+    default: return "#/";
+  }
+}
+
+// hash をパースして state.view/currentChamp/currentLine を決める。検索クエリは
+// URL に乗せない方針なので、戻る時は素の view に戻すため常にクリアする。
+// 不正・未知のルート (存在しない alias 等) は home にフォールバックする。
+// render はここで呼ばず呼び出し側に委ねる (初回ディープリンクで二重 render しないため)。
+// decodeURIComponent は不正な %-エンコーディング (#/champion/% 等) で URIError を
+// throw する。改ざん URL でページごと落とさないよう、デコード失敗はそのまま
+// 「未知のルート」として既存の home フォールバックに流す (null を返して実在
+// チェックを不成立にする)。
+const safeDecode = (str) => { try { return decodeURIComponent(str); } catch (_) { return null; } };
+
+function setStateFromRoute(hash) {
+  state.searchQuery = "";
+  const s = $("search");
+  if (s) s.value = "";
+  // 先頭の "#" と "/" を剥がして "/" 区切りにする ("#/champion/Ahri" → ["champion","Ahri"])
+  const path = (hash || "").replace(/^#\/?/, "");
+  const parts = path.split("/").filter(Boolean);
+  const head = parts[0] || "";
+  if (head === "lines") {
+    state.view = "lines"; state.currentChamp = null; state.currentLine = null;
+  } else if (head === "gallery") {
+    state.view = "selected"; state.currentChamp = null; state.currentLine = null;
+  } else if (head === "champion" && parts[1]) {
+    const alias = safeDecode(parts[1]);
+    // 実在する alias だけ受理。未知 (デコード失敗の null 含む) なら home に倒す
+    // (ディープリンクの URL 改ざん耐性)
+    const ok = alias !== null && DATA && DATA.champions.some(c => c.alias === alias);
+    if (ok) { state.view = "champion"; state.currentChamp = alias; state.currentLine = null; }
+    else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
+  } else if (head === "line" && parts[1]) {
+    const id = safeDecode(parts[1]);
+    // LINE_INDEX に存在する (= メンバを持つ) line だけ受理。デコード失敗の null は弾く
+    const ok = id !== null && LINE_INDEX.has(String(id));
+    if (ok) { state.view = "line"; state.currentLine = id; state.currentChamp = null; }
+    else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
+  } else {
+    state.view = "home"; state.currentChamp = null; state.currentLine = null;
+  }
+}
+
+// hash を state に反映して再描画する (popstate / 戻る時の経路)。render() 末尾の
+// ルートリスナーも走るが、hash は既に一致しているので pushState されない
+// (= 無限ループしない)。スクロールは先頭へ戻す。
+function applyRoute(hash) {
+  setStateFromRoute(hash);
+  render();
+  window.scrollTo(0, 0);
+}
+
+// render() 末尾から呼ばれる: 現在 state のルートが location.hash と違えば push する。
+// location.hash 直代入だと hashchange/popstate が再発火して二重 render になるため
+// pushState を使う。これで既存ナビゲーション関数・検索・タブを書き換えずに URL が追従。
+function syncRouteFromState() {
+  const want = routeFromState();
+  const cur = location.hash || "#/";
+  if (want !== cur) history.pushState(null, "", want);
+}
+
+function wirePopstate() {
+  window.addEventListener("popstate", () => {
+    // (1) ライトボックスが開いていれば、戻るは「閉じる」に充てる。この時点で history は
+    // 既に巻き戻り済み (state.lb は消えている) なので、closeLightbox 内の history.back()
+    // は発火せず二重戻りにならない。判定は DOM の .open クラスで行う。
+    if ($("lightbox").classList.contains("open")) {
+      closeLightbox();
+      return;
+    }
+    // (2) それ以外は現在の hash を state に反映する。ただし UI からのライトボックス
+    // 閉じ (closeLightbox 内の history.back) で発火したケースは、URL が view と既に
+    // 一致しているので再 render・スクロールリセットは無駄 (= ちらつき/位置飛び)。
+    // 一致なら何もしない。
+    if ((location.hash || "#/") === routeFromState()) return;
+    applyRoute(location.hash);
+  });
+  // render() 後の URL 同期フックを登録する。
+  setRouteListener(syncRouteFromState);
 }
 
 function wireEvents() {
@@ -393,6 +506,10 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // hash ルーティングの popstate 配線 + render 後の URL 同期フックを先に張る。
+  // init() の初回 render でフックが呼ばれても、ディープリンク解決で hash は既に
+  // 正規化済みなので余計な pushState は出ない。
+  wirePopstate();
   trackTopbarHeight();
   init();
   registerSW();

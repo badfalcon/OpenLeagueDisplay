@@ -25,7 +25,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── make_icon.py                     # favicon.svg から icon.ico を再生成 (Pillow、ブランド変更時のみ)
 ├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
 ├── js/                              # ES Modules
-│   ├── app.js                       #   エントリ: data.json fetch + イベント配線
+│   ├── app.js                       #   エントリ: data.json fetch + イベント配線 + hash ルーティング (#/...)
 │   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
@@ -87,7 +87,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   toast と同手法)。import は state / i18n / local。1枚=静止、2枚以上=OS純正スライド
   ショー (サーバが枚数で振り分け)。ローカル実行時のみ render.js が起動ボタンを出す
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
-  `window.imgLoaded` / `window.imgErr` の露出だけを担当する
+  `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
+  (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/
+  popstate ハンドラはここに置く。render.js は `setRouteListener` フックを公開する
+  だけで history API は触らない (render() 末尾で「現在 state に対応する hash へ
+  pushState する」コールバックを app.js が登録 = 既存ナビ関数を書き換えずに URL 追従)。
+  ライトボックスの戻る対応 (open 時 pushState / 閉じ時 history.back) は lightbox.js
 
 ## 設計の意思決定 (なぜそうしたか)
 
