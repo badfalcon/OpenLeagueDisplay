@@ -31,6 +31,42 @@ export function unlockScroll() {
   se.scrollTop = _scrollLockY;
 }
 
+// モーダル/ライトボックス表示中に Tab で背景 (topbar 等) へフォーカスが抜けるのを防ぐ。
+// aria-modal は SR へのヒントでしかなく、キーボードの Tab 順序は制限しないため
+// JS で root 内に閉じ込める。戻り値の関数で解除する (開閉のたびに張り直す)。
+// state.js は「依存される側専用」なので、ここに置くのは他モジュールを import しない
+// 純 DOM ユーティリティに限る (trapFocus はその条件を満たす)。
+export function trapFocus(root) {
+  const onKey = (e) => {
+    if (e.key !== "Tab" || !root) return;
+    // フォーカス可能要素は開閉で増減する (ライトボックスの ⚙ メニュー / チュートリアルの
+    // Skip ボタン等が状態で出入りする) ので、リストはキャッシュせず毎回その場で計算する。
+    const focusable = [...root.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )].filter(el => !el.disabled && !el.hidden && el.offsetParent !== null);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    // activeElement が root 外 (= 背景) に居る時は先頭へ寄せてから閉じ込める
+    if (!root.contains(active)) {
+      e.preventDefault();
+      first.focus();
+      return;
+    }
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  // capture で document に張る (背景要素のハンドラより先に Tab を握る)。
+  document.addEventListener("keydown", onKey, true);
+  return () => document.removeEventListener("keydown", onKey, true);
+}
+
 export let DATA = null;
 export function setData(d) { DATA = d; }
 

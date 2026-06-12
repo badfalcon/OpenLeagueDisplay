@@ -1,8 +1,14 @@
 // ライトボックス (画像拡大表示) と全局スライドショー。
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
-import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
+import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus } from "./state.js";
 import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+
+// フォーカストラップ解除関数 (open で張り、close で呼ぶ)。chrome-hidden (opacity:0) 中も
+// ツールバーのボタンは offsetParent が残る (opacity は offsetParent に影響しない) ので
+// Tab 対象に残る。視覚と不一致だが、キーボード操作の起点 (lb-close) を失わないための
+// 意図的な挙動。
+let releaseTrap = null;
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -67,6 +73,9 @@ export function openLightbox(list, idx, mode) {
   preloadAdjacent();
   // 閉じるボタンへフォーカス (キーボード操作の起点)
   $("lb-close").focus();
+  // Tab で背景へ抜けないよう閉じ込める (close で解除)
+  if (releaseTrap) releaseTrap();
+  releaseTrap = trapFocus(lb);
 }
 
 // <img> A/B クロスフェードで静止スプラッシュを表示する。crossfade=false は
@@ -153,6 +162,7 @@ export function closeLightbox() {
   lb.setAttribute("aria-hidden", "true");
   document.body.classList.remove("lightbox-open");
   unlockScroll();
+  if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   stopSlideshow();
   // openLightbox の seq を進めて係争中の onload を無効化
   state.lb.seq++;

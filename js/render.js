@@ -20,6 +20,32 @@ import { openWallpaperConfirm } from "./wallpaper.js";
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
+// 全チャンピオンを state.sortOrder に従って並べた新規配列を返す。renderHome (一覧) と
+// renderChampion (前後ナビの順序) で同じ並びを共有するために抽出した。"name_asc"/"name_desc"
+// は localized name で localeCompare、"release" は data.json 順 (= 何もしない)。
+function sortedChampions() {
+  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
+  const arr = DATA.champions.slice();
+  if (sign) {
+    const tag = cmpTag();
+    arr.sort((a, b) => sign * champName(a).localeCompare(champName(b), tag, { sensitivity: "base" }));
+  }
+  return arr;
+}
+
+// count>0 のスキンラインを「件数 desc → 名前 locale 順」で並べた配列を返す (フィルタ前の全件)。
+// renderLines (一覧。検索フィルタは呼び出し側で別途かける) と renderLine (前後ナビの順序) で共有。
+function sortedLineEntries() {
+  const lines = DATA.skin_lines || {};
+  return Object.entries(lines)
+    .map(([id, name]) => {
+      const idx = LINE_INDEX.get(id);
+      return { id, name: lineName(id), _en: name, count: idx ? idx.count : 0, thumb: idx ? idx.thumb : "" };
+    })
+    .filter(e => e.count > 0)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
+}
+
 // stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
 // <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
 // 以降の呼び出し (locale 切替時など) は即時表示にしてチラつかせない
@@ -70,7 +96,11 @@ export function ensureLayout(root) {
   if ($("view-content")) return;
   root.innerHTML = `
     <div class="champ-header" id="primary-header" hidden>
-      <h2 id="primary-title"></h2>
+      <h2 class="primary-title-row">
+        <button class="detail-nav-btn" id="detail-prev" type="button" hidden>‹</button>
+        <span id="primary-title"></span>
+        <button class="detail-nav-btn" id="detail-next" type="button" hidden>›</button>
+      </h2>
       <div class="champ-header-controls"></div>
       <span class="count" id="primary-count"></span>
       <button class="btn primary" id="primary-action" hidden></button>
@@ -84,7 +114,7 @@ export function ensureLayout(root) {
 
 // 永続 champ-header の中身を更新する唯一の窓口。renderXxx は innerHTML を
 // 触らず、ここに値を渡すだけにする
-function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null }) {
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null }) {
   const ph = $("primary-header");
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
@@ -99,6 +129,28 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
   } else {
     btn.hidden = true;
     btn.onclick = null;
+  }
+  // 詳細 view (champion / line) の前後ナビ。nav が無い view (home/lines/gallery/検索) では
+  // 両ボタンを hidden に戻し onclick も null に。表示時は隣の名前を title/aria-label に入れて
+  // PC ホバーと SR で行き先が分かるようにする (ボタン表示は ‹ › グリフのみなので i18n 不要)。
+  const prevBtn = $("detail-prev");
+  const nextBtn = $("detail-next");
+  if (nav) {
+    prevBtn.hidden = false;
+    prevBtn.title = nav.prevLabel;
+    prevBtn.setAttribute("aria-label", nav.prevLabel);
+    prevBtn.onclick = nav.onPrev;
+    nextBtn.hidden = false;
+    nextBtn.title = nav.nextLabel;
+    nextBtn.setAttribute("aria-label", nav.nextLabel);
+    nextBtn.onclick = nav.onNext;
+  } else {
+    prevBtn.hidden = true;
+    prevBtn.onclick = null;
+    prevBtn.removeAttribute("aria-label");
+    nextBtn.hidden = true;
+    nextBtn.onclick = null;
+    nextBtn.removeAttribute("aria-label");
   }
 }
 
@@ -250,10 +302,9 @@ function renderHome(root) {
     return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
 
-  // 検索なし: 従来通りチャンピオン一覧だけ
+  // 検索なし: 従来通りチャンピオン一覧だけ (renderChampion の前後ナビと同じ並びを共有)
   if (!q) {
-    const list = DATA.champions.slice();
-    sortChamps(list);
+    const list = sortedChampions();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
     $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
     wireChampCards(root);
@@ -400,17 +451,40 @@ function renderChampion(root) {
     skinCardHTML({ c, s, idx: i, label: skinLabel(c, s) })
   ).join("");
   const keys = c.skins.map(s => SELECT_KEY(c.alias, s.label));
+  // 前後ナビ: 一覧と同じ並び (sortedChampions) の中で現在 index を求め、両端は
+  // ラップアラウンド (lightbox の next/prev と同じ循環思想)。要素 1 個なら前後とも
+  // 自分自身になるので nav を渡さず両ボタンを hidden のままにする。
+  // openChampion は render() → hash 同期フックを走らせるので、ブラウザ戻るで一つ前の
+  // 詳細に戻れる (意図どおり)。
+  const order = sortedChampions();
+  const i = order.findIndex(x => x.alias === c.alias);
+  const nav = order.length > 1 && i >= 0 ? makeDetailNav(order, i, x => champName(x), x => openChampion(x.alias)) : null;
   setPrimaryHeader({
     title: champName(c),
     count: t("skins_count", c.skins.length),
+    nav,
     ...detailPrimary(keys, t("dl_champion"), () => downloadChampion(c)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
 }
 
+// 詳細 view の前後ナビ用 { prevLabel, nextLabel, onPrev, onNext } を生成する。
+// order: 並び済み配列、i: 現在 index、labelOf: 隣の表示名、go: 隣へ遷移する関数。
+// 両端はラップアラウンド (循環) する。
+function makeDetailNav(order, i, labelOf, go) {
+  const n = order.length;
+  const prev = order[(i - 1 + n) % n];
+  const next = order[(i + 1) % n];
+  return {
+    prevLabel: labelOf(prev),
+    nextLabel: labelOf(next),
+    onPrev: () => go(prev),
+    onNext: () => go(next),
+  };
+}
+
 function renderLines(root) {
-  const lines = DATA.skin_lines || {};
   // per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
   // count/thumb は LINE_INDEX から取るので 1 回構築済み。
   const selectedCounts = {};
@@ -425,16 +499,10 @@ function renderLines(root) {
     }
   }
   const q = state.searchQuery.toLowerCase();
-  // 表示は翻訳名、検索は (翻訳名 + 英語名) でマッチさせる
-  const entries = Object.entries(lines)
-    .map(([id, name]) => {
-      const idx = LINE_INDEX.get(id);
-      return { id, name: lineName(id), _en: name, count: idx ? idx.count : 0, thumb: idx ? idx.thumb : "" };
-    })
-    .filter(e => e.count > 0)
-    .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q))
-    // 同数時の名前順は他 view と同じく現在 locale で比較する
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
+  // 並び/件数は sortedLineEntries に集約 (renderLine の前後ナビと共有)。表示は翻訳名、
+  // 検索は (翻訳名 + 英語名) でマッチさせるので、フィルタはここで別途かける。
+  const entries = sortedLineEntries()
+    .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
@@ -481,9 +549,15 @@ function renderLine(root) {
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
   ).join("");
   const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
+  // 前後ナビ: sortedLineEntries の並び (検索フィルタは無視 = 全 entries) の中で現在 id の
+  // index を求め、ラップアラウンドで前後 id へ。要素 1 個なら nav を渡さず両ボタン hidden。
+  const order = sortedLineEntries();
+  const li = order.findIndex(e => String(e.id) === String(lid));
+  const nav = order.length > 1 && li >= 0 ? makeDetailNav(order, li, e => e.name, e => openLine(e.id)) : null;
   setPrimaryHeader({
     title: lname,
     count: t("skins_count", items.length),
+    nav,
     ...detailPrimary(keys, t("dl_line"), () => downloadLine(lid, lname, items)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;

@@ -55,7 +55,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 
 - **state.js**: mutable な `state` オブジェクトと、`let DATA` (setData 経由で
   更新)、SKIN_BY_KEY / LINE_INDEX、localStorage I/O、`$` / `esc` の汎用関数。
-  他モジュールを import しない (依存される側専用)
+  他モジュールを import しない (依存される側専用)。`trapFocus` (依存ゼロの DOM
+  ユーティリティ。モーダル/ライトボックス表示中に Tab で背景へフォーカスが抜けるのを
+  防ぎ、解除関数を返す) もここに置く
 - **i18n.js**: UI 文字列テーブル / `t()` / ROLE_LABELS / RARITY_LABELS /
   REGION_LABELS / 言語ピッカー描画と loadLocale。`applyStaticUIStrings`
   だけ render.js の `renderStats` を呼ぶので render.js への循環 import が

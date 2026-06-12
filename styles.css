@@ -600,6 +600,39 @@
     letter-spacing: -0.02em; line-height: 0.92;
     overflow-wrap: anywhere;  /* 長い名前で controls 列を圧迫した時の折返し */
   }
+  /* 詳細 (champion / line) ヘッダーのタイトル行: ‹ [タイトル] › を横並びにする。
+     h2 自身に付くので巨大イタリック書体の指定 (.champ-header h2) はそのまま継承される。
+     内側 span は min-width:0 で flex 縮小を許し、長い名前は折り返す */
+  .primary-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .primary-title-row > #primary-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  /* 前後ナビの小ゴーストボタン (lb-nav と同系の世界観: 透明地 + 金枠 + 金字、
+     hover でゴールド反転)。h2 の巨大フォント (clamp 96px / italic) を継承しないよう
+     font 系を明示リセットする。角丸なし = 鋭角の世界観 */
+  .detail-nav-btn {
+    flex-shrink: 0;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 20px; font-style: normal; font-weight: 400;
+    line-height: 1; letter-spacing: 0;
+    transition: all 0.18s;
+  }
+  .detail-nav-btn:hover {
+    background: var(--gold); color: #1a1208; border-color: var(--gold);
+  }
+  /* author の display:flex が UA の [hidden]{display:none} に勝つ既知問題を明示的に殺す */
+  .detail-nav-btn[hidden] { display: none; }
   /* 一覧画面 (チャンピオン一覧 / シリーズ一覧) のヘッダーは、固有名詞ではなく
      セクションラベル ("CHAMPIONS" / "SKIN LINES") を出すだけなので、個別画面の
      ような巨大表示は不要。フォントだけ抑える */
@@ -1462,6 +1495,8 @@
     .champ-header { padding: 24px 0 22px; margin-bottom: 32px; }
     .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
     .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
+    /* タップ最小 (44px 角) に上げる */
+    .detail-nav-btn { width: 44px; height: 44px; }
     .lb-overlay { padding: 48px 24px 24px; }
     .lb-nav { width: 44px; height: 44px; }
     .lb-prev { left: 16px; }
