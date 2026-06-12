@@ -13,7 +13,7 @@ import {
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
-import { isLocal, isLocalWallpaper } from "./local.js";
+import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
 
 // localeCompare に渡す BCP-47 タグ。"default" は英語、それ以外は CDragon の
@@ -149,6 +149,12 @@ export function refreshGalleryBtn() {
     btn.appendChild(badge);
   }
   btn.classList.toggle("primary", state.view === "selected");
+  // 役割は本来「ギャラリーボタンの件数表示」だが、選択数が変わる全経路 + render() から
+  // 呼ばれる唯一の同期点なので、ヘッダーの Slideshow ボタンの空状態表現もここに相乗りさせる。
+  // 選択 0 件なら .is-empty で淡色化 (disabled 風) するが、disabled 属性は付けない:
+  // クリック時に My Gallery へ誘導する動線 (app.js) を生かすため。
+  const ssBtn = $("slideshow-btn");
+  if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
 }
 
 // フィルタチップ: role / rarity / region のローカライズ語をワンタップで検索クエリへ
@@ -517,7 +523,12 @@ function renderSelected(root) {
     <div class="skin-grid gallery-grid">${cards}</div>`;
   const dl = $("gallery-dl");
   if (dl) dl.addEventListener("click", downloadSelected);
-  $("gallery-ss").addEventListener("click", startGlobalSlideshow);
+  // ギャラリーツールバーの Slideshow: 通常は items がある時だけ出るが、splash の無い
+  // スキンばかり選んだエッジでは startGlobalSlideshow が false (再生対象 0) を返す。
+  // ここは既にギャラリービューなので追加導線は不要、toast で理由だけ伝える。
+  $("gallery-ss").addEventListener("click", () => {
+    if (!startGlobalSlideshow()) toast(t("slideshow_empty"));
+  });
   $("gallery-clear").addEventListener("click", clearSelected);
   const wp = $("gallery-wp");
   if (wp) wp.addEventListener("click", () => openWallpaperConfirm(items));

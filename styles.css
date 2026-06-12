@@ -982,6 +982,14 @@
     background: transparent; color: var(--ink-soft);
     border-color: var(--rule);
   }
+  /* ギャラリーが空のときの Slideshow ボタン。disabled 属性は付けない (クリックで
+     My Gallery へ誘導する動線を生かすため) ので、見た目だけ disabled 風に淡色化する。
+     cursor はクリック可能なので pointer のまま残す。同期は refreshGalleryBtn() */
+  #slideshow-btn.is-empty {
+    opacity: 0.4;
+    color: var(--ink-soft);
+    border-color: var(--rule);
+  }
   .btn.danger { border-color: rgba(183, 58, 58, 0.55); color: #e8a8a8; }
   .btn.danger:hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
 
@@ -1388,6 +1396,29 @@
     .offline-banner { bottom: 18px; padding: 12px 18px; }
   }
 
+  /* 「トップへ戻る」FAB。世界観に合わせて半透明ダーク地 + blur + ゴールド枠
+     (offline-banner / .ss-btn と同系)。z-index は offline-banner(90) より下、
+     gallery-toolbar(20) / topbar(30) より上の 40。author の display が UA の
+     [hidden] に勝つので非表示を明示する (既存の .offline-banner[hidden] と同手法) */
+  .to-top {
+    position: fixed; right: 24px; bottom: 24px; z-index: 40;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(12, 11, 20, 0.82);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--gold);
+    /* 正方形 (鋭角の世界観に合わせ角丸にしない)。clip-path のコーナーカットは
+       外側の box-shadow が消える既知の問題があるので使わず、直角スクエア
+       (.ss-btn / offline-banner と同系) にする */
+    color: var(--gold-hi); cursor: pointer;
+    font-size: 20px; line-height: 1;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .to-top:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+  .to-top[hidden] { display: none; }
+
   /* === RESPONSIVE ================================================= */
   /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
      champ-header の controls スロットを row 2 に落とす。h2 と controls が
@@ -1497,6 +1528,10 @@
       font-size: 8.5px;
       border: 1px solid var(--bg);
     }
+    /* モバイルではスライドショー導線を My Gallery ビューのツールバー (#gallery-ss) に
+       集約し、下部固定ナビは 3 ボタン (Champions / Skin Lines / My Gallery) に戻す。
+       4 等分だと長 locale で窮屈だったのを解消して可読性を回復する */
+    .header-secondary #slideshow-btn { display: none; }
 
     header {
       padding: 10px var(--container-pad);
@@ -1617,6 +1652,8 @@
     /* 下部固定の通知 (toast / offline-banner) はナビバーの上に逃がす */
     .toast { bottom: calc(36px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     .offline-banner { bottom: calc(18px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+    /* 下部固定ナビと重ならないよう .toast と同じ式で底上げする */
+    .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
 
     /* lang menu: 画面右端からはみ出さない max-width 制約 */
     .lang-menu {

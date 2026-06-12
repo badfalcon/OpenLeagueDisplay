@@ -2,7 +2,7 @@
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
-import { t, toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -206,12 +206,15 @@ export function startSlideshow() {
 export function stopSlideshow() {
   if (state.lb.timer) { clearTimeout(state.lb.timer); state.lb.timer = null; }
 }
+// 選択中スキンで全局スライドショーを開始する。開始できたら true、ギャラリーが空
+// (= splash 付きの選択が 0 件) なら false を返す。
+// 空振り時の行き先 (ギャラリービューへ誘導 + toast) は呼び出し側に任せる:
+// ここで alert / render.js への遷移を抱えると lightbox→render の循環 import を
+// 作ってしまうため、ナビゲーションの責務は app.js / render.js 側に置く。
 export function startGlobalSlideshow() {
-  if (!DATA) return;
+  if (!DATA) return false;
   const list = buildSelectedList();
-  if (list.length === 0) {
-    alert(t("slideshow_empty"));
-    return;
-  }
+  if (list.length === 0) return false;
   openLightbox(shuffle(list), 0, "slideshow");
+  return true;
 }

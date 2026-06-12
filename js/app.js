@@ -30,7 +30,7 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
-import { probeLocal } from "./local.js";
+import { probeLocal, toast } from "./local.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -141,7 +141,16 @@ function wireEvents() {
   $("back-btn").addEventListener("click", goBack);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
-  $("slideshow-btn").addEventListener("click", startGlobalSlideshow);
+  // Slideshow ボタン: 開始できれば全局スライドショーへ。空 (ギャラリーに splash 付き
+  // 選択が無い) なら OS ダイアログを出さず、My Gallery ビューを開いて理由を toast で示す
+  // (空ビューの gallery_empty / _hint が追加導線になる)。startGlobalSlideshow が
+  // 戻り値で開始可否を返すので、ナビゲーションはここ (= 呼び出し側) で行う。
+  $("slideshow-btn").addEventListener("click", () => {
+    if (!startGlobalSlideshow()) {
+      openSelected();
+      toast(t("slideshow_empty"));
+    }
+  });
   $("gallery-btn").addEventListener("click", openSelected);
   $("help-btn").addEventListener("click", openTutorial);
   $("share-btn").addEventListener("click", shareSite);
@@ -273,6 +282,27 @@ function wireEvents() {
   window.addEventListener("offline", syncOnlineState);
   syncOnlineState();
 
+  // 「トップへ戻る」FAB: 一定量スクロールしたら出す。passive リスナーで scroll を
+  // 妨げず、表示状態はフラグでキャッシュして毎 scroll で classList を触らない
+  // (閾値をまたいだ時だけ DOM を更新する)。
+  const toTopBtn = $("to-top");
+  if (toTopBtn) {
+    let toTopShown = false;
+    const syncToTop = () => {
+      const show = window.scrollY > 600;
+      if (show === toTopShown) return;
+      toTopShown = show;
+      toTopBtn.hidden = !show;
+    };
+    window.addEventListener("scroll", syncToTop, { passive: true });
+    syncToTop();
+    toTopBtn.addEventListener("click", () => {
+      // reduce-motion を尊重: アニメ無効化希望なら即時ジャンプにする
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+  }
+
   // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
   let tStartX = 0, tStartY = 0;
   const lbEl = $("lightbox");
@@ -310,6 +340,17 @@ function wireEvents() {
       else if (e.key === "?" && document.activeElement !== $("search")) {
         e.preventDefault();
         openTutorial();
+      }
+      // / で検索へジャンプ (PC 向けの定番ショートカット)。入力系にフォーカス中は
+      // 文字として打ちたいので無効化。検索 input は dom-stash から transplant されて
+      // 常に DOM に居るので、見えるよう先頭までスクロールしてからフォーカスする
+      else if (e.key === "/") {
+        const ae = document.activeElement;
+        const tag = ae && ae.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        window.scrollTo(0, 0);
+        $("search").focus();
       }
       return;
     }
