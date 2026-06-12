@@ -85,6 +85,7 @@ export const UI_STRINGS = {
     back_to_top: "Back to top",
     gallery_empty: "Your gallery is empty",
     gallery_empty_hint: "Click the + on any skin or champion card to add it.",
+    gallery_empty_cta: "Browse champions",
     gallery_add: "Add to gallery",
     gallery_remove: "Remove from gallery",
     sort_aria: "Sort order",
@@ -103,6 +104,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Click the <strong>+</strong> on any skin to add it to your gallery. On a champion card, the <strong>+</strong> adds <em>all</em> of its skins at once.<br><br>Open <strong>My Gallery</strong> in the header anytime to review your picks, play a slideshow, or download them all as a single ZIP. You can also grab a whole champion or skin line from its detail page.",
     tut_s3_title: "Set as wallpapers",
     tut_s3_body: "Unzip the download and point your OS wallpaper slideshow at that folder (Windows: <code>Settings → Personalization → Background → Slideshow</code>) — your desktop rotates on its own.<br><br><strong>Slideshow</strong> at the top also plays your gallery in-browser, or click any splash to zoom. Press <code>?</code> anytime to reopen this guide.",
+    tut_s4_title: "Shortcuts",
+    tut_s4_body: "<code>/</code> jump to search<br><code>?</code> this guide<br><code>Esc</code> go back / close<br><code>←</code> <code>→</code> previous / next in the lightbox<br><code>Space</code> pause the slideshow<br><br>Tap any open image to toggle the controls.",
     disclaimer: "OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.",
   },
   ja_jp: {
@@ -182,6 +185,7 @@ export const UI_STRINGS = {
     back_to_top: "トップへ戻る",
     gallery_empty: "ギャラリーは空です",
     gallery_empty_hint: "スキンやチャンピオンカードの ＋ を押して追加してください",
+    gallery_empty_cta: "チャンピオンを見る",
     gallery_add: "ギャラリーに追加",
     gallery_remove: "ギャラリーから削除",
     sort_aria: "並び順",
@@ -200,6 +204,8 @@ export const UI_STRINGS = {
     tut_s2_body: "スキンの <strong>＋</strong> を押すとギャラリーに追加。チャンピオンカードの <strong>＋</strong> なら<em>そのチャンピオンの全スキン</em>を一括追加できます。<br><br>ヘッダの <strong>マイギャラリー</strong> をいつでも開いて、選んだスキンの確認・スライドショー再生・まとめて ZIP ダウンロードができます。各チャンピオン/シリーズの詳細ページから一括 DL も可能です。",
     tut_s3_title: "壁紙として設定",
     tut_s3_body: "ZIP を解凍したフォルダを OS の壁紙スライドショーに指定すれば、デスクトップ背景が自動でローテーション再生されます (Windows: <code>設定 → 個人用設定 → 背景 → スライドショー</code>)。<br><br>ヘッダの <strong>スライドショー</strong> はブラウザ内再生用。スプラッシュクリックで拡大表示、<code>?</code> キーでこのガイドを再表示。",
+    tut_s4_title: "ショートカット",
+    tut_s4_body: "<code>/</code> 検索へジャンプ<br><code>?</code> このガイド<br><code>Esc</code> 戻る・閉じる<br><code>←</code> <code>→</code> ライトボックスの前後<br><code>Space</code> スライドショーの一時停止<br><br>拡大表示中は画像をタップで操作 UI の表示/非表示を切替。",
     disclaimer: "OpenLeagueDisplay は Riot Games が承認したものではなく、Riot Games または League of Legends の制作・運営に公式に関与する者の見解や意見を反映するものではありません。League of Legends および Riot Games は Riot Games, Inc. の商標または登録商標です。",
   },
   ko_kr: {
@@ -261,6 +267,7 @@ export const UI_STRINGS = {
     back_to_top: "맨 위로",
     gallery_empty: "갤러리가 비어 있습니다",
     gallery_empty_hint: "스킨이나 챔피언 카드의 + 를 눌러 추가하세요",
+    gallery_empty_cta: "챔피언 보기",
     gallery_add: "갤러리에 추가",
     gallery_remove: "갤러리에서 제거",
     sort_aria: "정렬 순서",
@@ -279,6 +286,8 @@ export const UI_STRINGS = {
     tut_s2_body: "스킨의 <strong>+</strong> 를 누르면 갤러리에 추가됩니다. 챔피언 카드의 <strong>+</strong> 를 누르면 <em>해당 챔피언의 모든 스킨</em>이 한 번에 추가됩니다.<br><br>헤더의 <strong>마이 갤러리</strong> 를 언제든 열어 선택한 스킨을 확인하고, 슬라이드쇼를 재생하거나, 하나의 ZIP으로 모두 다운로드할 수 있습니다. 각 챔피언/스킨 라인 상세 페이지에서 일괄 다운로드도 가능합니다.",
     tut_s3_title: "배경화면으로 설정",
     tut_s3_body: "ZIP을 압축 해제한 폴더를 OS의 배경화면 슬라이드 쇼에 지정하면 데스크톱이 자동으로 순환됩니다 (Windows: <code>설정 → 개인 설정 → 배경 → 슬라이드 쇼</code>).<br><br>헤더의 <strong>슬라이드쇼</strong> 는 브라우저 내 재생용. 스플래시 클릭으로 확대, <code>?</code> 키로 이 가이드를 다시 열기.",
+    tut_s4_title: "단축키",
+    tut_s4_body: "<code>/</code> 검색으로 이동<br><code>?</code> 이 가이드<br><code>Esc</code> 뒤로 / 닫기<br><code>←</code> <code>→</code> 라이트박스 이전 / 다음<br><code>Space</code> 슬라이드쇼 일시정지<br><br>확대 화면에서 이미지를 탭하면 조작 UI 표시/숨김 전환.",
     disclaimer: "OpenLeagueDisplay는 Riot Games의 승인을 받지 않았으며, Riot Games 또는 League of Legends 제작·운영에 공식적으로 관여한 누구의 견해나 의견도 대변하지 않습니다. League of Legends와 Riot Games는 Riot Games, Inc.의 상표 또는 등록 상표입니다.",
   },
   zh_cn: {
@@ -340,6 +349,7 @@ export const UI_STRINGS = {
     back_to_top: "回到顶部",
     gallery_empty: "画廊为空",
     gallery_empty_hint: "点击任意皮肤或英雄卡片上的 + 即可添加",
+    gallery_empty_cta: "浏览英雄",
     gallery_add: "添加到画廊",
     gallery_remove: "从画廊移除",
     sort_aria: "排序方式",
@@ -358,6 +368,8 @@ export const UI_STRINGS = {
     tut_s2_body: "点击任意皮肤的 <strong>+</strong> 即可加入画廊。点击英雄卡片上的 <strong>+</strong> 可<em>一次性加入该英雄的全部皮肤</em>。<br><br>随时点击顶部的 <strong>我的画廊</strong> 查看已选皮肤、播放幻灯片，或将它们打包成一个 ZIP 下载。也可以从英雄/系列详情页一键打包整组。",
     tut_s3_title: "设为桌面壁纸",
     tut_s3_body: "把解压后的文件夹指定为系统的桌面壁纸幻灯片来源，桌面就会自动轮播 (Windows: <code>设置 → 个性化 → 背景 → 幻灯片放映</code>)。<br><br>顶部的 <strong>幻灯片</strong> 用于在浏览器内播放画廊。点击任意原画可放大查看，按 <code>?</code> 随时再次打开此指南。",
+    tut_s4_title: "快捷键",
+    tut_s4_body: "<code>/</code> 跳转到搜索<br><code>?</code> 本指南<br><code>Esc</code> 返回 / 关闭<br><code>←</code> <code>→</code> 灯箱上一张 / 下一张<br><code>Space</code> 暂停幻灯片<br><br>放大查看时点击图片可切换操作界面显示/隐藏。",
     disclaimer: "OpenLeagueDisplay 未获得 Riot Games 认可，也不代表 Riot Games 或任何正式参与制作或运营《英雄联盟》之人士的观点或意见。《英雄联盟》和 Riot Games 是 Riot Games, Inc. 的商标或注册商标。",
   },
   zh_tw: {
@@ -418,6 +430,7 @@ export const UI_STRINGS = {
     back_to_top: "回到頂部",
     gallery_empty: "畫廊是空的",
     gallery_empty_hint: "點選任意造型或英雄卡片上的 + 即可加入",
+    gallery_empty_cta: "瀏覽英雄",
     gallery_add: "加入畫廊",
     gallery_remove: "從畫廊移除",
     sort_aria: "排序方式",
@@ -436,6 +449,8 @@ export const UI_STRINGS = {
     tut_s2_body: "點選任意造型的 <strong>+</strong> 即可加入畫廊。點選英雄卡片上的 <strong>+</strong> 可<em>一次加入該英雄的全部造型</em>。<br><br>隨時點選頂部的 <strong>我的畫廊</strong> 檢視已選造型、播放幻燈片，或打包成一個 ZIP 下載。也可以從英雄/系列詳情頁一鍵打包整組。",
     tut_s3_title: "設為桌布",
     tut_s3_body: "把解壓後的資料夾指定為系統的桌布輪播來源，桌面就會自動輪播 (Windows: <code>設定 → 個人化 → 背景 → 投影片放映</code>)。<br><br>頂部的 <strong>幻燈片</strong> 用於在瀏覽器內播放畫廊。點選任一原畫可放大檢視，按 <code>?</code> 隨時重新開啟此指南。",
+    tut_s4_title: "快捷鍵",
+    tut_s4_body: "<code>/</code> 跳到搜尋<br><code>?</code> 本指南<br><code>Esc</code> 返回 / 關閉<br><code>←</code> <code>→</code> 燈箱上一張 / 下一張<br><code>Space</code> 暫停幻燈片<br><br>放大檢視時點選圖片可切換操作介面顯示/隱藏。",
     disclaimer: "OpenLeagueDisplay 未獲得 Riot Games 認可，亦不代表 Riot Games 或任何正式參與製作或營運《英雄聯盟》之人士的觀點或意見。《英雄聯盟》與 Riot Games 為 Riot Games, Inc. 之商標或註冊商標。",
   },
   fr_fr: {
@@ -496,6 +511,7 @@ export const UI_STRINGS = {
     back_to_top: "Retour en haut",
     gallery_empty: "Votre galerie est vide",
     gallery_empty_hint: "Cliquez sur le + d'un skin ou d'une carte de champion pour l'ajouter.",
+    gallery_empty_cta: "Parcourir les champions",
     gallery_add: "Ajouter à la galerie",
     gallery_remove: "Retirer de la galerie",
     sort_aria: "Ordre de tri",
@@ -514,6 +530,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Cliquez sur le <strong>+</strong> d'un skin pour l'ajouter à votre galerie. Sur une carte de champion, le <strong>+</strong> ajoute <em>tous</em> ses skins d'un coup.<br><br>Ouvrez <strong>Ma Galerie</strong> dans l'en-tête à tout moment pour revoir vos choix, lancer un diaporama ou tout télécharger dans un seul ZIP. Vous pouvez aussi récupérer un champion entier ou une gamme depuis sa page détail.",
     tut_s3_title: "En fond d'écran",
     tut_s3_body: "Décompressez le ZIP, puis pointez le diaporama de votre OS sur ce dossier — le bureau tourne tout seul (Windows : <code>Paramètres → Personnalisation → Arrière-plan → Diaporama</code>).<br><br><strong>Diaporama</strong> dans l'en-tête joue aussi votre galerie ici, ou cliquez sur un splash pour zoomer. <code>?</code> rouvre ce guide.",
+    tut_s4_title: "Raccourcis",
+    tut_s4_body: "<code>/</code> aller à la recherche<br><code>?</code> ce guide<br><code>Esc</code> retour / fermer<br><code>←</code> <code>→</code> précédent / suivant dans la visionneuse<br><code>Space</code> mettre le diaporama en pause<br><br>Touchez une image ouverte pour afficher/masquer les commandes.",
     disclaimer: "OpenLeagueDisplay n'est pas approuvé par Riot Games et ne reflète pas les points de vue ou les opinions de Riot Games ni de quiconque officiellement impliqué dans la production ou la gestion de League of Legends. League of Legends et Riot Games sont des marques commerciales ou des marques déposées de Riot Games, Inc.",
   },
   de_de: {
@@ -574,6 +592,7 @@ export const UI_STRINGS = {
     back_to_top: "Nach oben",
     gallery_empty: "Deine Galerie ist leer",
     gallery_empty_hint: "Klicke auf das + eines Skins oder einer Champion-Karte, um ihn hinzuzufügen.",
+    gallery_empty_cta: "Champions durchsuchen",
     gallery_add: "Zur Galerie hinzufügen",
     gallery_remove: "Aus Galerie entfernen",
     sort_aria: "Sortierreihenfolge",
@@ -592,6 +611,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Klicke auf das <strong>+</strong> eines Skins, um ihn zu deiner Galerie hinzuzufügen. Auf einer Champion-Karte fügt das <strong>+</strong> <em>alle</em> seine Skins auf einmal hinzu.<br><br>Öffne jederzeit <strong>Meine Galerie</strong> in der Kopfzeile, um deine Auswahl anzusehen, eine Diashow abzuspielen oder alles als ein ZIP herunterzuladen. Du kannst auch einen ganzen Champion oder eine Skin-Reihe direkt von seiner Detailseite holen.",
     tut_s3_title: "Als Hintergrund",
     tut_s3_body: "Entpacke das ZIP und richte die Hintergrund-Diashow deines OS auf den Ordner — der Desktop wechselt dann von selbst (Windows: <code>Einstellungen → Personalisierung → Hintergrund → Diashow</code>).<br><br><strong>Diashow</strong> oben spielt deine Galerie auch hier im Browser ab, oder klick einen Splash zum Zoomen. <code>?</code> öffnet diese Anleitung erneut.",
+    tut_s4_title: "Tastenkürzel",
+    tut_s4_body: "<code>/</code> zur Suche springen<br><code>?</code> diese Anleitung<br><code>Esc</code> zurück / schließen<br><code>←</code> <code>→</code> vorheriges / nächstes in der Lightbox<br><code>Space</code> Diashow pausieren<br><br>Tippe auf ein geöffnetes Bild, um die Bedienelemente ein-/auszublenden.",
     disclaimer: "OpenLeagueDisplay wird von Riot Games nicht unterstützt und gibt nicht die Ansichten oder Meinungen von Riot Games oder Personen wieder, die offiziell an der Produktion oder Verwaltung von League of Legends beteiligt sind. League of Legends und Riot Games sind Marken oder eingetragene Marken von Riot Games, Inc.",
   },
   es_es: {
@@ -652,6 +673,7 @@ export const UI_STRINGS = {
     back_to_top: "Volver arriba",
     gallery_empty: "Tu galería está vacía",
     gallery_empty_hint: "Haz clic en el + de un aspecto o tarjeta de campeón para añadirlo.",
+    gallery_empty_cta: "Ver campeones",
     gallery_add: "Añadir a la galería",
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
@@ -670,6 +692,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Haz clic en el <strong>+</strong> de un aspecto para añadirlo a tu galería. En la tarjeta de un campeón, el <strong>+</strong> añade <em>todos</em> sus aspectos de una vez.<br><br>Abre <strong>Mi Galería</strong> en la cabecera cuando quieras para revisar tu selección, reproducir un pase de diapositivas o descargarlos todos en un único ZIP. También puedes obtener un campeón entero o una línea desde su página de detalle.",
     tut_s3_title: "Como fondo de pantalla",
     tut_s3_body: "Descomprime el ZIP y apunta la presentación de fondos de tu sistema a esa carpeta — el escritorio rotará solo (Windows: <code>Configuración → Personalización → Fondo → Presentación</code>).<br><br><strong>Diapositivas</strong> arriba también reproduce tu galería aquí en el navegador, o haz clic en cualquier splash para verlo en grande. <code>?</code> reabre esta guía.",
+    tut_s4_title: "Atajos",
+    tut_s4_body: "<code>/</code> ir a la búsqueda<br><code>?</code> esta guía<br><code>Esc</code> volver / cerrar<br><code>←</code> <code>→</code> anterior / siguiente en el visor<br><code>Space</code> pausar la presentación<br><br>Toca cualquier imagen abierta para mostrar u ocultar los controles.",
     disclaimer: "OpenLeagueDisplay no está avalado por Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie implicado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pt_br: {
@@ -730,6 +754,7 @@ export const UI_STRINGS = {
     back_to_top: "Voltar ao topo",
     gallery_empty: "Sua galeria está vazia",
     gallery_empty_hint: "Clique no + de uma skin ou card de campeão para adicionar.",
+    gallery_empty_cta: "Ver campeões",
     gallery_add: "Adicionar à galeria",
     gallery_remove: "Remover da galeria",
     sort_aria: "Ordem",
@@ -748,6 +773,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Clique no <strong>+</strong> de uma skin para adicioná-la à sua galeria. No card de um campeão, o <strong>+</strong> adiciona <em>todas</em> as skins dele de uma vez.<br><br>Abra <strong>Minha Galeria</strong> no cabeçalho a qualquer momento para revisar suas escolhas, reproduzir uma apresentação de slides ou baixar tudo em um único ZIP. Você também pode pegar um campeão inteiro ou uma linha pela página de detalhes.",
     tut_s3_title: "Como papel de parede",
     tut_s3_body: "Descompacte o ZIP e aponte a apresentação de fundo do seu sistema para essa pasta — a área de trabalho gira sozinha (Windows: <code>Configurações → Personalização → Tela de fundo → Apresentação de slides</code>).<br><br><strong>Slideshow</strong> em cima também reproduz sua galeria aqui no navegador, ou clique em qualquer splash para ampliar. <code>?</code> reabre este guia.",
+    tut_s4_title: "Atalhos",
+    tut_s4_body: "<code>/</code> ir para a busca<br><code>?</code> este guia<br><code>Esc</code> voltar / fechar<br><code>←</code> <code>→</code> anterior / próximo no visualizador<br><code>Space</code> pausar a apresentação<br><br>Toque em qualquer imagem aberta para mostrar/ocultar os controles.",
     disclaimer: "OpenLeagueDisplay não é endossado pela Riot Games e não reflete as visões ou opiniões da Riot Games nem de ninguém oficialmente envolvido na produção ou gestão de League of Legends. League of Legends e Riot Games são marcas comerciais ou marcas registradas da Riot Games, Inc.",
   },
   ru_ru: {
@@ -808,6 +835,7 @@ export const UI_STRINGS = {
     back_to_top: "Наверх",
     gallery_empty: "Ваша галерея пуста",
     gallery_empty_hint: "Нажмите + на образе или карточке чемпиона, чтобы добавить.",
+    gallery_empty_cta: "Смотреть чемпионов",
     gallery_add: "Добавить в галерею",
     gallery_remove: "Удалить из галереи",
     sort_aria: "Порядок сортировки",
@@ -826,6 +854,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Нажмите <strong>+</strong> на образе, чтобы добавить его в галерею. На карточке чемпиона <strong>+</strong> добавляет <em>все</em> его образы сразу.<br><br>Откройте <strong>Моя галерея</strong> в шапке в любой момент, чтобы просмотреть выбранное, запустить слайд-шоу или скачать всё одним ZIP. Также можно взять целого чемпиона или серию со страницы детали.",
     tut_s3_title: "Как обои рабочего стола",
     tut_s3_body: "Распакуйте ZIP и укажите эту папку в слайд-шоу обоев ОС — рабочий стол будет менять обои сам (Windows: <code>Параметры → Персонализация → Фон → Слайд-шоу</code>).<br><br><strong>Слайд-шоу</strong> в шапке также воспроизводит галерею в браузере, или кликните по сплэшу для увеличения. <code>?</code> снова откроет это руководство.",
+    tut_s4_title: "Горячие клавиши",
+    tut_s4_body: "<code>/</code> перейти к поиску<br><code>?</code> это руководство<br><code>Esc</code> назад / закрыть<br><code>←</code> <code>→</code> предыдущее / следующее в просмотрщике<br><code>Space</code> пауза слайд-шоу<br><br>Нажмите на открытое изображение, чтобы показать или скрыть элементы управления.",
     disclaimer: "OpenLeagueDisplay не одобрен Riot Games и не отражает взгляды или мнения Riot Games либо кого-либо, официально занятого в производстве или управлении League of Legends. League of Legends и Riot Games являются товарными знаками или зарегистрированными товарными знаками Riot Games, Inc.",
   },
   it_it: {
@@ -886,6 +916,7 @@ export const UI_STRINGS = {
     back_to_top: "Torna su",
     gallery_empty: "La tua galleria è vuota",
     gallery_empty_hint: "Clicca sul + di una skin o di una card del campione per aggiungerla.",
+    gallery_empty_cta: "Sfoglia i campioni",
     gallery_add: "Aggiungi alla galleria",
     gallery_remove: "Rimuovi dalla galleria",
     sort_aria: "Ordine",
@@ -904,6 +935,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Clicca sul <strong>+</strong> di una skin per aggiungerla alla tua galleria. Sulla card di un campione, il <strong>+</strong> aggiunge <em>tutte</em> le sue skin in una volta.<br><br>Apri <strong>La Mia Galleria</strong> nell'intestazione quando vuoi per rivedere le tue scelte, avviare una presentazione o scaricarle tutte in un unico ZIP. Puoi anche prendere un campione intero o una linea dalla pagina di dettaglio.",
     tut_s3_title: "Come sfondi",
     tut_s3_body: "Decomprimi lo ZIP e punta la presentazione sfondi del sistema a quella cartella — il desktop ruota da solo (Windows: <code>Impostazioni → Personalizzazione → Sfondo → Presentazione</code>).<br><br><strong>Presentazione</strong> in alto riproduce anche la galleria nel browser, o clicca uno splash per ingrandirlo. <code>?</code> riapre questa guida.",
+    tut_s4_title: "Scorciatoie",
+    tut_s4_body: "<code>/</code> vai alla ricerca<br><code>?</code> questa guida<br><code>Esc</code> indietro / chiudi<br><code>←</code> <code>→</code> precedente / successivo nel visualizzatore<br><code>Space</code> metti in pausa la presentazione<br><br>Tocca un'immagine aperta per mostrare/nascondere i comandi.",
     disclaimer: "OpenLeagueDisplay non è approvato da Riot Games e non riflette le opinioni o i punti di vista di Riot Games né di chiunque sia ufficialmente coinvolto nella produzione o gestione di League of Legends. League of Legends e Riot Games sono marchi commerciali o marchi registrati di Riot Games, Inc.",
   },
   es_mx: {
@@ -964,6 +997,7 @@ export const UI_STRINGS = {
     back_to_top: "Volver arriba",
     gallery_empty: "Tu galería está vacía",
     gallery_empty_hint: "Haz clic en el + de un aspecto o tarjeta de campeón para añadirlo.",
+    gallery_empty_cta: "Ver campeones",
     gallery_add: "Añadir a la galería",
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
@@ -982,6 +1016,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Haz clic en el <strong>+</strong> de un aspecto para agregarlo a tu galería. En la tarjeta de un campeón, el <strong>+</strong> agrega <em>todos</em> sus aspectos de una vez.<br><br>Abre <strong>Mi Galería</strong> en el encabezado cuando quieras para revisar tu selección, reproducir un pase de diapositivas o descargarlos todos en un único ZIP. También puedes obtener un campeón entero o una línea desde su página de detalle.",
     tut_s3_title: "Como fondo de pantalla",
     tut_s3_body: "Descomprime el ZIP y apunta el pase de fondos de tu sistema a esa carpeta — el escritorio rotará solo (Windows: <code>Configuración → Personalización → Fondo → Presentación</code>).<br><br><strong>Pase de diapositivas</strong> arriba también reproduce tu galería aquí en el navegador, o haz clic en cualquier splash para verlo en grande. <code>?</code> reabre esta guía.",
+    tut_s4_title: "Atajos",
+    tut_s4_body: "<code>/</code> ir a la búsqueda<br><code>?</code> esta guía<br><code>Esc</code> volver / cerrar<br><code>←</code> <code>→</code> anterior / siguiente en el visor<br><code>Space</code> pausar el pase de diapositivas<br><br>Toca cualquier imagen abierta para mostrar u ocultar los controles.",
     disclaimer: "OpenLeagueDisplay no cuenta con el respaldo de Riot Games ni refleja las opiniones o puntos de vista de Riot Games ni de nadie involucrado oficialmente en la producción o gestión de League of Legends. League of Legends y Riot Games son marcas comerciales o marcas registradas de Riot Games, Inc.",
   },
   pl_pl: {
@@ -1042,6 +1078,7 @@ export const UI_STRINGS = {
     back_to_top: "Do góry",
     gallery_empty: "Twoja galeria jest pusta",
     gallery_empty_hint: "Kliknij + na skinie lub karcie bohatera, aby dodać.",
+    gallery_empty_cta: "Przeglądaj bohaterów",
     gallery_add: "Dodaj do galerii",
     gallery_remove: "Usuń z galerii",
     sort_aria: "Sortowanie",
@@ -1060,6 +1097,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Kliknij <strong>+</strong> na skinie, aby dodać go do galerii. Na karcie bohatera <strong>+</strong> dodaje <em>wszystkie</em> jego skiny naraz.<br><br>Otwórz <strong>Moja galeria</strong> w nagłówku w dowolnej chwili, aby przejrzeć wybór, odtworzyć pokaz slajdów lub pobrać wszystko jako jeden ZIP. Możesz też pobrać całego bohatera lub całą serię ze strony szczegółów.",
     tut_s3_title: "Jako tapety",
     tut_s3_body: "Rozpakuj ZIP i wskaż ten folder w pokazie slajdów tapet OS — pulpit będzie się przełączał sam (Windows: <code>Ustawienia → Personalizacja → Tło → Pokaz slajdów</code>).<br><br><strong>Pokaz slajdów</strong> u góry odtwarza też galerię w przeglądarce, albo kliknij splash, by powiększyć. <code>?</code> ponownie otwiera ten przewodnik.",
+    tut_s4_title: "Skróty",
+    tut_s4_body: "<code>/</code> przejdź do wyszukiwania<br><code>?</code> ten przewodnik<br><code>Esc</code> wstecz / zamknij<br><code>←</code> <code>→</code> poprzedni / następny w podglądzie<br><code>Space</code> wstrzymaj pokaz slajdów<br><br>Dotknij otwartego obrazu, aby pokazać/ukryć elementy sterujące.",
     disclaimer: "OpenLeagueDisplay nie jest wspierany przez Riot Games i nie odzwierciedla poglądów ani opinii Riot Games ani nikogo oficjalnie zaangażowanego w tworzenie lub zarządzanie League of Legends. League of Legends i Riot Games są znakami towarowymi lub zastrzeżonymi znakami towarowymi Riot Games, Inc.",
   },
   tr_tr: {
@@ -1120,6 +1159,7 @@ export const UI_STRINGS = {
     back_to_top: "Başa dön",
     gallery_empty: "Galeriniz boş",
     gallery_empty_hint: "Eklemek için bir kostümün veya şampiyon kartının + simgesine tıklayın.",
+    gallery_empty_cta: "Şampiyonlara göz at",
     gallery_add: "Galeriye ekle",
     gallery_remove: "Galeriden çıkar",
     sort_aria: "Sıralama",
@@ -1138,6 +1178,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Galerinize eklemek için bir kostümün <strong>+</strong> simgesine tıklayın. Bir şampiyon kartında <strong>+</strong>, o şampiyonun <em>tüm</em> kostümlerini bir kerede ekler.<br><br>Seçtiklerinizi gözden geçirmek, slayt gösterisi oynatmak veya hepsini tek bir ZIP olarak indirmek için başlıktaki <strong>Galerim</strong>'i istediğiniz zaman açın. Detay sayfasından tüm bir şampiyonu veya seriyi de alabilirsiniz.",
     tut_s3_title: "Duvar kâğıdı olarak",
     tut_s3_body: "ZIP'i açın ve OS duvar kâğıdı slayt gösterisini o klasöre yönlendirin — masaüstü kendi kendine döner (Windows: <code>Ayarlar → Kişiselleştirme → Arka plan → Slayt gösterisi</code>).<br><br>Başlıktaki <strong>Slayt gösterisi</strong> galeriyi tarayıcıda da oynatır veya bir splash'a tıklayarak yakınlaştırın. <code>?</code> bu kılavuzu yeniden açar.",
+    tut_s4_title: "Kısayollar",
+    tut_s4_body: "<code>/</code> aramaya git<br><code>?</code> bu kılavuz<br><code>Esc</code> geri / kapat<br><code>←</code> <code>→</code> görüntüleyicide önceki / sonraki<br><code>Space</code> slayt gösterisini duraklat<br><br>Açık bir görsele dokunarak kontrolleri gösterip gizleyin.",
     disclaimer: "OpenLeagueDisplay, Riot Games tarafından onaylanmamıştır ve Riot Games'in ya da League of Legends'ın yapımında veya yönetiminde resmi olarak yer alan hiç kimsenin görüşlerini veya fikirlerini yansıtmaz. League of Legends ve Riot Games, Riot Games, Inc. şirketinin ticari markaları veya tescilli ticari markalarıdır.",
   },
   cs_cz: {
@@ -1198,6 +1240,7 @@ export const UI_STRINGS = {
     back_to_top: "Zpět nahoru",
     gallery_empty: "Vaše galerie je prázdná",
     gallery_empty_hint: "Klikněte na + u vzhledu nebo karty šampiona pro přidání.",
+    gallery_empty_cta: "Procházet šampiony",
     gallery_add: "Přidat do galerie",
     gallery_remove: "Odebrat z galerie",
     sort_aria: "Řazení",
@@ -1216,6 +1259,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Kliknutím na <strong>+</strong> u vzhledu jej přidáte do galerie. Na kartě šampiona <strong>+</strong> přidá <em>všechny</em> jeho vzhledy najednou.<br><br>Kdykoli otevřete <strong>Moje galerie</strong> v hlavičce a prohlédněte si výběr, spusťte prezentaci nebo stáhněte vše jako jeden ZIP. Celého šampiona nebo sérii můžete také stáhnout ze stránky detailu.",
     tut_s3_title: "Jako tapety",
     tut_s3_body: "Rozbalte ZIP a nasměrujte prezentaci pozadí OS na tu složku — plocha se přepíná sama (Windows: <code>Nastavení → Přizpůsobení → Pozadí → Prezentace</code>).<br><br><strong>Prezentace</strong> v hlavičce přehrává galerii i v prohlížeči, nebo klikněte na splash pro přiblížení. <code>?</code> znovu otevře tohoto průvodce.",
+    tut_s4_title: "Klávesové zkratky",
+    tut_s4_body: "<code>/</code> přejít na hledání<br><code>?</code> tento průvodce<br><code>Esc</code> zpět / zavřít<br><code>←</code> <code>→</code> předchozí / další v prohlížeči<br><code>Space</code> pozastavit prezentaci<br><br>Klepnutím na otevřený obrázek zobrazíte/skryjete ovládací prvky.",
     disclaimer: "OpenLeagueDisplay není schválen společností Riot Games a neodráží názory ani stanoviska společnosti Riot Games či kohokoli oficiálně zapojeného do tvorby nebo správy League of Legends. League of Legends a Riot Games jsou ochranné známky nebo registrované ochranné známky společnosti Riot Games, Inc.",
   },
   el_gr: {
@@ -1276,6 +1321,7 @@ export const UI_STRINGS = {
     back_to_top: "Επιστροφή στην κορυφή",
     gallery_empty: "Η συλλογή σας είναι άδεια",
     gallery_empty_hint: "Κάντε κλικ στο + μιας εμφάνισης ή κάρτας πρωταθλητή για προσθήκη.",
+    gallery_empty_cta: "Περιήγηση πρωταθλητών",
     gallery_add: "Προσθήκη στη συλλογή",
     gallery_remove: "Αφαίρεση από τη συλλογή",
     sort_aria: "Ταξινόμηση",
@@ -1294,6 +1340,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Κάντε κλικ στο <strong>+</strong> μιας εμφάνισης για να την προσθέσετε στη συλλογή σας. Στην κάρτα ενός πρωταθλητή, το <strong>+</strong> προσθέτει <em>όλες</em> τις εμφανίσεις του με μία κίνηση.<br><br>Ανοίξτε τη <strong>Η Συλλογή μου</strong> στην κεφαλίδα οποιαδήποτε στιγμή για να δείτε τις επιλογές σας, να αναπαράγετε μια προβολή διαφανειών ή να τις κατεβάσετε όλες ως ένα ZIP. Μπορείτε επίσης να πάρετε ολόκληρο πρωταθλητή ή σειρά από τη σελίδα λεπτομερειών.",
     tut_s3_title: "Ως ταπετσαρίες",
     tut_s3_body: "Αποσυμπιέστε το ZIP και στοχεύστε την προβολή διαφανειών φόντου του OS σε αυτόν τον φάκελο — η επιφάνεια εργασίας περιστρέφεται μόνη της (Windows: <code>Ρυθμίσεις → Εξατομίκευση → Φόντο → Προβολή διαφανειών</code>).<br><br><strong>Προβολή διαφανειών</strong> πάνω αναπαράγει επίσης τη συλλογή σας στο πρόγραμμα περιήγησης, ή κάντε κλικ σε οποιοδήποτε splash για μεγέθυνση. Το <code>?</code> ανοίγει ξανά αυτόν τον οδηγό.",
+    tut_s4_title: "Συντομεύσεις",
+    tut_s4_body: "<code>/</code> μετάβαση στην αναζήτηση<br><code>?</code> αυτός ο οδηγός<br><code>Esc</code> πίσω / κλείσιμο<br><code>←</code> <code>→</code> προηγούμενο / επόμενο στην προβολή<br><code>Space</code> παύση προβολής διαφανειών<br><br>Πατήστε μια ανοιχτή εικόνα για εμφάνιση/απόκρυψη των χειριστηρίων.",
     disclaimer: "Το OpenLeagueDisplay δεν είναι εγκεκριμένο από τη Riot Games και δεν αντικατοπτρίζει τις απόψεις ή τις γνώμες της Riot Games ή οποιουδήποτε εμπλέκεται επίσημα στην παραγωγή ή τη διαχείριση του League of Legends. Το League of Legends και η Riot Games είναι εμπορικά σήματα ή κατατεθέντα εμπορικά σήματα της Riot Games, Inc.",
   },
   hu_hu: {
@@ -1354,6 +1402,7 @@ export const UI_STRINGS = {
     back_to_top: "Vissza a tetejére",
     gallery_empty: "A galériád üres",
     gallery_empty_hint: "Kattints a + jelre egy szkinen vagy hős kártyáján a hozzáadáshoz.",
+    gallery_empty_cta: "Hősök böngészése",
     gallery_add: "Hozzáadás a galériához",
     gallery_remove: "Eltávolítás a galériából",
     sort_aria: "Rendezés",
@@ -1372,6 +1421,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Kattints egy szkin <strong>+</strong> jelére, hogy hozzáadd a galériádhoz. Egy hős kártyáján a <strong>+</strong> <em>az összes</em> szkinjét hozzáadja egyszerre.<br><br>Nyisd meg a <strong>Saját galéria</strong> menüt a fejlécben bármikor, hogy átnézd a választásaidat, diavetítést indíts, vagy egyetlen ZIP-ként letöltsd mindet. Egész hőst vagy sorozatot is letölthetsz a részletek oldaláról.",
     tut_s3_title: "Háttérképként",
     tut_s3_body: "Bontsd ki a ZIP-et, és irányítsd az OS háttér-diavetítését arra a mappára — az asztal magától forog (Windows: <code>Beállítások → Személyre szabás → Háttér → Diavetítés</code>).<br><br>A <strong>Diavetítés</strong> a fejlécben is lejátssza a galériát a böngészőben, vagy katt egy splash-re nagyításhoz. A <code>?</code> újra megnyitja ezt az útmutatót.",
+    tut_s4_title: "Gyorsbillentyűk",
+    tut_s4_body: "<code>/</code> ugrás a kereséshez<br><code>?</code> ez az útmutató<br><code>Esc</code> vissza / bezárás<br><code>←</code> <code>→</code> előző / következő a nézegetőben<br><code>Space</code> diavetítés szüneteltetése<br><br>Koppints egy megnyitott képre a vezérlők megjelenítéséhez/elrejtéséhez.",
     disclaimer: "Az OpenLeagueDisplay nem a Riot Games által jóváhagyott alkalmazás, és nem tükrözi a Riot Games vagy a League of Legends készítésében, illetve kezelésében hivatalosan részt vevő bárki nézeteit vagy véleményét. A League of Legends és a Riot Games a Riot Games, Inc. védjegyei vagy bejegyzett védjegyei.",
   },
   ro_ro: {
@@ -1432,6 +1483,7 @@ export const UI_STRINGS = {
     back_to_top: "Înapoi sus",
     gallery_empty: "Galeria ta este goală",
     gallery_empty_hint: "Dă clic pe + de pe un aspect sau cardul unui campion pentru a-l adăuga.",
+    gallery_empty_cta: "Răsfoiește campionii",
     gallery_add: "Adaugă în galerie",
     gallery_remove: "Elimină din galerie",
     sort_aria: "Ordine",
@@ -1450,6 +1502,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Dă clic pe <strong>+</strong> de pe un aspect pentru a-l adăuga în galeria ta. Pe cardul unui campion, <strong>+</strong> adaugă <em>toate</em> aspectele sale dintr-o dată.<br><br>Deschide <strong>Galeria mea</strong> din antet oricând pentru a-ți revedea alegerile, a reda o prezentare de diapozitive sau a le descărca pe toate într-un singur ZIP. Poți lua și un campion întreg sau o serie din pagina de detalii.",
     tut_s3_title: "Ca fundal",
     tut_s3_body: "Dezarhivează ZIP-ul și îndreaptă prezentarea de fundal a OS-ului către acel folder — desktopul rotește singur (Windows: <code>Setări → Personalizare → Fundal → Prezentare</code>).<br><br><strong>Prezentare</strong> de sus redă galeria și în browser, sau click pe orice splash pentru a-l mări. <code>?</code> redeschide acest ghid.",
+    tut_s4_title: "Scurtături",
+    tut_s4_body: "<code>/</code> salt la căutare<br><code>?</code> acest ghid<br><code>Esc</code> înapoi / închide<br><code>←</code> <code>→</code> anterior / următor în vizualizator<br><code>Space</code> pune pe pauză prezentarea<br><br>Atinge orice imagine deschisă pentru a afișa/ascunde comenzile.",
     disclaimer: "OpenLeagueDisplay nu este aprobat de Riot Games și nu reflectă punctele de vedere sau opiniile Riot Games ori ale oricui implicat oficial în producerea sau gestionarea League of Legends. League of Legends și Riot Games sunt mărci comerciale sau mărci comerciale înregistrate ale Riot Games, Inc.",
   },
   th_th: {
@@ -1510,6 +1564,7 @@ export const UI_STRINGS = {
     back_to_top: "กลับขึ้นด้านบน",
     gallery_empty: "แกลเลอรีของคุณว่างเปล่า",
     gallery_empty_hint: "คลิกที่ + บนสกินหรือการ์ดแชมเปี้ยนเพื่อเพิ่ม",
+    gallery_empty_cta: "ดูแชมเปี้ยน",
     gallery_add: "เพิ่มลงแกลเลอรี",
     gallery_remove: "นำออกจากแกลเลอรี",
     sort_aria: "การเรียงลำดับ",
@@ -1528,6 +1583,8 @@ export const UI_STRINGS = {
     tut_s2_body: "คลิกที่ <strong>+</strong> บนสกินใดก็ได้เพื่อเพิ่มลงแกลเลอรี บนการ์ดแชมเปี้ยน <strong>+</strong> จะเพิ่ม<em>ทุกสกิน</em>ของแชมเปี้ยนนั้นในครั้งเดียว<br><br>เปิด <strong>แกลเลอรีของฉัน</strong> ที่ส่วนหัวได้ทุกเมื่อเพื่อตรวจดูสกินที่เลือก เล่นสไลด์โชว์ หรือดาวน์โหลดทั้งหมดเป็น ZIP เดียว คุณยังดาวน์โหลดแชมเปี้ยนทั้งหมดหรือซีรีส์ได้จากหน้ารายละเอียดเช่นกัน",
     tut_s3_title: "เป็นวอลล์เปเปอร์",
     tut_s3_body: "แตก ZIP แล้วชี้สไลด์โชว์พื้นหลังของ OS ไปที่โฟลเดอร์นั้น — เดสก์ท็อปจะหมุนเอง (Windows: <code>การตั้งค่า → การปรับแต่งส่วนบุคคล → พื้นหลัง → สไลด์โชว์</code>).<br><br><strong>สไลด์โชว์</strong> ด้านบนเล่นแกลเลอรีในเบราว์เซอร์ด้วย หรือคลิกสแปลชเพื่อซูม กด <code>?</code> เพื่อเปิดคู่มือนี้อีกครั้ง",
+    tut_s4_title: "คีย์ลัด",
+    tut_s4_body: "<code>/</code> ไปที่การค้นหา<br><code>?</code> คู่มือนี้<br><code>Esc</code> ย้อนกลับ / ปิด<br><code>←</code> <code>→</code> ก่อนหน้า / ถัดไปในไลท์บ็อกซ์<br><code>Space</code> หยุดสไลด์โชว์ชั่วคราว<br><br>แตะที่รูปภาพที่เปิดอยู่เพื่อสลับการแสดง/ซ่อนปุ่มควบคุม",
     disclaimer: "OpenLeagueDisplay ไม่ได้รับการรับรองจาก Riot Games และไม่ได้สะท้อนมุมมองหรือความคิดเห็นของ Riot Games หรือผู้ที่มีส่วนเกี่ยวข้องอย่างเป็นทางการในการผลิตหรือบริหารจัดการ League of Legends ทั้งนี้ League of Legends และ Riot Games เป็นเครื่องหมายการค้าหรือเครื่องหมายการค้าจดทะเบียนของ Riot Games, Inc.",
   },
   id_id: {
@@ -1588,6 +1645,7 @@ export const UI_STRINGS = {
     back_to_top: "Kembali ke atas",
     gallery_empty: "Galeri Anda kosong",
     gallery_empty_hint: "Klik + pada skin atau kartu juara untuk menambahkannya.",
+    gallery_empty_cta: "Jelajahi juara",
     gallery_add: "Tambahkan ke galeri",
     gallery_remove: "Hapus dari galeri",
     sort_aria: "Urutan",
@@ -1606,6 +1664,8 @@ export const UI_STRINGS = {
     tut_s2_body: "Klik <strong>+</strong> pada skin mana pun untuk menambahkannya ke galeri. Pada kartu juara, <strong>+</strong> menambahkan <em>semua</em> skin-nya sekaligus.<br><br>Buka <strong>Galeri Saya</strong> di header kapan saja untuk meninjau pilihanmu, memutar tayangan slide, atau mengunduh semuanya sebagai satu ZIP. Kamu juga bisa mengambil seluruh juara atau lini dari halaman detailnya.",
     tut_s3_title: "Sebagai wallpaper",
     tut_s3_body: "Ekstrak ZIP dan arahkan tayangan slide latar OS ke folder itu — desktop berputar sendiri (Windows: <code>Pengaturan → Personalisasi → Latar belakang → Tayangan slide</code>).<br><br><strong>Tayangan slide</strong> di atas juga memutar galerimu di browser, atau klik splash mana saja untuk memperbesar. <code>?</code> membuka kembali panduan ini.",
+    tut_s4_title: "Pintasan",
+    tut_s4_body: "<code>/</code> lompat ke pencarian<br><code>?</code> panduan ini<br><code>Esc</code> kembali / tutup<br><code>←</code> <code>→</code> sebelumnya / berikutnya di penampil<br><code>Space</code> jeda tayangan slide<br><br>Ketuk gambar yang terbuka untuk menampilkan/menyembunyikan kontrol.",
     disclaimer: "OpenLeagueDisplay tidak didukung oleh Riot Games dan tidak mencerminkan pandangan atau pendapat Riot Games maupun siapa pun yang terlibat secara resmi dalam produksi atau pengelolaan League of Legends. League of Legends dan Riot Games adalah merek dagang atau merek dagang terdaftar dari Riot Games, Inc.",
   },
 };
@@ -1814,7 +1874,17 @@ export function localeFlagURL(code) {
   return cc ? `https://flagcdn.com/${cc}.svg` : "";
 }
 
-// 言語ボタンの表示 (国旗) と aria-selected を現在の locale に合わせる
+// locale 文字列から短い言語コード表記を導く (旗だけだと英語=US 旗のように
+// 旗⇄言語の対応が直感的でないので PC では旗の隣に併記する)。i18n キーは増やさず
+// locale 文字列の先頭セグメントを使う: "default" は英語なので "EN"、それ以外は
+// 先頭セグメントを大文字化 (ja_jp→JA)。zh_cn/zh_tw はどちらも "ZH" になるが
+// 旗 (CN/TW) で判別できるので許容する。
+function localeShortCode(code) {
+  if (!code || code === "default") return "EN";
+  return code.split("_")[0].toUpperCase();
+}
+
+// 言語ボタンの表示 (国旗 + 言語コード) と aria-selected を現在の locale に合わせる
 export function setLangButton(code) {
   const img = $("lang-flag");
   const url = localeFlagURL(code);
@@ -1824,6 +1894,19 @@ export function setLangButton(code) {
   } else {
     img.removeAttribute("src");
     img.style.visibility = "hidden";
+  }
+  // 言語コードラベルは index.html に常設せず、初回だけ旗の隣に生成して以後は
+  // textContent を書き換える (モバイルでは CSS で display:none にして旗のみに戻す)
+  const btn = $("lang-btn");
+  if (btn) {
+    let label = btn.querySelector(".lang-code");
+    if (!label) {
+      label = document.createElement("span");
+      label.className = "lang-code";
+      label.setAttribute("aria-hidden", "true");
+      btn.appendChild(label);
+    }
+    label.textContent = localeShortCode(code);
   }
   const menu = $("lang-menu");
   if (!menu) return;

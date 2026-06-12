@@ -1,4 +1,4 @@
-// 初回訪問チュートリアル: 3 ステップの簡易オンボーディングモーダル。
+// 初回訪問チュートリアル: 4 ステップの簡易オンボーディングモーダル。
 // 既読フラグは localStorage (LS_TUTORIAL_KEY) で持ち、ヘッダの ? ボタンと
 // ? キーから何度でも再表示できる (フラグは変わらない)。閉じる経路 (Skip / Done /
 // Esc / 外側クリック) はどれも初回表示時にフラグを立てる。
@@ -9,7 +9,7 @@
 import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus } from "./state.js";
 import { t } from "./i18n.js";
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 // フォーカストラップ解除関数 (open で張り、close で呼ぶ)。Skip ボタンは最終ステップで
 // 隠れる等、ボタンが状態で増減するので trapFocus は毎回その場でリストを計算する。

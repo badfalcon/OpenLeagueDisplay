@@ -31,7 +31,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
-│   ├── tutorial.js                  #   初回訪問チュートリアル (3ステップ。? ボタン / ? キーで再表示)
+│   ├── tutorial.js                  #   初回訪問チュートリアル (4ステップ。? ボタン / ? キーで再表示)
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   └── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
@@ -325,7 +325,8 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   旧 data.json では従来通り静止 splash 表示 (完全に後方互換)
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
-- [ ] キーボードショートカット一覧モーダル (? キーで表示)
+- [x] ~~キーボードショートカット一覧モーダル (? キーで表示)~~ → 専用モーダルは作らず
+  チュートリアル第4ステップとして実装 (? キーで開く既存動線をそのまま流用)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み

@@ -591,8 +591,12 @@ function renderSelected(root) {
   });
 
   if (items.length === 0) {
+    // 空状態は行き止まりになりやすいので、ヒント文の下に home へ戻る CTA を出す
     $("view-content").innerHTML =
-      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p></div>`;
+      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
+      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button></div>`;
+    const browse = $("gallery-browse");
+    if (browse) browse.addEventListener("click", goHome);
     return;
   }
 

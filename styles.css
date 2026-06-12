@@ -215,6 +215,16 @@
     background: rgba(255, 255, 255, 0.04);
     flex-shrink: 0;
   }
+  /* 旗の隣に出す言語コード (EN/JA/...): 旗だけだと旗⇄言語が直感的でないので併記。
+     PC のみ表示で、モバイルは幅が貴重なため下の @media で display:none に戻す */
+  .lang-code {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold-hi);
+    letter-spacing: 0.04em;
+    margin-left: 7px;
+    vertical-align: middle;
+  }
   .lang-menu {
     position: absolute;
     top: calc(100% + 6px); right: 0;
@@ -1135,6 +1145,10 @@
     font-size: 13px;
     opacity: 0.7;
   }
+  /* 空状態のヒント文の下に出す「チャンピオンを見る」CTA (.loading 内に置くので margin だけ面倒を見る) */
+  .gallery-browse-cta {
+    margin-top: 16px;
+  }
 
   /* === FILTER CHIPS === home view 先頭の role/rarity/region ワンタップ絞り込み ===
      既存の検索パイプライン (renderHome のマルチ軸マッチ) に語を投入するだけの導線。
@@ -1338,6 +1352,13 @@
     background: var(--bg-1);
     border: 1px solid var(--gold);
     position: relative;
+    /* .tut-body の min-height 予約 (ステップ間の高さ揺れ防止) は背の低い画面
+       (横向きスマホ) でボックスを溢れさせるため、はみ出す時だけ内部スクロールに
+       逃がして操作ボタン (Done/Next) へ届かなくなるのを防ぐ。100dvh が使える環境では
+       overlay padding を引いた値が正確なので二段書きでフォールバックさせる */
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
     clip-path: polygon(
       16px 0%, calc(100% - 16px) 0%,
       100% 16px, 100% calc(100% - 16px),
@@ -1371,9 +1392,9 @@
     line-height: 1.7;
     letter-spacing: 0.01em;
     margin-bottom: 26px;
-    /* ステップ間で高さが揺れるのを抑える。最も多い ja_jp/ko_kr/ru_ru の本文
-       (6 行前後 × line-height 1.7) を吸収する 11.5em で固定 */
-    min-height: 11.5em;
+    /* ステップ間で高さが揺れるのを抑える。最も行数が多いのは s4 (ショートカット
+       一覧、箇条書き 6 行 + 空行 + 補足 1 行 ≒ 8 行) なので 13em で固定 */
+    min-height: 13em;
   }
   .tut-body strong { color: var(--gold-hi); font-weight: 600; }
   .tut-body em { color: var(--gold); font-style: italic; }
@@ -1703,6 +1724,9 @@
     /* 下部固定ナビと重ならないよう .toast と同じ式で底上げする */
     .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
 
+    /* モバイルは幅が貴重なので言語コード併記は隠して旗のみに戻す */
+    .lang-code { display: none; }
+
     /* lang menu: 画面右端からはみ出さない max-width 制約 */
     .lang-menu {
       min-width: 200px;
@@ -1726,7 +1750,7 @@
     .tutorial-overlay { padding: 12px; }
     .tutorial-box { padding: 26px 22px 20px; }
     .tut-title { font-size: 26px; margin-bottom: 14px; }
-    .tut-body  { font-size: 13px; line-height: 1.65; min-height: 13em; margin-bottom: 20px; }
+    .tut-body  { font-size: 13px; line-height: 1.65; min-height: 15em; margin-bottom: 20px; }
     .tut-actions .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
     .tut-nav { gap: 6px; }
   }
