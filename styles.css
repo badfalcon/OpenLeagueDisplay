@@ -57,8 +57,8 @@
     min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* iOS Safari は viewport の user-scalable=no を無視するので、ダブルタップ
-       ズームだけは touch-action で抑える (通常のスクロール/タップは維持) */
+    /* ピンチズームは viewport で許可している (WCAG 1.4.4)。誤爆しやすいダブルタップ
+       ズームだけはここで抑える (通常のスクロール/タップ/ピンチズームは維持) */
     touch-action: manipulation;
   }
   /* 背景: 二段の放射状ヴィネット + SVGノイズ。ベタ塗りだと「とりあえずダーク」感が強いので
@@ -783,6 +783,7 @@
                   rgba(0, 0, 0, 0.35) 75%,
                   rgba(0, 0, 0, 0) 100%);
     pointer-events: none;
+    transition: opacity 0.2s ease;
   }
   .lb-skin {
     font-family: var(--font-display);
@@ -819,6 +820,17 @@
      full のときは class が付かず通常表示 (lb-desc は desc 無しなら [hidden] で畳む) */
   .lightbox.caption-name .lb-desc { display: none; }
   .lightbox.caption-none .lb-overlay { display: none; }
+  /* ステージタップで操作系 UI (chrome) を一括トグルする「純粋に絵を見る」モード。
+     display:none ではなく opacity + pointer-events で隠すのは、フォーカス中の
+     lb-close が消えてフォーカスが body に落ちる (= キーボード操作の起点を失う) のを
+     避けるため。要素は DOM に残るので矢印/Esc/Space は従来どおり効く。
+     フェードは各要素のベース transition が担う (クラス除去時にも対称に効かせるため。
+     ここに transition を置くとクラスが外れた瞬間に宣言ごと消えて再表示が瞬時になり非対称) */
+  .lightbox.chrome-hidden .lb-toolbar,
+  .lightbox.chrome-hidden .lb-nav,
+  .lightbox.chrome-hidden .lb-overlay {
+    opacity: 0; pointer-events: none;
+  }
   .lb-champ {
     font-family: var(--font-eyebrow);
     font-size: 11px; font-weight: 500;
@@ -851,6 +863,7 @@
   .lb-toolbar {
     position: absolute; top: 28px; left: 28px; right: 28px;
     display: flex; gap: 8px; align-items: center; font-size: 11px;
+    transition: opacity 0.2s ease;
   }
   .lb-toolbar-spacer { flex: 1 1 auto; }
   .lb-toolbar .badge {

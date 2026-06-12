@@ -7,7 +7,10 @@
 <head>
 <script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- ピンチズームを許可 (WCAG 1.4.4 拡大)。maximum-scale=1 / user-scalable=no は
+     入れない: iOS は元々これらを無視するが Android だけズーム不能になっていた。
+     ダブルタップズームの抑止は styles.css の touch-action: manipulation が担う -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Content Security Policy (defense-in-depth)
   ------------------------------------------

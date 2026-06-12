@@ -38,6 +38,9 @@ export function openLightbox(list, idx, mode) {
   document.body.classList.add("lightbox-open");
   lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
+  // ステージタップで隠せる操作系 (chrome) は開くたびに必ず表示状態に戻す。
+  // caption と違い「隠したまま」を持ち越さない (永続化しない) ので毎回外す。
+  lb.classList.remove("chrome-hidden");
   // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
   lb.classList.toggle("fill", state.lb.fit === "cover");
   // スマホ拡大時の左右パン (CSS lb-panx) の長さを 1 スライドの表示時間に合わせる。

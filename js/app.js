@@ -418,6 +418,10 @@ function wireEvents() {
 
   // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
   let tStartX = 0, tStartY = 0;
+  // スワイプ成立直後に発火しうる click を 1 回だけ無視するフラグ。スワイプが成立
+  // するとブラウザは通常 click を発火しないが、機種差で漏れることがあるため、
+  // 確実性優先で「スワイプした直後の stage クリックは chrome トグルに使わない」
+  let swipeConsumedClick = false;
   const lbEl = $("lightbox");
   lbEl.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
@@ -429,9 +433,22 @@ function wireEvents() {
     const dx = t.clientX - tStartX;
     const dy = t.clientY - tStartY;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swipeConsumedClick = true;
       if (dx > 0) prevSlide(); else nextSlide();
     }
   }, { passive: true });
+  // ステージ (画像領域) タップで操作系 UI を一括トグルする画像ビューア定番のジェスチャ。
+  // ・⚙ メニューが開いている時は既存の「外側クリックで閉じる」(lightbox 全体で拾う
+  //   ハンドラ) を優先し、ここでは何もしない (= タップは閉じる動作に充てる)
+  // ・直前のスワイプで成立した click は 1 回だけ無視する (next/prev と二重発火しない)
+  // ・ハンドラは .lb-stage 直付けなので、ツールバー/矢印/overlay 上のクリックは
+  //   DOM 構造上ここに届かない。lb-overlay は pointer-events:none なので素通しして
+  //   stage に届くが、overlay 領域のタップもトグル対象でよい
+  document.querySelector(".lb-stage").addEventListener("click", () => {
+    if (swipeConsumedClick) { swipeConsumedClick = false; return; }
+    if (!$("ss-menu").hidden) return;
+    $("lightbox").classList.toggle("chrome-hidden");
+  });
 
   document.addEventListener("keydown", (e) => {
     // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)

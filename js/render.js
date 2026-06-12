@@ -130,6 +130,15 @@ export function render() {
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
+  // 検索プレースホルダ: 詳細 view (champion / line) では検索が view ローカルでなく
+  // 全チャンピオン横断 (= 暗黙に一覧へ戻る) であることを予告する文言に差し替える。
+  // applyStaticUIStrings が当てる初期値を view に応じて上書きする形なので、locale
+  // 切替後も render() が走って追従する。
+  const searchEl = $("search");
+  if (searchEl) {
+    const global = (state.view === "champion" || state.view === "line");
+    searchEl.placeholder = t(global ? "search_placeholder_global" : "search_placeholder");
+  }
   refreshGalleryBtn();
   // 末尾で現在 state に対応する hash を app.js へ通知する。app.js 側は
   // 「現在の location.hash と違う時だけ pushState」して二重 render を避ける。
