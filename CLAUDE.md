@@ -307,8 +307,11 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
 - [x] ~~PWAマニフェスト追加してスマホでホーム画面追加可能に~~ → `manifest.webmanifest` +
   `icon-maskable.svg` で実装済み。アイコンは SVG (リポジトリにバイナリを置かない方針)。
-  `sw.js` でアプリシェル (HTML/CSS/JS/アイコン) を stale-while-revalidate キャッシュ
-  し、`data.json` / `i18n/*.json` は network-first。スプラッシュ画像 (CDragon) は
+  `sw.js` で同一オリジンの GET (アプリシェル + `data.json` / `i18n/*.json`) を一律
+  network-first で扱い、キャッシュはオフライン時のフォールバックに徹する。当初シェルは
+  stale-while-revalidate だったが、ソース編集や言語切替が「リロードするまで反映されない」
+  (旧 JS が配られ続ける) 開発時の罠を避けるため network-first に統一した (静的ファイルは
+  ETag で実体ほぼ 304 なので毎ロードの再取得は安い)。スプラッシュ画像 (CDragon) は
   キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応
 - [x] ~~アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生~~ →
   `generate_data.py` が `splashVideoPath` を `video` フィールドに取り込み、

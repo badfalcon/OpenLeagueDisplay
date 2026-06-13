@@ -1,16 +1,18 @@
 // Service Worker: アプリシェル (HTML/CSS/JS/アイコン) をキャッシュして再訪を高速化し、
 // インストール可能要件を満たすための最小構成。
 //
-// 方針:
-// - シェル: stale-while-revalidate。キャッシュを即返しつつ裏で更新を取りに行く。
-//   JS/CSS の変更は「次回訪問」で反映される (SWR の標準的な挙動)。
-// - data.json / i18n/*.json: network-first。週次ワークフローで更新されるデータなので
-//   オンライン時は常に最新を取り、オフライン時のみキャッシュへフォールバック。
+// 方針: 同一オリジンの GET は一律 network-first。
+// - オンライン時は常にネットワークから最新を取り、キャッシュは「オフライン時の
+//   フォールバック」として持つ。シェル (JS/CSS) も同じ扱いにすることで、ソース編集や
+//   言語切替が「リロードするまで反映されない」(stale-while-revalidate の罠) を解消する。
+//   静的ファイルは GitHub Pages が ETag を返すので、毎ロードの再取得は実体ほぼ 304 で安い。
+// - data.json / i18n/*.json も同じ network-first (週次更新データの鮮度も自然に担保)。
 // - 画像 (raw.communitydragon.org) や CDN (fonts / jsdelivr): 一切インターセプトしない。
 //   スプラッシュ全体で ~600MB あり、キャッシュに載せる方針ではない。
-// - シェル更新時は CACHE_VERSION を上げること (activate で古いキャッシュを掃除する)。
+// - オフライン動作 (PWA) はキャッシュフォールバックで維持。インストール時に
+//   SHELL をプリキャッシュしておく。シェル更新時は CACHE_VERSION を上げること。
 
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // プリキャッシュ対象。sw.js と同階層基準の相対パス (GitHub Pages のサブパス配信に対応)
@@ -52,7 +54,9 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// ネットワーク優先: 取れたらキャッシュも更新、失敗時はキャッシュへフォールバック
+// ネットワーク優先: 取れたらキャッシュも更新、失敗時 (オフライン) はキャッシュへ
+// フォールバック。ナビゲーション要求が未キャッシュなら index.html を返す
+// (SPA の deep link / 未知パスでもオフラインでアプリシェルを出す)。
 async function networkFirst(req) {
   const cache = await caches.open(CACHE_NAME);
   try {
@@ -62,29 +66,12 @@ async function networkFirst(req) {
   } catch (err) {
     const hit = await cache.match(req);
     if (hit) return hit;
+    if (req.mode === "navigate") {
+      const shell = await cache.match("./index.html");
+      if (shell) return shell;
+    }
     throw err;
   }
-}
-
-// stale-while-revalidate: キャッシュを即返し、裏で取り直して次回に備える
-async function staleWhileRevalidate(req) {
-  const cache = await caches.open(CACHE_NAME);
-  const hit = await cache.match(req);
-  const fetching = fetch(req)
-    .then((res) => {
-      if (res && res.ok) cache.put(req, res.clone());
-      return res;
-    })
-    .catch(() => null);
-  if (hit) return hit;
-  const res = await fetching;
-  if (res) return res;
-  // ナビゲーション要求がオフラインで未キャッシュなら index.html を出す
-  if (req.mode === "navigate") {
-    const shell = await cache.match("./index.html");
-    if (shell) return shell;
-  }
-  return Response.error();
 }
 
 self.addEventListener("fetch", (e) => {
@@ -95,13 +82,10 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return;
 
   // ローカル実行モードの API (/api/ping 等) はキャッシュせず素通しする。
-  // GET /api/ping を SWR に乗せると古い検知結果を返してしまうため除外する。
+  // GET /api/ping をキャッシュに乗せると古い検知結果を返してしまうため除外する。
   if (url.pathname.split("/").includes("api")) return;
 
-  // data.json と i18n/*.json は週次更新データなので network-first
-  if (url.pathname.endsWith("/data.json") || url.pathname.includes("/i18n/")) {
-    e.respondWith(networkFirst(req));
-    return;
-  }
-  e.respondWith(staleWhileRevalidate(req));
+  // 同一オリジンの GET は一律 network-first (シェルもデータも)。オンラインなら常に
+  // 最新を配り、キャッシュはオフライン時のフォールバックに徹する。
+  e.respondWith(networkFirst(req));
 });
