@@ -8,6 +8,17 @@ export function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
 
+// スクリーンリーダー向けの polite ライブリージョン (#sr-status) 通知。視覚表示は伴わない
+// (検索結果件数の変化など、画面が変わったのに SR へ伝わらない status を読み上げさせる用)。
+// 同一文言でも再アナウンスされるよう、一度空にして次フレームで入れ直す
+// (share.js / local.js のコピー完了通知と同手法)。文字列は textContent なので esc 不要。
+export function announce(msg) {
+  const sr = $("sr-status");
+  if (!sr) return;
+  sr.textContent = "";
+  requestAnimationFrame(() => { sr.textContent = msg; });
+}
+
 // 背景スクロールのロック (ライトボックス / チュートリアルのモーダル表示中)。
 // overflow:hidden だけだと iOS Safari はタッチスクロールを止めないので、body を
 // position:fixed にして現在のスクロール位置を退避する (= 定番の iOS scroll-lock)。

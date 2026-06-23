@@ -58,6 +58,11 @@
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font-body);
     min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
+    /* WCAG 2.4.11: Tab で本文 (グリッド/フッター) へフォーカス移動した時、ブラウザの
+       「フォーカスを可視領域へスクロール」が sticky topbar の裏にカードを送り込まない
+       よう、スクロールポートの上端に topbar 高さ分の余白を確保する (--topbar-h は
+       trackTopbarHeight が実測してライブ更新)。下端の fixed 下部ナビ分はモバイルブロックで加算 */
+    scroll-padding-top: var(--topbar-h, 80px);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* ピンチズームは viewport で許可している (WCAG 1.4.4)。誤爆しやすいダブルタップ
@@ -1643,6 +1648,11 @@
     /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有。
        --bottom-nav-h は下部固定ナビ (header-secondary) の本体高さ (safe-area は別途加算) */
     :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; --bottom-nav-h: 56px; }
+
+    /* WCAG 2.4.11 (下端): 行2 が画面下部の fixed ナビになるので、Tab で最下部付近の
+       カード/フッターリンクへフォーカスが移った時にナビの裏へ送られないよう、
+       スクロールポート下端にナビ高さ + safe-area 分の余白を確保する */
+    html { scroll-padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 12px); }
 
     /* topbar の backdrop-filter は CSS 仕様上「fixed 子孫の containing block」を作るため、
        これを残すと下で fixed 化する header-secondary が viewport ではなく topbar 基準に

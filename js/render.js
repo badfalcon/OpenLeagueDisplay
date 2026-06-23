@@ -3,7 +3,7 @@
 // 以降は setPrimaryHeader / view-content.innerHTML 差し替えで更新する。
 
 import {
-  state, DATA, $, esc,
+  state, DATA, $, esc, announce,
   SELECT_KEY, SKIN_BY_KEY, LINE_INDEX,
   saveSelected,
 } from "./state.js";
@@ -346,6 +346,8 @@ function renderHome(root) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     wireFilterChips(root);
+    // WCAG 4.1.3: 検索 (フィルタチップ含む) の結果変化は status。SR へ読み上げる
+    announce(t("no_results_msg", state.searchQuery));
     return;
   }
 
@@ -372,6 +374,11 @@ function renderHome(root) {
   wireChampCards(root);
   wireSearchSkinCards(root, skinMatches);
   wireFilterChips(root);
+  // WCAG 4.1.3: 結果件数を SR へ。翻訳済みキーから合成 (新規キー不要)
+  const aParts = [];
+  if (champMatches.length) aParts.push(t("champs_count", champMatches.length));
+  if (skinMatches.length) aParts.push(t("skins_count", skinMatches.length));
+  announce(aParts.join(", "));
 }
 
 // ＋ ボタン (sel-checkbox) の type/aria 属性を組む。三状態 (full=全選択 / partial=一部 /
@@ -531,6 +538,8 @@ function renderLines(root) {
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
+    // WCAG 4.1.3: 検索フィルタで 0 件になった時のみ SR へ通知 (素の一覧表示では黙る)
+    if (q) announce(t("no_lines_msg"));
     return;
   }
   const cards = entries.map(e => {
@@ -559,6 +568,8 @@ function renderLines(root) {
     const cb = el.querySelector(".sel-checkbox");
     if (cb) cb.addEventListener("click", () => bulkToggleLine(el.dataset.line));
   });
+  // WCAG 4.1.3: 検索フィルタ時のみ結果件数を SR へ (素の一覧表示では黙る)
+  if (q) announce(t("lines_count", entries.length));
 }
 
 function renderLine(root) {
