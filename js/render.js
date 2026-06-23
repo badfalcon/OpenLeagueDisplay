@@ -194,7 +194,11 @@ export function render() {
   const searchEl = $("search");
   if (searchEl) {
     const global = (state.view === "champion" || state.view === "line");
-    searchEl.placeholder = t(global ? "search_placeholder_global" : "search_placeholder");
+    const ph = t(global ? "search_placeholder_global" : "search_placeholder");
+    searchEl.placeholder = ph;
+    // placeholder はアクセシブルネームにならない (入力すると消える / AT が拾わない) ので、
+    // 同じ翻訳済み文言を aria-label にも当てて SR / 音声操作に名前を渡す
+    searchEl.setAttribute("aria-label", ph);
   }
   refreshGalleryBtn();
   // 末尾で現在 state に対応する hash を app.js へ通知する。app.js 側は

@@ -1974,7 +1974,10 @@ export function applyStaticUIStrings() {
   document.documentElement.lang = state.locale === "default"
     ? "en"
     : LANG_TAG_OVERRIDES[state.locale] || state.locale.split("_")[0];
+  // placeholder はアクセシブルネームにならないので、同じ翻訳済み文言を aria-label にも当てる
+  // (render() が view 別の placeholder/aria-label に上書きするが、初期/locale 切替時はこれで名前を確保)
   $("search").placeholder = t("search_placeholder");
+  $("search").setAttribute("aria-label", t("search_placeholder"));
   const skip = $("skip-link");
   if (skip) skip.textContent = t("skip_to_content");
   $("lang-btn").setAttribute("aria-label", t("lang_aria"));
