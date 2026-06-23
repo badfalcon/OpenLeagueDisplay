@@ -240,16 +240,19 @@ export function refreshGalleryBtn() {
   if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
 }
 
-// フィルタチップ: role / rarity / region のローカライズ語をワンタップで検索クエリへ
-// 投入する。renderHome の既存マルチ軸検索 (名前/ロール/地域/rarity) をそのまま使うので
-// 専用フィルタエンジンは持たない。表示には現状使っていなかった ROLE/RARITY/REGION_LABELS
-// を「発見可能な入口」として可視化するのが狙い。キー列挙は locale 非依存で安定する
-// .default の Object.keys を基準にし、ラベルだけ現在 locale (無ければ default) で当てる。
-// active (現在の検索語と一致) なチップを再タップすると検索を解除する (トグル)。
-function filterChipsHTML(q) {
+// フィルタチップ: 渡された LABELS マップ群 (maps) のローカライズ語をワンタップで検索
+// クエリへ投入する。既存のマルチ軸検索 (renderHome=名前/ロール/地域、renderLines=rarity)
+// をそのまま使うので専用フィルタエンジンは持たない。軸の置き場所は性質で view を分ける:
+// home (チャンピオン一覧) は role/region (= チャンピオンの属性)、Lines (スキン一覧) は
+// rarity (= スキンの属性。per-skin なので「チャンピオンの絞り込み」には馴染まず、スキンを
+// 見る場所に置く)。表示には ROLE/RARITY/REGION_LABELS を「発見可能な入口」として可視化
+// するのが狙い。キー列挙は locale 非依存で安定する .default の Object.keys を基準にし、
+// ラベルだけ現在 locale (無ければ default) で当てる。active (現在の検索語と一致) な
+// チップを再タップすると検索を解除する (トグル)。
+function filterChipsHTML(q, maps) {
   const seen = new Set();
   const chips = [];
-  for (const map of [ROLE_LABELS, RARITY_LABELS, REGION_LABELS]) {
+  for (const map of maps) {
     const loc = map[state.locale] || {};
     for (const key of Object.keys(map.default)) {
       const label = loc[key] || map.default[key];
@@ -284,19 +287,36 @@ function wireFilterChips(root) {
   });
 }
 
+// Lines ビューで検索クエリ (lowercased) が rarity を「完全一致」で指しているか判定し、
+// 該当する英語キー (Epic/Legendary/Mythic/Ultimate) か null を返す。rarity チップは
+// ローカライズ済みラベルを exact で検索ボックスへ入れるので、部分一致にするとライン名の
+// タイプ ("epi" 等) と衝突する。完全一致に限ることでチップ経路とライン名検索が排他になり
+// 曖昧さが出ない (英語キー / default 英語ラベル / 現在 locale ラベルの三方を当てる)。
+function rarityKeyFromQuery(q) {
+  if (!q) return null;
+  const loc = RARITY_LABELS[state.locale] || {};
+  for (const key of Object.keys(RARITY_LABELS.default)) {
+    if (q === key.toLowerCase()) return key;
+    if (q === RARITY_LABELS.default[key].toLowerCase()) return key;
+    if (loc[key] && q === loc[key].toLowerCase()) return key;
+  }
+  return null;
+}
+
 function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
-  // home view の先頭に常設するフィルタチップ列 (検索の有無に関わらず出す)
-  const chips = filterChipsHTML(q);
+  // home view の先頭に常設するフィルタチップ列 (検索の有無に関わらず出す)。home は
+  // チャンピオンの絞り込みなので role/region (チャンピオンの属性) だけ。rarity (スキンの
+  // 属性) は Lines ビューへ移した。
+  const chips = filterChipsHTML(q, [ROLE_LABELS, REGION_LABELS]);
   // 検索キーワードは複数軸を OR で AND しない、つまり「どの軸でもヒットすれば残す」。
   // 軸 (チャンピオン側): チャンピオン名 (alias/英語名/翻訳名)、ロール (Mage 等)、
-  // 地域 (Demacia 等)。軸 (スキン側): スキン名 (英語/翻訳)、rarity (Legendary 等)。
-  // role/region/rarity の翻訳は英語キーと並べてチェックするので、ユーザがどちらの
-  // 言語で打っても拾える。検索中は「該当チャンピオン」「該当スキン」を別セクション
-  // にして縦に並べる: 例えば "garen" で打てば Garen 本人と他チャンプの Garen 風
-  // スキン (もしあれば) を区別できる
+  // 地域 (Demacia 等)。軸 (スキン側): スキン名 (英語/翻訳) のみ。rarity は Lines ビューへ
+  // 移したので home の検索軸には含めない。role/region の翻訳は英語キーと並べてチェック
+  // するので、ユーザがどちらの言語で打っても拾える。検索中は「該当チャンピオン」「該当
+  // スキン」を別セクションにして縦に並べる: 例えば "garen" で打てば Garen 本人と他チャンプ
+  // の Garen 風スキン (もしあれば) を区別できる
   const localeRoles = ROLE_LABELS[state.locale] || {};
-  const localeRarities = RARITY_LABELS[state.locale] || {};
   const localeRegions = REGION_LABELS[state.locale] || {};
   const hit = (s) => typeof s === "string" && s.toLowerCase().includes(q);
 
@@ -334,9 +354,9 @@ function renderHome(root) {
   for (const c of DATA.champions) {
     for (const s of c.skins) {
       if (!s.splash) continue;
-      const labelHit = hit(s.label) || hit(skinLabel(c, s));
-      const rarityHit = s.rarity && (hit(s.rarity) || hit(localeRarities[s.rarity]) || hit(RARITY_LABELS.default[s.rarity]));
-      if (labelHit || rarityHit) skinMatches.push({ c, s });
+      // スキン側ヒットはスキン名のみ。rarity は Lines ビューの専用チップへ移したので
+      // home の検索軸からは外す (rarity は per-skin = チャンピオン絞り込みに馴染まない)
+      if (hit(s.label) || hit(skinLabel(c, s))) skinMatches.push({ c, s });
     }
   }
   sortChamps(champMatches);
@@ -517,6 +537,15 @@ function makeDetailNav(order, i, labelOf, go) {
 }
 
 function renderLines(root) {
+  const q = state.searchQuery.toLowerCase();
+  // Lines ビュー上部に常設する rarity チップ列 (= スキンの属性。home の role/region と対)。
+  // home の検索結果 Skins セクションと違い、ここでは rarity 単独の閲覧軸として持つ。
+  const chips = filterChipsHTML(q, [RARITY_LABELS]);
+  // rarity チップ / rarity 名の完全一致タイプ時は、ライン一覧ではなく該当レア度のスキンを
+  // フラット表示する (home の検索結果 Skins セクションと同じ描画を再利用)。
+  const rarityKey = rarityKeyFromQuery(q);
+  if (rarityKey) { renderRaritySkins(root, chips, rarityKey); return; }
+
   // per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
   // count/thumb は LINE_INDEX から取るので 1 回構築済み。
   const selectedCounts = {};
@@ -530,14 +559,14 @@ function renderLines(root) {
       }
     }
   }
-  const q = state.searchQuery.toLowerCase();
   // 並び/件数は sortedLineEntries に集約 (renderLine の前後ナビと共有)。表示は翻訳名、
   // 検索は (翻訳名 + 英語名) でマッチさせるので、フィルタはここで別途かける。
   const entries = sortedLineEntries()
     .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
-    $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
+    $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
+    wireFilterChips(root);
     // WCAG 4.1.3: 検索フィルタで 0 件になった時のみ SR へ通知 (素の一覧表示では黙る)
     if (q) announce(t("no_lines_msg"));
     return;
@@ -562,14 +591,46 @@ function renderLines(root) {
     </div>`;
   }).join("");
   setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
-  $("view-content").innerHTML = `<div class="line-grid">${cards}</div>`;
+  $("view-content").innerHTML = chips + `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.querySelector(".card-open").addEventListener("click", () => openLine(el.dataset.line));
     const cb = el.querySelector(".sel-checkbox");
     if (cb) cb.addEventListener("click", () => bulkToggleLine(el.dataset.line));
   });
+  wireFilterChips(root);
   // WCAG 4.1.3: 検索フィルタ時のみ結果件数を SR へ (素の一覧表示では黙る)
   if (q) announce(t("lines_count", entries.length));
+}
+
+// rarity チップ起動時 (Lines ビュー) の表示: 該当レア度の全スキンをフラットなスキン
+// グリッドで並べる。描画/配線は home の検索結果 Skins セクション (renderSkinCards /
+// wireSearchSkinCards) をそのまま再利用する。チップ列は上部に残し、別 rarity への
+// 切替や (active チップ再タップでの) 解除をできるようにする。
+function renderRaritySkins(root, chips, rarityKey) {
+  const matches = [];
+  for (const c of DATA.champions) {
+    for (const s of c.skins) {
+      if (s.splash && s.rarity === rarityKey) matches.push({ c, s });
+    }
+  }
+  const cmpLocale = cmpTag();
+  matches.sort((a, b) => {
+    const an = `${champName(a.c)} ${skinLabel(a.c, a.s)}`;
+    const bn = `${champName(b.c)} ${skinLabel(b.c, b.s)}`;
+    return an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
+  });
+  const label = (RARITY_LABELS[state.locale] || {})[rarityKey] || RARITY_LABELS.default[rarityKey];
+  setPrimaryHeader({ isList: true, title: label, count: t("skins_count", matches.length) });
+  if (matches.length === 0) {
+    $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(label))}</p></div>`;
+    wireFilterChips(root);
+    announce(t("no_results_msg", label));
+    return;
+  }
+  $("view-content").innerHTML = chips + `<div class="skin-grid is-flat">${renderSkinCards(matches)}</div>`;
+  wireSearchSkinCards(root, matches);
+  wireFilterChips(root);
+  announce(t("skins_count", matches.length));
 }
 
 function renderLine(root) {
