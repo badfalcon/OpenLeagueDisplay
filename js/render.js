@@ -407,7 +407,7 @@ function renderChampCards(list) {
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}" role="button" tabindex="0" aria-label="${esc(name)}">
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
-      <img loading="lazy" src="${esc(c.portrait)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label" aria-hidden="true">${esc(name)}</div>
     </div>`;
   }).join("");
@@ -425,7 +425,7 @@ function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }
   return `
     <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr} role="button" tabindex="0" aria-label="${esc(label)}">
       <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
-      <img loading="lazy" src="${esc(s.splash)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(s.splash)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="label" aria-hidden="true">${esc(label)}</div>
     </div>`;
 }
@@ -553,7 +553,7 @@ function renderLines(root) {
     return `
     <div class="line-card${cls}" data-line="${esc(e.id)}" role="button" tabindex="0" aria-label="${esc(aria)}">
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
-      <img loading="lazy" src="${esc(e.thumb)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(e.thumb)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
       <div class="meta" aria-hidden="true">
         <div class="name">${esc(e.name)}</div>
         <div class="count">${t("skins_count", e.count)}</div>

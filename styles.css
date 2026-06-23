@@ -85,6 +85,26 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
   body { scrollbar-color: var(--bg-3) var(--bg); }
 
+  /* スキップリンク: 普段は画面外、フォーカス時だけ左上に滑り出す。z-index は topbar(30)
+     より上、各オーバーレイ (offline 90 / lightbox 100) が出るのはページ上部を抜けた後
+     なので 60 で十分。世界観に合わせて黒紫地 + 金枠 */
+  .skip-link {
+    position: fixed; top: 8px; left: 8px; z-index: 60;
+    transform: translateY(-150%);
+    padding: 10px 16px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translateY(0); outline: none; box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.25); }
+  /* スキップリンクの着地先。プログラム的フォーカス (tabindex:-1) なので枠は出さない */
+  #root:focus { outline: none; }
+
   /* === HEADER ====================================================== */
   /* topbar = 2 段構成の header (行1: brand + ?/lang / 行2: view-tabs + 操作
      ボタン) を包む sticky バー。背景・blur はラッパーが持ち、内側は構造のみ。
@@ -261,7 +281,7 @@
     color: var(--gold-hi);
     outline: none;
   }
-  .lang-menu button[aria-selected="true"] {
+  .lang-menu button[aria-current="true"] {
     color: var(--gold-hi);
     background: rgba(212, 168, 87, 0.06);
   }

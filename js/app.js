@@ -97,7 +97,7 @@ async function init() {
       const flag = url
         ? `<img class="lang-flag" src="${esc(url)}" alt="" loading="lazy" decoding="async">`
         : `<span class="lang-flag" aria-hidden="true"></span>`;
-      return `<li><button type="button" role="option" data-code="${esc(l.code)}">`
+      return `<li><button type="button" data-code="${esc(l.code)}">`
         + flag
         + `<span>${esc(l.label)}</span></button></li>`;
     })

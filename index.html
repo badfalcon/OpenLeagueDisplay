@@ -73,6 +73,11 @@
 </head>
 <body>
 
+<!-- スキップリンク: キーボード利用者が 2 段ヘッダ (タイトル/?/言語/タブ/操作ボタン) を
+     Tab で抜けずに本文 (チャンピオングリッド) へ直行できる導線。普段は画面外に隠し、
+     フォーカス時だけ左上に出す。文言は applyStaticUIStrings() が locale 追従させる -->
+<a href="#root" class="skip-link" id="skip-link">Skip to content</a>
+
 <!-- topbar: 2 段構成の sticky バー。
      行1 (.header-primary):   brand (ロゴ + 件数) … ? + 言語ピッカー (.header-utils)
      行2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
@@ -103,10 +108,15 @@
           </svg>
         </button>
         <div class="lang-picker" id="lang-picker">
-          <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
+          <button class="btn" id="lang-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
           </button>
-          <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+          <!-- 開閉式の言語メニュー (disclosure)。当初 role="listbox" + role="option" だったが、
+               <li> を挟むと listbox→option の所有関係が崩れ、option を Tab フォーカス可能な
+               <button> にしているのも listbox パターン (矢印キー/activedescendant) と不整合
+               だった。実態 (ボタンを押すと開く、項目もボタン) に合わせて素のリストにし、
+               現在の言語は aria-current で示す。キーボードは Tab/Enter/Esc で従来通り動く -->
+          <ul class="lang-menu" id="lang-menu" hidden></ul>
         </div>
       </div>
     </div>
@@ -139,7 +149,8 @@
   </select>
 </div>
 
-<main id="root">
+<!-- tabindex="-1" でスキップリンクの着地先 (プログラム的フォーカス) になれるようにする -->
+<main id="root" tabindex="-1">
   <div class="loading"><h2 id="loading-title">LOADING</h2><p id="loading-msg">Loading manifest…</p></div>
 </main>
 
