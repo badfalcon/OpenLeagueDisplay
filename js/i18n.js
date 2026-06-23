@@ -632,6 +632,7 @@ export const UI_STRINGS = {
     gallery_remove: "Aus Galerie entfernen",
     sort_aria: "Sortierreihenfolge",
     sort_release: "Erscheinungsdatum",
+    sort_release_short: "Erschienen",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Anleitung öffnen",
@@ -717,6 +718,7 @@ export const UI_STRINGS = {
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
     sort_release: "Fecha de lanzamiento",
+    sort_release_short: "Lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -802,6 +804,7 @@ export const UI_STRINGS = {
     gallery_remove: "Remover da galeria",
     sort_aria: "Ordem",
     sort_release: "Data de lançamento",
+    sort_release_short: "Lançamento",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Abrir guia",
@@ -973,6 +976,7 @@ export const UI_STRINGS = {
     gallery_remove: "Rimuovi dalla galleria",
     sort_aria: "Ordine",
     sort_release: "Data di uscita",
+    sort_release_short: "Uscita",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Apri guida",
@@ -1058,6 +1062,7 @@ export const UI_STRINGS = {
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
     sort_release: "Fecha de lanzamiento",
+    sort_release_short: "Lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -1143,6 +1148,7 @@ export const UI_STRINGS = {
     gallery_remove: "Usuń z galerii",
     sort_aria: "Sortowanie",
     sort_release: "Data wydania",
+    sort_release_short: "Wydanie",
     sort_name_asc: "Nazwa A → Z",
     sort_name_desc: "Nazwa Z → A",
     tut_help_aria: "Otwórz przewodnik",
@@ -1228,6 +1234,7 @@ export const UI_STRINGS = {
     gallery_remove: "Galeriden çıkar",
     sort_aria: "Sıralama",
     sort_release: "Çıkış tarihi",
+    sort_release_short: "Çıkış",
     sort_name_asc: "İsim A → Z",
     sort_name_desc: "İsim Z → A",
     tut_help_aria: "Kılavuzu aç",
@@ -1313,6 +1320,7 @@ export const UI_STRINGS = {
     gallery_remove: "Odebrat z galerie",
     sort_aria: "Řazení",
     sort_release: "Datum vydání",
+    sort_release_short: "Vydání",
     sort_name_asc: "Jméno A → Z",
     sort_name_desc: "Jméno Z → A",
     tut_help_aria: "Otevřít průvodce",
@@ -1398,6 +1406,7 @@ export const UI_STRINGS = {
     gallery_remove: "Αφαίρεση από τη συλλογή",
     sort_aria: "Ταξινόμηση",
     sort_release: "Ημερομηνία κυκλοφορίας",
+    sort_release_short: "Κυκλοφορία",
     sort_name_asc: "Όνομα Α → Ω",
     sort_name_desc: "Όνομα Ω → Α",
     tut_help_aria: "Άνοιγμα οδηγού",
@@ -1483,6 +1492,7 @@ export const UI_STRINGS = {
     gallery_remove: "Eltávolítás a galériából",
     sort_aria: "Rendezés",
     sort_release: "Megjelenés dátuma",
+    sort_release_short: "Megjelenés",
     sort_name_asc: "Név A → Z",
     sort_name_desc: "Név Z → A",
     tut_help_aria: "Útmutató megnyitása",
@@ -1568,6 +1578,7 @@ export const UI_STRINGS = {
     gallery_remove: "Elimină din galerie",
     sort_aria: "Ordine",
     sort_release: "Data lansării",
+    sort_release_short: "Lansare",
     sort_name_asc: "Nume A → Z",
     sort_name_desc: "Nume Z → A",
     tut_help_aria: "Deschide ghidul",
@@ -1653,6 +1664,7 @@ export const UI_STRINGS = {
     gallery_remove: "นำออกจากแกลเลอรี",
     sort_aria: "การเรียงลำดับ",
     sort_release: "วันที่วางจำหน่าย",
+    sort_release_short: "วางจำหน่าย",
     sort_name_asc: "ชื่อ A → Z",
     sort_name_desc: "ชื่อ Z → A",
     tut_help_aria: "เปิดคู่มือ",
@@ -1738,6 +1750,7 @@ export const UI_STRINGS = {
     gallery_remove: "Hapus dari galeri",
     sort_aria: "Urutan",
     sort_release: "Tanggal rilis",
+    sort_release_short: "Rilis",
     sort_name_asc: "Nama A → Z",
     sort_name_desc: "Nama Z → A",
     tut_help_aria: "Buka panduan",
@@ -2056,34 +2069,6 @@ export function syncFitButton() {
   btn.classList.toggle("active", state.lb.fit === "cover");
 }
 
-// 並び順 <select> の option ラベルを当てる。ラベルは locale により長くなる
-// (例: de "Erscheinungsdatum") ので、閉じている時 (確定/休止) は略称、開いている/
-// フォーカス中 (選択中) はフル名に切り替える。ネイティブ select は閉時に「選択中
-// option の textContent」、開時に「全 option の textContent」を出すため、focus/blur で
-// option.textContent を入れ替えるのが唯一の手 (a11y のためネイティブのまま維持)。
-//   expanded=true: フル名 (選択中) / false: 略称 (確定/休止)
-export function applySortLabels(expanded) {
-  const sortSel = $("sort-select");
-  if (!sortSel) return;
-  const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
-  const labelFor = (val) => {
-    if (val === "release") {
-      if (expanded) return t("sort_release");
-      // 当 locale テーブルに短縮語がある時だけ採用。無ければ当 locale のフル表記へ。
-      // t("sort_release_short") を使うと未掲載 locale が default 英語へ落ちてしまうので、
-      // locale テーブルを直接見て英語混入を防ぐ
-      return table.sort_release_short || t("sort_release");
-    }
-    const full = t(val === "name_asc" ? "sort_name_asc" : "sort_name_desc");
-    // 先頭トークン (Name/名前/이름/Имя/Όνομα...) を落として方向表記だけ残す
-    // ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ")。構造が崩れて一致しなければ
-    // replace は no-op となりフル表記のまま (安全側)
-    return expanded ? full : full.replace(/^\S+\s+/, "");
-  };
-  for (const o of sortSel.options) o.textContent = labelFor(o.value);
-  sortSel.value = state.sortOrder;
-}
-
 // 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
@@ -2112,11 +2097,21 @@ export function applyStaticUIStrings() {
   $("back-btn").textContent = t("back");
   const sortSel = $("sort-select");
   if (sortSel) {
-    sortSel.setAttribute("aria-label", t("sort_aria"));
-    // option ラベルは applySortLabels に委譲。休止=略称 / フォーカス中=フル名。
-    // 現在のフォーカス状態を尊重して当てる (選択操作中に locale 変更が来ても
-    // 「フォーカス中⇔フル」不変条件を壊さない)
-    applySortLabels(document.activeElement === sortSel);
+    // 接頭ラベル (locale 追従)。可視 <label for="sort-select"> が SR のアクセシブル
+    // ネームを供給するので、select 側に aria-label は持たせない (二重命名回避)
+    const lbl = $("sort-label");
+    if (lbl) lbl.textContent = t("sort_aria");
+    // option ラベルは静的・常に略称。name は先頭トークンを落として方向表記だけ残し
+    // ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ")、release は locale 別の短縮
+    // (無ければ当 locale のフル表記)。発見性は隣の接頭ラベルが担保するので開閉で切替えない
+    const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
+    const labelFor = (val) => {
+      if (val === "release") return table.sort_release_short || t("sort_release");
+      const full = t(val === "name_asc" ? "sort_name_asc" : "sort_name_desc");
+      return full.replace(/^\S+\s+/, "");
+    };
+    for (const o of sortSel.options) o.textContent = labelFor(o.value);
+    sortSel.value = state.sortOrder;
   }
   const lt = $("loading-title");
   const lm = $("loading-msg");

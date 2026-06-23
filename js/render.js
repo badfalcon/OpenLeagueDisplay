@@ -89,7 +89,7 @@ export function renderStats(champCount, skinCount) {
 
 // view-content の上に居る永続的な champ-header。h2 / count / primary は
 // renderXxx 側から setPrimaryHeader() で書き換える。.champ-header-controls
-// (back-btn / search / sort-select) は一度ここに住んだら二度と動かさない。
+// (back-btn / search / sort-label / sort-select) は一度ここに住んだら二度と動かさない。
 // これで search input の親が render() ごとに壊されることが無くなり、入力中の
 // フォーカスやカーソル位置・IME composition が保たれる
 export function ensureLayout(root) {
@@ -109,6 +109,7 @@ export function ensureLayout(root) {
   const slot = root.querySelector(".champ-header-controls");
   slot.appendChild($("back-btn"));
   slot.appendChild($("search"));
+  slot.appendChild($("sort-label"));
   slot.appendChild($("sort-select"));
 }
 
@@ -184,9 +185,11 @@ export function render() {
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
   else if (state.view === "selected") renderSelected(root);
-  // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
+  // 表示制御: back は showBack の時だけ、sort は home の時だけ可視 (ラベルも同条件)
   $("back-btn").style.display = showBack ? "" : "none";
-  $("sort-select").style.display = state.view === "home" ? "" : "none";
+  const sortVis = state.view === "home" ? "" : "none";
+  $("sort-label").style.display = sortVis;
+  $("sort-select").style.display = sortVis;
   // 検索プレースホルダ: 詳細 view (champion / line) では検索が view ローカルでなく
   // 全チャンピオン横断 (= 暗黙に一覧へ戻る) であることを予告する文言に差し替える。
   // applyStaticUIStrings が当てる初期値を view に応じて上書きする形なので、locale
