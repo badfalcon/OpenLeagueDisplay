@@ -123,6 +123,12 @@ async function init() {
     await loadLocale(initial);
     // ロード失敗時は loadLocale 内で "default" に戻されているので、UI も合わせる
     if (state.locale === "default") setLangButton("default");
+  } else if (state.locale !== "default") {
+    // 保存 locale が UI_STRINGS には在るが data.json の locales から外れている
+    // (per-locale 生成失敗 / CDragon 側の locale 削除など) と pickInitialLocale が
+    // default に倒れる。その時 state.locale を放置すると「ボタン=EN / UI chrome=旧言語 /
+    // 名前=英語 (i18n 空) / <html lang> 不整合」の三重ズレになる。default に揃え直す。
+    await loadLocale("default");
   }
   // data.json 取得後に最終的な locale が確定したので、改めて static UI を反映
   // (stats/last_updated を含むため、必ず DATA セット後に呼ぶこと)

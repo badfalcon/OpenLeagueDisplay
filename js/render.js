@@ -781,6 +781,11 @@ function clearSelected() {
   state.selected.clear();
   saveSelected();
   render();
+  // Clear はギャラリービュー専用 (#gallery-clear)。再描画で押した Clear ボタンごと
+  // ツールバーが消え、選択 0 件の空状態に切り替わるため、フォーカスが body に落ちる。
+  // 空状態で出る「チャンピオンを見る」CTA へ移して、キーボード/SR の起点を保つ。
+  const browse = $("gallery-browse");
+  if (browse) browse.focus();
 }
 
 export function openLine(lid) {
