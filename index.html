@@ -5,7 +5,7 @@
      JS が完全に失敗した時のための保険として 3 秒経過で自動解除する -->
 <html lang="en" class="i18n-loading">
 <head>
-<script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
+<script src="js/i18n-failsafe.js"></script>
 <meta charset="utf-8">
 <!-- ピンチズームを許可 (WCAG 1.4.4 拡大)。maximum-scale=1 / user-scalable=no は
      入れない: iOS は元々これらを無視するが Android だけズーム不能になっていた。
@@ -16,10 +16,11 @@
   ------------------------------------------
   全 innerHTML 補間は esc() で HTML エスケープ済みなので XSS シンクは無いが、
   将来の回帰防止と CDN 侵害時の影響軽減のためのバックストップ。
-  - script-src: 'self' で js/*.js (ES Modules) をカバー。'unsafe-inline' は
-    onload="imgLoaded(this)" 等のインラインイベント属性のために残す
-    (event delegation 化までの暫定)。jsdelivr は JSZip の CDN ロード用、
-    static.cloudflareinsights.com は Cloudflare Web Analytics の beacon.min.js 用
+  - script-src: 'self' で js/*.js (ES Modules + i18n-failsafe.js の classic script) を
+    カバー。インライン JS は全廃したので 'unsafe-inline' は付けない (画像の load/error は
+    #root への capture 委譲で拾い、i18n-loading のフェイルセーフは js/i18n-failsafe.js に
+    外出しした)。jsdelivr は JSZip の CDN ロード用、static.cloudflareinsights.com は
+    Cloudflare Web Analytics の beacon.min.js 用
   - style-src: 'self' で styles.css をカバー。Google Fonts と一部 innerHTML 内の
     style="min-width:Nch" のような inline style 属性のため 'unsafe-inline'
   - img-src: data: は styles.css の inline SVG アイコン (検索虫眼鏡 / セレクト矢印 /
@@ -29,7 +30,7 @@
     cloudflareinsights.com は Web Analytics の計測 beacon 送信先
   - manifest-src: PWA の manifest.webmanifest は同一オリジン
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
      できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
@@ -89,7 +90,9 @@
     <div class="header-primary">
       <div class="header-brand">
         <div class="header-brand-info">
-          <h1 id="title">OpenLeagueDisplay</h1>
+          <!-- ロゴ = home へ戻る操作。見出し (h1) の意味は残しつつ、クリック操作を
+               キーボードでも使えるよう内側を <button> にする (透明・font 継承で見た目は不変) -->
+          <h1><button id="title" type="button">OpenLeagueDisplay</button></h1>
           <span id="stats"></span>
         </div>
       </div>

@@ -407,7 +407,7 @@ function renderChampCards(list) {
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}" role="button" tabindex="0" aria-label="${esc(name)}">
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
-      <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="">
       <div class="label" aria-hidden="true">${esc(name)}</div>
     </div>`;
   }).join("");
@@ -425,7 +425,7 @@ function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }
   return `
     <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr} role="button" tabindex="0" aria-label="${esc(label)}">
       <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
-      <img loading="lazy" decoding="async" src="${esc(s.splash)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(s.splash)}" alt="">
       <div class="label" aria-hidden="true">${esc(label)}</div>
     </div>`;
 }
@@ -553,7 +553,7 @@ function renderLines(root) {
     return `
     <div class="line-card${cls}" data-line="${esc(e.id)}" role="button" tabindex="0" aria-label="${esc(aria)}">
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
-      <img loading="lazy" decoding="async" src="${esc(e.thumb)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <img loading="lazy" decoding="async" src="${esc(e.thumb)}" alt="">
       <div class="meta" aria-hidden="true">
         <div class="name">${esc(e.name)}</div>
         <div class="count">${t("skins_count", e.count)}</div>
@@ -832,17 +832,16 @@ export function goHome() {
 }
 
 // 画像のロード完了/失敗で親カードに img-loaded を付け、シマー (CSS の ::before) を止める。
-// <img onload="imgLoaded(this)"> でインライン参照されるため、app.js が window.imgLoaded =
-// imgLoaded で globalにも露出する (ES Modules スコープからは見えないため)。
+// 旧来は <img onload="imgLoaded(this)"> のインライン属性 (要 CSP script-src 'unsafe-inline')
+// から呼んでいたが、app.js が #root に capture フェーズで委譲リスナを張る方式へ移行した
+// (load/error はバブルしないので capture を使う)。これでインライン JS を撤廃し CSP を締めた。
 export function imgLoaded(img) {
-  img.onload = null;
   const card = img.parentElement;
   if (card) card.classList.add("img-loaded");
 }
 // サムネ画像が CDN で 404 になった時、空のカードに見えないよう薄く塗りつぶす。
 // 失敗時もシマーを止めないと「ずっと読込中」に見えてしまうため img-loaded を付ける
 export function imgErr(img) {
-  img.onerror = null;
   img.style.opacity = "0.15";
   img.removeAttribute("src");
   const card = img.parentElement;

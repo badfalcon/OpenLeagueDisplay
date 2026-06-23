@@ -1,6 +1,6 @@
 // エントリポイント: data.json ロード → 初期 locale 解決 → イベント配線 → 初回 render。
-// <img onload="imgLoaded(...)"> のインライン属性は ES Modules スコープを見ないため、
-// window.* に露出させる必要がある (最初の render 前に立てる)。
+// グリッド画像のロード/失敗は #root への capture 委譲リスナ (wireImgDelegation) で拾う。
+// 旧来のインライン <img onload=...> を撤廃して CSP の script-src 'unsafe-inline' を外した。
 
 import {
   state, DATA, $, esc, setData,
@@ -32,9 +32,23 @@ import {
 import { shareSite } from "./share.js";
 import { probeLocal, toast } from "./local.js";
 
-// インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
-window.imgLoaded = imgLoaded;
-window.imgErr = imgErr;
+// グリッド画像 (champ/skin/line カード内 <img>) のロード完了/失敗を #root への
+// capture フェーズ委譲で処理する。load/error はバブルしないので capture で拾う。
+// olSettled フラグで再処理を防ぐ (imgErr の src 除去が再 error を誘発しても二重実行しない)。
+// カードは innerHTML で都度作り直されるので、新しい <img> には毎回フラグが付いていない。
+function wireImgDelegation() {
+  const root = $("root");
+  if (!root) return;
+  const settle = (e, handler) => {
+    const img = e.target;
+    if (!img || img.tagName !== "IMG" || img.dataset.olSettled) return;
+    if (!img.closest(".champ-card, .skin-card, .line-card")) return;
+    img.dataset.olSettled = "1";
+    handler(img);
+  };
+  root.addEventListener("load", (e) => settle(e, imgLoaded), true);
+  root.addEventListener("error", (e) => settle(e, imgErr), true);
+}
 
 async function init() {
   // data.json 取得前でも localStorage の保存 locale で UI を仮表示しておく。
@@ -523,6 +537,8 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // グリッド画像の load/error 委譲リスナを初回 render より前に張る (#root は初期 HTML に在る)
+  wireImgDelegation();
   // hash ルーティングの popstate 配線 + render 後の URL 同期フックを先に張る。
   // init() の初回 render でフックが呼ばれても、ディープリンク解決で hash は既に
   // 正規化済みなので余計な pushState は出ない。

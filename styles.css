@@ -176,6 +176,22 @@
     display: flex; align-items: baseline; gap: 10px;
     white-space: nowrap;
   }
+  /* ロゴ内のクリック対象。見た目はワードマークそのまま (font/字間/色を継承) にし、
+     ネイティブ button の外観だけ消す。キーボードフォーカス時のみ金リングを出す */
+  header h1 button {
+    font: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none; border: 0; margin: 0; padding: 0;
+    line-height: inherit;
+    cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+  }
+  header h1 button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.25);
+  }
   header h1::before {
     content: "✦";
     color: var(--gold);
@@ -1219,6 +1235,10 @@
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     padding-bottom: 2px;
+    /* スクロールバーを隠しているので、はみ出して続きがあることを右端のフェードで示す
+       (収まっている時は右端が空白なのでフェードは見えない) */
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .filter-chips::-webkit-scrollbar { display: none; }
   .filter-chips-label {
