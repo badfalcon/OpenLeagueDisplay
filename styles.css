@@ -1258,7 +1258,11 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding-bottom: 2px;
+    /* overflow-x:auto は overflow-y も clip 化する。チップの focus リング (3px の
+       outset box-shadow) が上下で切れないよう縦パディングで逃がす。右端は下の
+       scroll-padding-right で focus 時にマスクのフェード帯へ入らないようにする */
+    padding: 4px 0;
+    scroll-padding-right: 32px;
     /* スクロールバーを隠しているので、はみ出して続きがあることを右端のフェードで示す
        (収まっている時は右端が空白なのでフェードは見えない) */
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
@@ -1960,14 +1964,16 @@
   }
 
   /* === TOAST (ローカル実行モードの壁紙操作フィードバック) ===============
-     壁紙ボタンはライトボックス (z-index:100) 内にあり、他オーバーレイも最大 200 な
-     ので、トーストは 300 で確実に手前に出す。視覚通知は #toast、スクリーンリーダー
-     向けは既存の #sr-status (aria-live) を local.js が併用する */
+     トーストは全オーバーレイの最前面に出す必要がある。最も高いのは壁紙モーダル
+     (.wp-modal, z-index:1000) で、しかも不透明 backdrop を持つ。壁紙適用失敗時の
+     エラートーストはこのモーダルが開いたまま出る (onApply は失敗時に閉じない) ため、
+     1000 より上 (1100) に置かないとモーダルの裏に隠れて視覚的に見えなくなる。
+     視覚通知は #toast、スクリーンリーダー向けは既存の #sr-status (aria-live) を併用 */
   .toast {
     position: fixed;
     left: 50%; bottom: 36px;
     transform: translateX(-50%) translateY(8px);
-    z-index: 300;
+    z-index: 1100;
     max-width: min(90vw, 480px);
     padding: 12px 20px;
     background: rgba(12, 11, 20, 0.92);
