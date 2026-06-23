@@ -10,7 +10,7 @@ import {
 } from "./state.js";
 import {
   UI_STRINGS, t, syncPauseButton, syncCaptionButton, syncFitButton,
-  applyStaticUIStrings, equalizeTabs,
+  applyStaticUIStrings, applySortLabels, equalizeTabs,
   localeFlagURL, setLangButton, closeLangMenu,
   pickInitialLocale, loadLocale,
 } from "./i18n.js";
@@ -358,6 +358,13 @@ function wireEvents() {
     lsSet(LS_SORT_KEY, state.sortOrder);
     render();
   });
+  // ラベルの略称/フル切替: フォーカス中 (選択中) はフル名、休止 (確定) は略称。
+  // focus に加え mousedown も拾うのは、既にフォーカス済みの select を再クリックで
+  // 開く時に focus が再発火しないため。change では縮小しない (キーボードで確定後に
+  // フォーカス保持のまま再オープンすると略称のまま開いてしまうのを避ける)。
+  $("sort-select").addEventListener("focus", () => applySortLabels(true));
+  $("sort-select").addEventListener("mousedown", () => applySortLabels(true));
+  $("sort-select").addEventListener("blur", () => applySortLabels(false));
   $("lb-close").addEventListener("click", closeLightbox);
   $("lb-prev").addEventListener("click", prevSlide);
   $("lb-next").addEventListener("click", nextSlide);

@@ -91,6 +91,7 @@ export const UI_STRINGS = {
     gallery_remove: "Remove from gallery",
     sort_aria: "Sort order",
     sort_release: "Release date",
+    sort_release_short: "Release",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Open guide",
@@ -191,6 +192,7 @@ export const UI_STRINGS = {
     gallery_remove: "ギャラリーから削除",
     sort_aria: "並び順",
     sort_release: "リリース日順",
+    sort_release_short: "リリース順",
     sort_name_asc: "名前 A → Z",
     sort_name_desc: "名前 Z → A",
     tut_help_aria: "ガイドを開く",
@@ -273,6 +275,7 @@ export const UI_STRINGS = {
     gallery_remove: "갤러리에서 제거",
     sort_aria: "정렬 순서",
     sort_release: "출시일순",
+    sort_release_short: "출시순",
     sort_name_asc: "이름 ㄱ → ㅎ",
     sort_name_desc: "이름 ㅎ → ㄱ",
     tut_help_aria: "가이드 열기",
@@ -355,6 +358,7 @@ export const UI_STRINGS = {
     gallery_remove: "从画廊移除",
     sort_aria: "排序方式",
     sort_release: "发布日期",
+    sort_release_short: "发布",
     sort_name_asc: "名称 A → Z",
     sort_name_desc: "名称 Z → A",
     tut_help_aria: "打开指南",
@@ -436,6 +440,7 @@ export const UI_STRINGS = {
     gallery_remove: "從畫廊移除",
     sort_aria: "排序方式",
     sort_release: "發佈日期",
+    sort_release_short: "發佈",
     sort_name_asc: "名稱 A → Z",
     sort_name_desc: "名稱 Z → A",
     tut_help_aria: "開啟指南",
@@ -517,6 +522,7 @@ export const UI_STRINGS = {
     gallery_remove: "Retirer de la galerie",
     sort_aria: "Ordre de tri",
     sort_release: "Date de sortie",
+    sort_release_short: "Sortie",
     sort_name_asc: "Nom A → Z",
     sort_name_desc: "Nom Z → A",
     tut_help_aria: "Ouvrir le guide",
@@ -841,6 +847,7 @@ export const UI_STRINGS = {
     gallery_remove: "Удалить из галереи",
     sort_aria: "Порядок сортировки",
     sort_release: "По дате выхода",
+    sort_release_short: "По дате",
     sort_name_asc: "Имя А → Я",
     sort_name_desc: "Имя Я → А",
     tut_help_aria: "Открыть руководство",
@@ -1965,6 +1972,34 @@ export function syncFitButton() {
   btn.classList.toggle("active", state.lb.fit === "cover");
 }
 
+// 並び順 <select> の option ラベルを当てる。ラベルは locale により長くなる
+// (例: de "Erscheinungsdatum") ので、閉じている時 (確定/休止) は略称、開いている/
+// フォーカス中 (選択中) はフル名に切り替える。ネイティブ select は閉時に「選択中
+// option の textContent」、開時に「全 option の textContent」を出すため、focus/blur で
+// option.textContent を入れ替えるのが唯一の手 (a11y のためネイティブのまま維持)。
+//   expanded=true: フル名 (選択中) / false: 略称 (確定/休止)
+export function applySortLabels(expanded) {
+  const sortSel = $("sort-select");
+  if (!sortSel) return;
+  const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
+  const labelFor = (val) => {
+    if (val === "release") {
+      if (expanded) return t("sort_release");
+      // 当 locale テーブルに短縮語がある時だけ採用。無ければ当 locale のフル表記へ。
+      // t("sort_release_short") を使うと未掲載 locale が default 英語へ落ちてしまうので、
+      // locale テーブルを直接見て英語混入を防ぐ
+      return table.sort_release_short || t("sort_release");
+    }
+    const full = t(val === "name_asc" ? "sort_name_asc" : "sort_name_desc");
+    // 先頭トークン (Name/名前/이름/Имя/Όνομα...) を落として方向表記だけ残す
+    // ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ")。構造が崩れて一致しなければ
+    // replace は no-op となりフル表記のまま (安全側)
+    return expanded ? full : full.replace(/^\S+\s+/, "");
+  };
+  for (const o of sortSel.options) o.textContent = labelFor(o.value);
+  sortSel.value = state.sortOrder;
+}
+
 // 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
 // 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
 // init で焼き付いた static element だけを再描画すれば十分。
@@ -1994,14 +2029,10 @@ export function applyStaticUIStrings() {
   const sortSel = $("sort-select");
   if (sortSel) {
     sortSel.setAttribute("aria-label", t("sort_aria"));
-    // <option> はラベルだけ差し替え (value は固定キーのまま)。
-    // A→Z / Z→A は localized name 比較、"release" は data.json の順 (リリース順)
-    const opts = { name_asc: "sort_name_asc", name_desc: "sort_name_desc", release: "sort_release" };
-    for (const o of sortSel.options) {
-      const k = opts[o.value];
-      if (k) o.textContent = t(k);
-    }
-    sortSel.value = state.sortOrder;
+    // option ラベルは applySortLabels に委譲。休止=略称 / フォーカス中=フル名。
+    // 現在のフォーカス状態を尊重して当てる (選択操作中に locale 変更が来ても
+    // 「フォーカス中⇔フル」不変条件を壊さない)
+    applySortLabels(document.activeElement === sortSel);
   }
   const lt = $("loading-title");
   const lm = $("loading-msg");
