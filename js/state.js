@@ -38,7 +38,16 @@ export function unlockScroll() {
 // inert 対象から外れて操作可能なまま残る。入れ子表示に備えてカウンタで束ねる。
 let _inertCount = 0;
 function _inertTargets() {
-  return [document.querySelector(".topbar"), document.getElementById("root"), document.querySelector("footer")];
+  // topbar / 本文 / footer に加えて、body 直下に浮く唯一の操作要素 #to-top も対象にする
+  // (スクロール後にモーダルを開くと表示されたまま残り、SR の browse カーソルが裏の
+  // 「トップへ戻る」に到達できてしまうため)。#offline-banner / #sr-status / #toast は
+  // ライブリージョン (状態通知) なので意図的に対象外 = a11y ツリーに残す。
+  return [
+    document.querySelector(".topbar"),
+    document.getElementById("root"),
+    document.querySelector("footer"),
+    document.getElementById("to-top"),
+  ];
 }
 export function setBackgroundInert() {
   if (_inertCount++ > 0) return;
