@@ -111,7 +111,10 @@
           </svg>
         </button>
         <div class="lang-picker" id="lang-picker">
-          <button class="btn" id="lang-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Display language">
+          <!-- disclosure (開閉トグル) なので aria-haspopup は付けない (aria-haspopup="true"
+               は "menu" を意味し、矢印キー等のメニュー操作モデルが無い実装と不整合になる)。
+               aria-expanded だけで開閉状態を伝える -->
+          <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
           </button>
           <!-- 開閉式の言語メニュー (disclosure)。当初 role="listbox" + role="option" だったが、
@@ -199,7 +202,9 @@
     <!-- 間隔・キャプションは「一度決めたら固定」の設定なので ⚙ メニューに集約する。
          スライドショー時のみ JS で wrap ごと表示する -->
     <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
-      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-haspopup="true" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
+      <!-- 言語メニューと同じく disclosure (間隔/キャプションのトグル群) なので
+           aria-haspopup は付けず aria-expanded だけで開閉を伝える -->
+      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
       <div class="ss-menu" id="ss-menu" hidden>
         <button class="ss-btn" id="ss-interval">⏱ 7s</button>
         <button class="ss-btn" id="ss-caption">💬 Full</button>

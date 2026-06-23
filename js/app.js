@@ -465,6 +465,12 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
+    // ローカルの壁紙モーダル (確認 / 完了) が開いている間は、モーダル自身の Esc 処理に
+    // 委ね、app 側のキー処理 (Esc=goBack / ? / 等) を一切走らせない。これがないと
+    // gallery view (view!=="home") で Esc を押すとモーダルを閉じつつ goBack も発火して
+    // 裏で画面遷移してしまう。Tab の閉じ込めは各モーダルの trapFocus が担う。
+    const wp = $("wp-modal"), wpDone = $("wp-done-modal");
+    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden)) return;
     // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();

@@ -380,14 +380,13 @@ function cbAttrs(full, partial) {
   return `type="button" aria-pressed="${pressed}" aria-label="${esc(label)}"`;
 }
 
-// クリック可能カード (role="button" の div) を Enter/Space でも起動する。カード内の
-// ＋ ボタンにフォーカスがある時のキー操作は素通しさせる (e.target === currentTarget 判定で、
-// ＋ のネイティブ Space/Enter がカード本体の起動と二重発火しないようにする)。
-function wireCardKey(el, fn) {
-  el.addEventListener("keydown", (e) => {
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
-  });
+// カードの主アクション (開く) を担う、カード全面を覆う透明ボタン。カード本体を
+// role="button" にすると ＋ ボタン (interactive) を内包して入れ子になり ARIA 的に
+// 不正 (button の中に focusable な子) なので、開く操作は inset:0 の <button> で覆い、
+// ＋ ボタンは「兄弟」として上に重ねる (z-index で ＋ が上、被せボタンが下)。これで
+// ネイティブ button の Enter/Space がそのまま効き、入れ子も解消する。
+function openBtn(label) {
+  return `<button class="card-open" type="button" aria-label="${esc(label)}"></button>`;
 }
 
 function renderChampCards(list) {
@@ -400,12 +399,12 @@ function renderChampCards(list) {
       if (sel === c.skins.length) { cls = " selected"; full = true; }
       else if (sel > 0) { cls = " partial"; partial = true; cbText = `${sel}/${c.skins.length}`; }
     }
-    // カード本体は role="button" + tabindex で keyboard/SR から起動可能にする。名前は
-    // aria-label で 1 度だけ出し、内側の img/label は aria-hidden で二重読みを防ぐ
-    // (img alt も空に)。＋ は別の <button> なので Tab で個別に到達できる。
+    // 開く操作は被せボタン (openBtn) が担い、名前を aria-label で 1 度だけ出す。img/label は
+    // 装飾 (alt="" / aria-hidden) にして二重読みを防ぐ。＋ は兄弟ボタンで Tab 個別到達できる。
     const name = champName(c);
     return `
-    <div class="champ-card${cls}" data-alias="${esc(c.alias)}" role="button" tabindex="0" aria-label="${esc(name)}">
+    <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
+      ${openBtn(name)}
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
       <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="">
       <div class="label" aria-hidden="true">${esc(name)}</div>
@@ -423,7 +422,8 @@ function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }
   const aliasAttr = alias ? ` data-alias="${esc(c.alias)}"` : "";
   const badge = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
   return `
-    <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr} role="button" tabindex="0" aria-label="${esc(label)}">
+    <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
+      ${openBtn(label)}
       <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
       <img loading="lazy" decoding="async" src="${esc(s.splash)}" alt="">
       <div class="label" aria-hidden="true">${esc(label)}</div>
@@ -438,18 +438,11 @@ function renderSkinCards(matches) {
 
 function wireChampCards(root) {
   root.querySelectorAll(".champ-card").forEach(el => {
-    // 本体クリック/Enter/Space は詳細画面へ。個別スキンの細かい調整は詳細でやる
-    const open = () => openChampion(el.dataset.alias);
-    el.addEventListener("click", open);
-    wireCardKey(el, open);
-    // ＋ クリックは「このチャンプの全スキンを一括 toggle」のショートカット
+    // 被せボタン (.card-open) で詳細画面へ。ネイティブ button なので Enter/Space も効く
+    el.querySelector(".card-open").addEventListener("click", () => openChampion(el.dataset.alias));
+    // ＋ は兄弟ボタン。「このチャンプの全スキンを一括 toggle」のショートカット
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) {
-      cb.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        bulkToggleChamp(el.dataset.alias);
-      });
-    }
+    if (cb) cb.addEventListener("click", () => bulkToggleChamp(el.dataset.alias));
   });
 }
 
@@ -458,16 +451,10 @@ function wireChampCards(root) {
 // champion/line/selected/検索結果のどの view も同じ配線なので 1 箇所に集約する。
 function wireSkinCards(scope, lbList) {
   scope.querySelectorAll(".skin-card").forEach(el => {
-    const open = () => openLightbox(lbList, parseInt(el.dataset.idx, 10), "manual");
-    el.addEventListener("click", open);
-    wireCardKey(el, open);
+    el.querySelector(".card-open").addEventListener("click",
+      () => openLightbox(lbList, parseInt(el.dataset.idx, 10), "manual"));
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) {
-      cb.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        toggleSelected(el.dataset.key, el);
-      });
-    }
+    if (cb) cb.addEventListener("click", () => toggleSelected(el.dataset.key, el));
   });
 }
 
@@ -551,7 +538,8 @@ function renderLines(root) {
     }
     const aria = `${e.name}, ${t("skins_count", e.count)}`;
     return `
-    <div class="line-card${cls}" data-line="${esc(e.id)}" role="button" tabindex="0" aria-label="${esc(aria)}">
+    <div class="line-card${cls}" data-line="${esc(e.id)}">
+      ${openBtn(aria)}
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
       <img loading="lazy" decoding="async" src="${esc(e.thumb)}" alt="">
       <div class="meta" aria-hidden="true">
@@ -563,16 +551,9 @@ function renderLines(root) {
   setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
   $("view-content").innerHTML = `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
-    const open = () => openLine(el.dataset.line);
-    el.addEventListener("click", open);
-    wireCardKey(el, open);
+    el.querySelector(".card-open").addEventListener("click", () => openLine(el.dataset.line));
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) {
-      cb.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        bulkToggleLine(el.dataset.line);
-      });
-    }
+    if (cb) cb.addEventListener("click", () => bulkToggleLine(el.dataset.line));
   });
 }
 

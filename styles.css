@@ -1142,6 +1142,24 @@
     outline: none;
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
   }
+
+  /* Windows High Contrast / forced-colors では box-shadow が一切描画されない。
+     フォーカスインジケータを box-shadow に寄せている要素 (カード被せ/＋/各種ボタン/
+     タブ/チップ/ロゴ/言語項目/検索/スキップ) が HC で完全に見えなくなるため、
+     outline でフォールバックを与える (システムカラーで描かれる)。カード被せボタンは
+     親の clip-path で切られるので offset を負にして内側に出す */
+  @media (forced-colors: active) {
+    .card-open:focus-visible { outline: 2px solid; outline-offset: -3px; }
+    .sel-checkbox:focus-visible,
+    .btn:focus-visible,
+    .ctrl-select:focus-visible,
+    .view-tabs .tab:focus-visible,
+    .filter-chip:focus-visible,
+    header h1 button:focus-visible,
+    .lang-menu button:focus-visible,
+    #search:focus,
+    .skip-link:focus { outline: 2px solid; outline-offset: 2px; }
+  }
   /* 追加可能を示す ＋ (未選択時)。selected は ✓、partial は数字テキスト優先で空 */
   .sel-checkbox::before {
     content: "+"; font-size: 18px; font-weight: 600; line-height: 1;
@@ -1162,15 +1180,21 @@
   .line-card.selected::after {
     box-shadow: var(--card-frame-shadow-selected);
   }
-  /* キーボードフォーカスリング。カードは clip-path で外側の outline / box-shadow が
-     切れるので、selected と同じく ::after の inset box-shadow で内側に金リングを描く。
-     selected (実線 3px gold) と区別できるよう明るい gold-hi の 2px + 光彩にする */
-  .champ-card:focus-visible,
-  .skin-card:focus-visible,
-  .line-card:focus-visible { outline: none; }
-  .champ-card:focus-visible::after,
-  .skin-card:focus-visible::after,
-  .line-card:focus-visible::after {
+  /* カードを開く被せボタン。カード全面を覆う透明ボタンで、入れ子インタラクティブ
+     (role=button の中に ＋ ボタン) を避けつつネイティブの Enter/Space を効かせる。
+     z-index は ＋ (z5) / anim-badge (z5) より下、::after フレーム (z3) / label (z2) /
+     img (z1) より上に置いて、＋ 以外のクリック/フォーカスを受ける */
+  .card-open {
+    position: absolute; inset: 0; z-index: 4;
+    appearance: none; -webkit-appearance: none;
+    background: transparent; border: 0; margin: 0; padding: 0;
+    cursor: pointer;
+  }
+  /* キーボードフォーカスリング。被せボタンは親カードの clip-path で切り抜かれるので、
+     inset box-shadow が切り欠きフレーム形状に沿った金リングになる。selected (実線 3px
+     gold) と区別できるよう明るい gold-hi の 2px + 光彩にする */
+  .card-open:focus-visible {
+    outline: none;
     box-shadow:
       inset 0 0 0 2px var(--gold-hi),
       inset 0 0 30px rgba(212, 168, 87, 0.3);

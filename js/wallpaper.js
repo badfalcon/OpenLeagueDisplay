@@ -5,7 +5,7 @@
 // モーダルの DOM は初回に遅延生成する (index.html を汚さない。toast と同じ手法)。
 // 配線も初回だけ行い、開くたびに対象 (_items) と表示だけ差し替える。
 
-import { state, $, esc, lockScroll, unlockScroll, trapFocus, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
+import { state, $, esc, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
 import { t, champName, skinLabel } from "./i18n.js";
 import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
 
@@ -14,7 +14,10 @@ const WP_INTERVALS = [1, 5, 15, 30, 60];
 
 let _items = [];     // 現在モーダルが対象にしている選択アイテム
 let _applying = false; // 適用中フラグ。POST 完了までモーダルを閉じさせない (Esc/背景クリック含む)
-let releaseTrap = null; // フォーカストラップ解除関数 (open で張り、close で解除)
+let releaseTrap = null; // 確認モーダルのフォーカストラップ解除関数 (open で張り、close で解除)
+let releaseDoneTrap = null; // 完了モーダルのフォーカストラップ解除関数
+let _lastFocus = null;      // 確認モーダルを開く直前のフォーカス (閉じたら戻す)
+let _doneLastFocus = null;  // 完了モーダルを開く直前のフォーカス
 
 function intervalOptionsHTML() {
   const saved = parseInt(lsGet(LS_WP_INTERVAL_KEY, ""), 10);
@@ -73,7 +76,13 @@ function closeModal() {
   if (!el || el.hidden) return;
   el.hidden = true;
   unlockScroll();
+  clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
+  // 開く前のフォーカス (ギャラリーの「壁紙にする」ボタン) へ戻す
+  if (_lastFocus && typeof _lastFocus.focus === "function") {
+    try { _lastFocus.focus(); } catch (_) {}
+  }
+  _lastFocus = null;
 }
 
 // 適用成功後の「完了！楽しんでね〜」モーダル。確認モーダルとは別物 (トーストの代わり)。
@@ -110,6 +119,12 @@ function closeDone() {
   if (!el || el.hidden) return;
   el.hidden = true;
   unlockScroll();
+  clearBackgroundInert();
+  if (releaseDoneTrap) { releaseDoneTrap(); releaseDoneTrap = null; }
+  if (_doneLastFocus && typeof _doneLastFocus.focus === "function") {
+    try { _doneLastFocus.focus(); } catch (_) {}
+  }
+  _doneLastFocus = null;
 }
 
 function openDone(data) {
@@ -117,8 +132,15 @@ function openDone(data) {
   // 枚数で振り分けた結果に応じた一言 (静止 / スライドショー枚数)。
   $("wp-done-detail").textContent =
     data.mode === "slideshow" ? t("wallpaper_slideshow_set", data.count) : t("wallpaper_set");
+  _doneLastFocus = document.activeElement;
   $("wp-done-modal").hidden = false;
   lockScroll();
+  setBackgroundInert();
+  // 他モーダルと同じ作法: 背景到達を inert で止め、Tab を閉じ込め、OK にフォーカス
+  if (releaseDoneTrap) releaseDoneTrap();
+  releaseDoneTrap = trapFocus($("wp-done-modal"));
+  const ok = $("wp-done-ok");
+  if (ok) ok.focus();
 }
 
 function showProgress(done, total) {
@@ -192,10 +214,14 @@ export function openWallpaperConfirm(items) {
     ? t("wallpaper_note_slideshow", _items.length)
     : t("wallpaper_note_single");
 
+  _lastFocus = document.activeElement;
   $("wp-modal").hidden = false;
   lockScroll();
-  // Tab で背景へ抜けないよう閉じ込める (closeModal で解除)。遅延生成 DOM なので
-  // root 要素 (ensureModal 済み) をここで渡す。
+  // 他モーダル (lightbox / tutorial / progress) と同じ隔離モデル: 背景を inert にして
+  // SR の browse カーソル巡回を止め、Tab を閉じ込め、主操作にフォーカスを移す。
+  setBackgroundInert();
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus($("wp-modal"));
+  const apply = $("wp-apply");
+  if (apply) apply.focus();
 }
