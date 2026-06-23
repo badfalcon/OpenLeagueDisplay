@@ -122,7 +122,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   `champion-summary.json` の `roles` 配列、rarity は per-champion JSON の
   `skins[].rarity` で、UI の翻訳マップとズレないよう `KNOWN_RARITIES`
   (`kEpic/kLegendary/kMythic/kUltimate`) ホワイトリストで絞り、`k` 接頭辞を
-  剥がして格納。
+  剥がして格納。**フィルタチップ (`filterChipsHTML`) は軸の性質で view を分ける**:
+  home (チャンピオン一覧) は role/region (= チャンピオンの属性)、Lines (スキンライン
+  一覧) は rarity (= スキンの属性)。rarity は per-skin なので「チャンピオンの絞り込み」
+  には置かず Lines 側へ。Lines で rarity チップを押す (or rarity 名を完全一致タイプ) と、
+  ライン一覧ではなく該当レア度の全スキンをフラット表示する (`renderRaritySkins` が home
+  の検索結果 Skins セクション描画 `renderSkinCards`/`wireSearchSkinCards` を再利用)。
+  rarity 判定は `rarityKeyFromQuery` が完全一致のみで行う (部分一致だとライン名検索と
+  衝突するため)。home の検索軸 (`renderHome`) からは rarity を外し、スキン側ヒットは
+  スキン名のみにした。
 - **地域 (Demacia/Noxus/Ionia 等) は generate_data.py に hardcode**: 当初は Riot の
   Universe API (`universe-meeps.leagueoflegends.com`) を補助的に叩く設計だったが、
   probe で「サーバ側の S3 IAM が壊れていて永続的に 403 (`AccessDenied: User
