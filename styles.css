@@ -937,7 +937,11 @@
     width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display);
-    font-size: 22px; font-style: normal;
+    /* line-height を詰める: 既定 (normal≈1.2) のままだと flex の行ボックスがグリフより
+       縦に大きくなり、ベースライン基準で描かれる ‹ › が行ボックス中央=ボタン中央より
+       上にずれて「上下中央でない」ように見える。1 にして行ボックスを字面に揃えると
+       align-items:center がそのままグリフの縦中央寄せになる (.detail-nav-btn と同処理) */
+    font-size: 22px; font-style: normal; line-height: 1;
     transition: all 0.18s;
   }
   /* hover 点灯はマウス端末だけに限定する。タッチ端末は tap 後に :hover が
