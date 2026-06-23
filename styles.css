@@ -1657,6 +1657,37 @@
       padding-left: 14px; padding-right: 14px;
     }
 
+    /* 一覧ヘッダーを高密度化: 見出し右の空きスペースに件数を昇格させて専用行を畳み、
+       padding/margin/gap/フォントを詰めてグリッドを上へ引き上げる。すべて is-list
+       (home / 検索 / skin lines) 限定で、共用の詳細 view ヘッダー (巨大タイトル +
+       DL ボタン + ‹›、is-list 無し) には一切触れない */
+    .champ-header.is-list {
+      gap: 6px 14px;
+      padding: 14px 0 16px;     /* 900px の 24px 0 22px から圧縮 */
+      margin-bottom: 20px;      /* 900px の 32px から圧縮 */
+    }
+    .champ-header.is-list h2 {
+      font-size: clamp(21px, 5vw, 26px);  /* floor 21px で "CHAMPIONS" が痩せすぎない */
+    }
+    /* 件数を col2/row1 (見出しの肩口) へ。grid の align-items:end と揃える。
+       padding-bottom は小さな mono 件数を巨大イタリック見出しの下辺へ光学的に合わせる
+       微調整 (baseline 揃えは x-height 付近で浮くので end + nudge を採用) */
+    .champ-header.is-list .count {
+      grid-column: 2; grid-row: 1;
+      justify-self: end; align-self: end;
+      padding-bottom: 0.28em;
+      /* no-results 時は count に生の検索語が入る。長文が見出しへ食い込まないよう
+         #stats と同じ ellipsis 防御。col1 は base の minmax(0,1fr) のままで見出し優先 */
+      max-width: 45vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.24em;   /* 320px で 0.32em は詰まりすぎるので気持ち締める */
+    }
+    /* ◆ divider は残す (ヘッダー最大のブランド記号)。畳んだ padding に合わせて
+       diamond の落とし幅だけ詰めて金線の中央に保つ */
+    .champ-header.is-list::after { bottom: -7px; }
+
     /* 下端は固定ナビ (--bottom-nav-h + safe-area) の分だけ余白を足して隠れないように */
     main { padding: 24px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 28px); }
     /* footer も最後の行がナビに食われないようクリアランスを足す */
