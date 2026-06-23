@@ -12,7 +12,7 @@
 // - オフライン動作 (PWA) はキャッシュフォールバックで維持。インストール時に
 //   SHELL をプリキャッシュしておく。シェル更新時は CACHE_VERSION を上げること。
 
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v12";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // プリキャッシュ対象。sw.js と同階層基準の相対パス (GitHub Pages のサブパス配信に対応)

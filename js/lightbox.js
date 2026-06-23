@@ -1,8 +1,14 @@
 // ライトボックス (画像拡大表示) と全局スライドショー。
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
-import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll } from "./state.js";
-import { t, toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus } from "./state.js";
+import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+
+// フォーカストラップ解除関数 (open で張り、close で呼ぶ)。chrome-hidden (opacity:0) 中も
+// ツールバーのボタンは offsetParent が残る (opacity は offsetParent に影響しない) ので
+// Tab 対象に残る。視覚と不一致だが、キーボード操作の起点 (lb-close) を失わないための
+// 意図的な挙動。
+let releaseTrap = null;
 
 // スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
 function buildSelectedList() {
@@ -23,6 +29,12 @@ function shuffle(arr) {
 }
 
 export function openLightbox(list, idx, mode) {
+  // 戻る (Android バックジェスチャ / ブラウザ戻る) で「サイト離脱」ではなく
+  // 「ライトボックスを閉じる」に倒すため、URL は変えずに戻る 1 回分の history
+  // エントリだけ積む。popstate ハンドラ (app.js) はライトボックスが開いていれば
+  // closeLightbox を呼ぶ。判定は DOM の .open クラスで行うので、リロードで
+  // history.state.lb だけ残っても誤動作しない。
+  history.pushState({ lb: 1 }, "", location.href);
   state.lb.list = list; state.lb.idx = idx; state.lb.mode = mode;
   state.lb.paused = false; state.lb.frontIsA = true;
   state.lb.lastFocus = document.activeElement;
@@ -32,6 +44,9 @@ export function openLightbox(list, idx, mode) {
   document.body.classList.add("lightbox-open");
   lockScroll();
   lb.classList.toggle("slideshow", mode === "slideshow");
+  // ステージタップで隠せる操作系 (chrome) は開くたびに必ず表示状態に戻す。
+  // caption と違い「隠したまま」を持ち越さない (永続化しない) ので毎回外す。
+  lb.classList.remove("chrome-hidden");
   // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
   lb.classList.toggle("fill", state.lb.fit === "cover");
   // スマホ拡大時の左右パン (CSS lb-panx) の長さを 1 スライドの表示時間に合わせる。
@@ -58,6 +73,9 @@ export function openLightbox(list, idx, mode) {
   preloadAdjacent();
   // 閉じるボタンへフォーカス (キーボード操作の起点)
   $("lb-close").focus();
+  // Tab で背景へ抜けないよう閉じ込める (close で解除)
+  if (releaseTrap) releaseTrap();
+  releaseTrap = trapFocus(lb);
 }
 
 // <img> A/B クロスフェードで静止スプラッシュを表示する。crossfade=false は
@@ -144,6 +162,7 @@ export function closeLightbox() {
   lb.setAttribute("aria-hidden", "true");
   document.body.classList.remove("lightbox-open");
   unlockScroll();
+  if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   stopSlideshow();
   // openLightbox の seq を進めて係争中の onload を無効化
   state.lb.seq++;
@@ -153,6 +172,10 @@ export function closeLightbox() {
   if (state.lb.lastFocus && typeof state.lb.lastFocus.focus === "function") {
     state.lb.lastFocus.focus();
   }
+  // UI からの閉じ (✕ / Esc) の時だけ、openLightbox で積んだ history エントリを
+  // 消費する。popstate 経由 (戻るで閉じる) の場合は既に history が巻き戻っていて
+  // state.lb が消えているので history.back() は発火せず、二重戻りにならない。
+  if (history.state && history.state.lb) history.back();
 }
 function updateMeta() {
   const item = state.lb.list[state.lb.idx];
@@ -206,12 +229,15 @@ export function startSlideshow() {
 export function stopSlideshow() {
   if (state.lb.timer) { clearTimeout(state.lb.timer); state.lb.timer = null; }
 }
+// 選択中スキンで全局スライドショーを開始する。開始できたら true、ギャラリーが空
+// (= splash 付きの選択が 0 件) なら false を返す。
+// 空振り時の行き先 (ギャラリービューへ誘導 + toast) は呼び出し側に任せる:
+// ここで alert / render.js への遷移を抱えると lightbox→render の循環 import を
+// 作ってしまうため、ナビゲーションの責務は app.js / render.js 側に置く。
 export function startGlobalSlideshow() {
-  if (!DATA) return;
+  if (!DATA) return false;
   const list = buildSelectedList();
-  if (list.length === 0) {
-    alert(t("slideshow_empty"));
-    return;
-  }
+  if (list.length === 0) return false;
   openLightbox(shuffle(list), 0, "slideshow");
+  return true;
 }

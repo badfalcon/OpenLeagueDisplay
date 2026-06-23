@@ -6,7 +6,7 @@ import {
   state, DATA, $, esc, setData,
   LS_LOCALE_KEY, LS_SORT_KEY, LS_LB_FIT_KEY,
   lsGet, lsSet,
-  buildIndexes, SKIN_BY_KEY, loadSelectedFromStorage, saveSelected,
+  buildIndexes, SKIN_BY_KEY, LINE_INDEX, loadSelectedFromStorage, saveSelected,
 } from "./state.js";
 import {
   UI_STRINGS, t, syncPauseButton, syncCaptionButton, syncFitButton,
@@ -16,7 +16,7 @@ import {
 } from "./i18n.js";
 import {
   render, goHome, goBack, openLines, openSelected,
-  imgLoaded, imgErr,
+  imgLoaded, imgErr, setRouteListener,
 } from "./render.js";
 import {
   hideProgress,
@@ -30,7 +30,7 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
-import { probeLocal } from "./local.js";
+import { probeLocal, toast } from "./local.js";
 
 // インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
 window.imgLoaded = imgLoaded;
@@ -130,10 +130,123 @@ async function init() {
   // ローカルモード検知の確定を待ってから初回 render (壁紙 UI の表示状態を反映するため)
   await localProbe;
 
+  // ディープリンク: 初期 hash があれば state に反映してから 1 度だけ render する
+  // (applyRoute だと render を二重に呼ぶので、ここでは state 設定のみ行い render は下に任せる)。
+  // hash が空 (または不正) なら home に倒れ、不正な場合は #/ に正規化しておく
+  // (アドレスバーに壊れた hash を残さない)。
+  const initialHash = location.hash;
+  setStateFromRoute(initialHash);
+  if (routeFromState() !== (initialHash || "#/")) {
+    history.replaceState(null, "", routeFromState());
+  }
+
   render();
 
   // 初回訪問なら少し遅らせてチュートリアルを自動表示 (UI フェードイン後)
   maybeAutoOpenTutorial();
+}
+
+// ===== hash ルーティング (#/...) =====
+// GitHub Pages 配信なので hash 方式にする (サーバ側の rewrite 設定が不要)。
+// ルート⇄state の変換と popstate 配線は app.js が持ち、render.js は setRouteListener
+// フックで「render 後に URL を同期して」と通知を受けるだけ (history API は触らない)。
+// ルート定義:
+//   #/                  home (チャンピオン一覧)
+//   #/lines             スキンライン一覧
+//   #/champion/<alias>  チャンピオン詳細
+//   #/line/<id>         スキンライン詳細
+//   #/gallery           My Gallery (state.view === "selected")
+// 検索クエリ/ソート順は URL に載せない (state/localStorage のみ。スコープを絞る)。
+
+// 現在 state からルート文字列を作る。詳細 view で対象が未設定なら home 扱い。
+function routeFromState() {
+  switch (state.view) {
+    case "lines": return "#/lines";
+    case "selected": return "#/gallery";
+    case "champion":
+      return state.currentChamp ? `#/champion/${encodeURIComponent(state.currentChamp)}` : "#/";
+    case "line":
+      return state.currentLine ? `#/line/${encodeURIComponent(state.currentLine)}` : "#/";
+    default: return "#/";
+  }
+}
+
+// hash をパースして state.view/currentChamp/currentLine を決める。検索クエリは
+// URL に乗せない方針なので、戻る時は素の view に戻すため常にクリアする。
+// 不正・未知のルート (存在しない alias 等) は home にフォールバックする。
+// render はここで呼ばず呼び出し側に委ねる (初回ディープリンクで二重 render しないため)。
+// decodeURIComponent は不正な %-エンコーディング (#/champion/% 等) で URIError を
+// throw する。改ざん URL でページごと落とさないよう、デコード失敗はそのまま
+// 「未知のルート」として既存の home フォールバックに流す (null を返して実在
+// チェックを不成立にする)。
+const safeDecode = (str) => { try { return decodeURIComponent(str); } catch (_) { return null; } };
+
+function setStateFromRoute(hash) {
+  state.searchQuery = "";
+  const s = $("search");
+  if (s) s.value = "";
+  // 先頭の "#" と "/" を剥がして "/" 区切りにする ("#/champion/Ahri" → ["champion","Ahri"])
+  const path = (hash || "").replace(/^#\/?/, "");
+  const parts = path.split("/").filter(Boolean);
+  const head = parts[0] || "";
+  if (head === "lines") {
+    state.view = "lines"; state.currentChamp = null; state.currentLine = null;
+  } else if (head === "gallery") {
+    state.view = "selected"; state.currentChamp = null; state.currentLine = null;
+  } else if (head === "champion" && parts[1]) {
+    const alias = safeDecode(parts[1]);
+    // 実在する alias だけ受理。未知 (デコード失敗の null 含む) なら home に倒す
+    // (ディープリンクの URL 改ざん耐性)
+    const ok = alias !== null && DATA && DATA.champions.some(c => c.alias === alias);
+    if (ok) { state.view = "champion"; state.currentChamp = alias; state.currentLine = null; }
+    else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
+  } else if (head === "line" && parts[1]) {
+    const id = safeDecode(parts[1]);
+    // LINE_INDEX に存在する (= メンバを持つ) line だけ受理。デコード失敗の null は弾く
+    const ok = id !== null && LINE_INDEX.has(String(id));
+    if (ok) { state.view = "line"; state.currentLine = id; state.currentChamp = null; }
+    else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
+  } else {
+    state.view = "home"; state.currentChamp = null; state.currentLine = null;
+  }
+}
+
+// hash を state に反映して再描画する (popstate / 戻る時の経路)。render() 末尾の
+// ルートリスナーも走るが、hash は既に一致しているので pushState されない
+// (= 無限ループしない)。スクロールは先頭へ戻す。
+function applyRoute(hash) {
+  setStateFromRoute(hash);
+  render();
+  window.scrollTo(0, 0);
+}
+
+// render() 末尾から呼ばれる: 現在 state のルートが location.hash と違えば push する。
+// location.hash 直代入だと hashchange/popstate が再発火して二重 render になるため
+// pushState を使う。これで既存ナビゲーション関数・検索・タブを書き換えずに URL が追従。
+function syncRouteFromState() {
+  const want = routeFromState();
+  const cur = location.hash || "#/";
+  if (want !== cur) history.pushState(null, "", want);
+}
+
+function wirePopstate() {
+  window.addEventListener("popstate", () => {
+    // (1) ライトボックスが開いていれば、戻るは「閉じる」に充てる。この時点で history は
+    // 既に巻き戻り済み (state.lb は消えている) なので、closeLightbox 内の history.back()
+    // は発火せず二重戻りにならない。判定は DOM の .open クラスで行う。
+    if ($("lightbox").classList.contains("open")) {
+      closeLightbox();
+      return;
+    }
+    // (2) それ以外は現在の hash を state に反映する。ただし UI からのライトボックス
+    // 閉じ (closeLightbox 内の history.back) で発火したケースは、URL が view と既に
+    // 一致しているので再 render・スクロールリセットは無駄 (= ちらつき/位置飛び)。
+    // 一致なら何もしない。
+    if ((location.hash || "#/") === routeFromState()) return;
+    applyRoute(location.hash);
+  });
+  // render() 後の URL 同期フックを登録する。
+  setRouteListener(syncRouteFromState);
 }
 
 function wireEvents() {
@@ -141,7 +254,16 @@ function wireEvents() {
   $("back-btn").addEventListener("click", goBack);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
-  $("slideshow-btn").addEventListener("click", startGlobalSlideshow);
+  // Slideshow ボタン: 開始できれば全局スライドショーへ。空 (ギャラリーに splash 付き
+  // 選択が無い) なら OS ダイアログを出さず、My Gallery ビューを開いて理由を toast で示す
+  // (空ビューの gallery_empty / _hint が追加導線になる)。startGlobalSlideshow が
+  // 戻り値で開始可否を返すので、ナビゲーションはここ (= 呼び出し側) で行う。
+  $("slideshow-btn").addEventListener("click", () => {
+    if (!startGlobalSlideshow()) {
+      openSelected();
+      toast(t("slideshow_empty"));
+    }
+  });
   $("gallery-btn").addEventListener("click", openSelected);
   $("help-btn").addEventListener("click", openTutorial);
   $("share-btn").addEventListener("click", shareSite);
@@ -273,8 +395,33 @@ function wireEvents() {
   window.addEventListener("offline", syncOnlineState);
   syncOnlineState();
 
+  // 「トップへ戻る」FAB: 一定量スクロールしたら出す。passive リスナーで scroll を
+  // 妨げず、表示状態はフラグでキャッシュして毎 scroll で classList を触らない
+  // (閾値をまたいだ時だけ DOM を更新する)。
+  const toTopBtn = $("to-top");
+  if (toTopBtn) {
+    let toTopShown = false;
+    const syncToTop = () => {
+      const show = window.scrollY > 600;
+      if (show === toTopShown) return;
+      toTopShown = show;
+      toTopBtn.hidden = !show;
+    };
+    window.addEventListener("scroll", syncToTop, { passive: true });
+    syncToTop();
+    toTopBtn.addEventListener("click", () => {
+      // reduce-motion を尊重: アニメ無効化希望なら即時ジャンプにする
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+  }
+
   // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
   let tStartX = 0, tStartY = 0;
+  // スワイプ成立直後に発火しうる click を 1 回だけ無視するフラグ。スワイプが成立
+  // するとブラウザは通常 click を発火しないが、機種差で漏れることがあるため、
+  // 確実性優先で「スワイプした直後の stage クリックは chrome トグルに使わない」
+  let swipeConsumedClick = false;
   const lbEl = $("lightbox");
   lbEl.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
@@ -286,9 +433,22 @@ function wireEvents() {
     const dx = t.clientX - tStartX;
     const dy = t.clientY - tStartY;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swipeConsumedClick = true;
       if (dx > 0) prevSlide(); else nextSlide();
     }
   }, { passive: true });
+  // ステージ (画像領域) タップで操作系 UI を一括トグルする画像ビューア定番のジェスチャ。
+  // ・⚙ メニューが開いている時は既存の「外側クリックで閉じる」(lightbox 全体で拾う
+  //   ハンドラ) を優先し、ここでは何もしない (= タップは閉じる動作に充てる)
+  // ・直前のスワイプで成立した click は 1 回だけ無視する (next/prev と二重発火しない)
+  // ・ハンドラは .lb-stage 直付けなので、ツールバー/矢印/overlay 上のクリックは
+  //   DOM 構造上ここに届かない。lb-overlay は pointer-events:none なので素通しして
+  //   stage に届くが、overlay 領域のタップもトグル対象でよい
+  document.querySelector(".lb-stage").addEventListener("click", () => {
+    if (swipeConsumedClick) { swipeConsumedClick = false; return; }
+    if (!$("ss-menu").hidden) return;
+    $("lightbox").classList.toggle("chrome-hidden");
+  });
 
   document.addEventListener("keydown", (e) => {
     // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)
@@ -310,6 +470,17 @@ function wireEvents() {
       else if (e.key === "?" && document.activeElement !== $("search")) {
         e.preventDefault();
         openTutorial();
+      }
+      // / で検索へジャンプ (PC 向けの定番ショートカット)。入力系にフォーカス中は
+      // 文字として打ちたいので無効化。検索 input は dom-stash から transplant されて
+      // 常に DOM に居るので、見えるよう先頭までスクロールしてからフォーカスする
+      else if (e.key === "/") {
+        const ae = document.activeElement;
+        const tag = ae && ae.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        window.scrollTo(0, 0);
+        $("search").focus();
       }
       return;
     }
@@ -352,6 +523,10 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // hash ルーティングの popstate 配線 + render 後の URL 同期フックを先に張る。
+  // init() の初回 render でフックが呼ばれても、ディープリンク解決で hash は既に
+  // 正規化済みなので余計な pushState は出ない。
+  wirePopstate();
   trackTopbarHeight();
   init();
   registerSW();

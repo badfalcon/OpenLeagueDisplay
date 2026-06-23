@@ -1,4 +1,4 @@
-// 初回訪問チュートリアル: 3 ステップの簡易オンボーディングモーダル。
+// 初回訪問チュートリアル: 4 ステップの簡易オンボーディングモーダル。
 // 既読フラグは localStorage (LS_TUTORIAL_KEY) で持ち、ヘッダの ? ボタンと
 // ? キーから何度でも再表示できる (フラグは変わらない)。閉じる経路 (Skip / Done /
 // Esc / 外側クリック) はどれも初回表示時にフラグを立てる。
@@ -6,10 +6,14 @@
 // 本文 (tut_s*_body) は i18n テーブルに <strong>/<em>/<code>/<br> を埋め込んだ
 // 信頼済み文字列なので innerHTML に直接流す。ユーザー入力経路は無いので XSS シンクは無い。
 
-import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll } from "./state.js";
+import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus } from "./state.js";
 import { t } from "./i18n.js";
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
+
+// フォーカストラップ解除関数 (open で張り、close で呼ぶ)。Skip ボタンは最終ステップで
+// 隠れる等、ボタンが状態で増減するので trapFocus は毎回その場でリストを計算する。
+let releaseTrap = null;
 
 export function isTutorialOpen() {
   const ov = $("tutorial-overlay");
@@ -26,6 +30,9 @@ export function openTutorial() {
   ov.setAttribute("aria-hidden", "false");
   document.body.classList.add("tutorial-open");
   lockScroll();
+  // Tab で背景へ抜けないよう閉じ込める (close で解除)
+  if (releaseTrap) releaseTrap();
+  releaseTrap = trapFocus(ov);
   // 主操作 (Next) にフォーカスを移して Enter / 矢印で進めるように
   requestAnimationFrame(() => {
     const next = $("tut-next");
@@ -40,6 +47,7 @@ export function closeTutorial() {
   ov.setAttribute("aria-hidden", "true");
   document.body.classList.remove("tutorial-open");
   unlockScroll();
+  if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   lsSet(LS_TUTORIAL_KEY, "1");
   const prev = state.tut.lastFocus;
   if (prev && typeof prev.focus === "function") {

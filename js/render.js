@@ -13,12 +13,38 @@ import {
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
-import { isLocal, isLocalWallpaper } from "./local.js";
+import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
 
 // localeCompare に渡す BCP-47 タグ。"default" は英語、それ以外は CDragon の
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
+
+// 全チャンピオンを state.sortOrder に従って並べた新規配列を返す。renderHome (一覧) と
+// renderChampion (前後ナビの順序) で同じ並びを共有するために抽出した。"name_asc"/"name_desc"
+// は localized name で localeCompare、"release" は data.json 順 (= 何もしない)。
+function sortedChampions() {
+  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
+  const arr = DATA.champions.slice();
+  if (sign) {
+    const tag = cmpTag();
+    arr.sort((a, b) => sign * champName(a).localeCompare(champName(b), tag, { sensitivity: "base" }));
+  }
+  return arr;
+}
+
+// count>0 のスキンラインを「件数 desc → 名前 locale 順」で並べた配列を返す (フィルタ前の全件)。
+// renderLines (一覧。検索フィルタは呼び出し側で別途かける) と renderLine (前後ナビの順序) で共有。
+function sortedLineEntries() {
+  const lines = DATA.skin_lines || {};
+  return Object.entries(lines)
+    .map(([id, name]) => {
+      const idx = LINE_INDEX.get(id);
+      return { id, name: lineName(id), _en: name, count: idx ? idx.count : 0, thumb: idx ? idx.thumb : "" };
+    })
+    .filter(e => e.count > 0)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
+}
 
 // stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
 // <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
@@ -70,7 +96,11 @@ export function ensureLayout(root) {
   if ($("view-content")) return;
   root.innerHTML = `
     <div class="champ-header" id="primary-header" hidden>
-      <h2 id="primary-title"></h2>
+      <h2 class="primary-title-row">
+        <button class="detail-nav-btn" id="detail-prev" type="button" hidden>‹</button>
+        <span id="primary-title"></span>
+        <button class="detail-nav-btn" id="detail-next" type="button" hidden>›</button>
+      </h2>
       <div class="champ-header-controls"></div>
       <span class="count" id="primary-count"></span>
       <button class="btn primary" id="primary-action" hidden></button>
@@ -84,7 +114,7 @@ export function ensureLayout(root) {
 
 // 永続 champ-header の中身を更新する唯一の窓口。renderXxx は innerHTML を
 // 触らず、ここに値を渡すだけにする
-function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null }) {
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null }) {
   const ph = $("primary-header");
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
@@ -100,7 +130,37 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
     btn.hidden = true;
     btn.onclick = null;
   }
+  // 詳細 view (champion / line) の前後ナビ。nav が無い view (home/lines/gallery/検索) では
+  // 両ボタンを hidden に戻し onclick も null に。表示時は隣の名前を title/aria-label に入れて
+  // PC ホバーと SR で行き先が分かるようにする (ボタン表示は ‹ › グリフのみなので i18n 不要)。
+  const prevBtn = $("detail-prev");
+  const nextBtn = $("detail-next");
+  if (nav) {
+    prevBtn.hidden = false;
+    prevBtn.title = nav.prevLabel;
+    prevBtn.setAttribute("aria-label", nav.prevLabel);
+    prevBtn.onclick = nav.onPrev;
+    nextBtn.hidden = false;
+    nextBtn.title = nav.nextLabel;
+    nextBtn.setAttribute("aria-label", nav.nextLabel);
+    nextBtn.onclick = nav.onNext;
+  } else {
+    prevBtn.hidden = true;
+    prevBtn.onclick = null;
+    prevBtn.removeAttribute("aria-label");
+    nextBtn.hidden = true;
+    nextBtn.onclick = null;
+    nextBtn.removeAttribute("aria-label");
+  }
 }
+
+// hash ルーティングのフック。app.js が setRouteListener で「現在 state に対応する
+// hash を location.hash に同期する」コールバックを登録する。render.js 自身は
+// history API を一切触らない (ルート⇄state 変換と pushState/popstate の責務は
+// app.js に集約する)。これにより既存のナビゲーション関数群 (openChampion 等) を
+// 書き換えずに、render() が走るたび URL が追従する。
+let onRouteChange = null;
+export function setRouteListener(fn) { onRouteChange = fn; }
 
 export function render() {
   const root = $("root");
@@ -122,7 +182,19 @@ export function render() {
   // 表示制御: back は showBack の時だけ、sort は home の時だけ可視
   $("back-btn").style.display = showBack ? "" : "none";
   $("sort-select").style.display = state.view === "home" ? "" : "none";
+  // 検索プレースホルダ: 詳細 view (champion / line) では検索が view ローカルでなく
+  // 全チャンピオン横断 (= 暗黙に一覧へ戻る) であることを予告する文言に差し替える。
+  // applyStaticUIStrings が当てる初期値を view に応じて上書きする形なので、locale
+  // 切替後も render() が走って追従する。
+  const searchEl = $("search");
+  if (searchEl) {
+    const global = (state.view === "champion" || state.view === "line");
+    searchEl.placeholder = t(global ? "search_placeholder_global" : "search_placeholder");
+  }
   refreshGalleryBtn();
+  // 末尾で現在 state に対応する hash を app.js へ通知する。app.js 側は
+  // 「現在の location.hash と違う時だけ pushState」して二重 render を避ける。
+  if (onRouteChange) onRouteChange();
 }
 
 // ヘッダーの「マイギャラリー」ボタン: 選択件数を出し、ギャラリービュー中は
@@ -149,6 +221,12 @@ export function refreshGalleryBtn() {
     btn.appendChild(badge);
   }
   btn.classList.toggle("primary", state.view === "selected");
+  // 役割は本来「ギャラリーボタンの件数表示」だが、選択数が変わる全経路 + render() から
+  // 呼ばれる唯一の同期点なので、ヘッダーの Slideshow ボタンの空状態表現もここに相乗りさせる。
+  // 選択 0 件なら .is-empty で淡色化 (disabled 風) するが、disabled 属性は付けない:
+  // クリック時に My Gallery へ誘導する動線 (app.js) を生かすため。
+  const ssBtn = $("slideshow-btn");
+  if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
 }
 
 // フィルタチップ: role / rarity / region のローカライズ語をワンタップで検索クエリへ
@@ -224,10 +302,9 @@ function renderHome(root) {
     return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
 
-  // 検索なし: 従来通りチャンピオン一覧だけ
+  // 検索なし: 従来通りチャンピオン一覧だけ (renderChampion の前後ナビと同じ並びを共有)
   if (!q) {
-    const list = DATA.champions.slice();
-    sortChamps(list);
+    const list = sortedChampions();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
     $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
     wireChampCards(root);
@@ -374,17 +451,40 @@ function renderChampion(root) {
     skinCardHTML({ c, s, idx: i, label: skinLabel(c, s) })
   ).join("");
   const keys = c.skins.map(s => SELECT_KEY(c.alias, s.label));
+  // 前後ナビ: 一覧と同じ並び (sortedChampions) の中で現在 index を求め、両端は
+  // ラップアラウンド (lightbox の next/prev と同じ循環思想)。要素 1 個なら前後とも
+  // 自分自身になるので nav を渡さず両ボタンを hidden のままにする。
+  // openChampion は render() → hash 同期フックを走らせるので、ブラウザ戻るで一つ前の
+  // 詳細に戻れる (意図どおり)。
+  const order = sortedChampions();
+  const i = order.findIndex(x => x.alias === c.alias);
+  const nav = order.length > 1 && i >= 0 ? makeDetailNav(order, i, x => champName(x), x => openChampion(x.alias)) : null;
   setPrimaryHeader({
     title: champName(c),
     count: t("skins_count", c.skins.length),
+    nav,
     ...detailPrimary(keys, t("dl_champion"), () => downloadChampion(c)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
 }
 
+// 詳細 view の前後ナビ用 { prevLabel, nextLabel, onPrev, onNext } を生成する。
+// order: 並び済み配列、i: 現在 index、labelOf: 隣の表示名、go: 隣へ遷移する関数。
+// 両端はラップアラウンド (循環) する。
+function makeDetailNav(order, i, labelOf, go) {
+  const n = order.length;
+  const prev = order[(i - 1 + n) % n];
+  const next = order[(i + 1) % n];
+  return {
+    prevLabel: labelOf(prev),
+    nextLabel: labelOf(next),
+    onPrev: () => go(prev),
+    onNext: () => go(next),
+  };
+}
+
 function renderLines(root) {
-  const lines = DATA.skin_lines || {};
   // per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
   // count/thumb は LINE_INDEX から取るので 1 回構築済み。
   const selectedCounts = {};
@@ -399,16 +499,10 @@ function renderLines(root) {
     }
   }
   const q = state.searchQuery.toLowerCase();
-  // 表示は翻訳名、検索は (翻訳名 + 英語名) でマッチさせる
-  const entries = Object.entries(lines)
-    .map(([id, name]) => {
-      const idx = LINE_INDEX.get(id);
-      return { id, name: lineName(id), _en: name, count: idx ? idx.count : 0, thumb: idx ? idx.thumb : "" };
-    })
-    .filter(e => e.count > 0)
-    .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q))
-    // 同数時の名前順は他 view と同じく現在 locale で比較する
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
+  // 並び/件数は sortedLineEntries に集約 (renderLine の前後ナビと共有)。表示は翻訳名、
+  // 検索は (翻訳名 + 英語名) でマッチさせるので、フィルタはここで別途かける。
+  const entries = sortedLineEntries()
+    .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
@@ -455,9 +549,15 @@ function renderLine(root) {
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
   ).join("");
   const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
+  // 前後ナビ: sortedLineEntries の並び (検索フィルタは無視 = 全 entries) の中で現在 id の
+  // index を求め、ラップアラウンドで前後 id へ。要素 1 個なら nav を渡さず両ボタン hidden。
+  const order = sortedLineEntries();
+  const li = order.findIndex(e => String(e.id) === String(lid));
+  const nav = order.length > 1 && li >= 0 ? makeDetailNav(order, li, e => e.name, e => openLine(e.id)) : null;
   setPrimaryHeader({
     title: lname,
     count: t("skins_count", items.length),
+    nav,
     ...detailPrimary(keys, t("dl_line"), () => downloadLine(lid, lname, items)),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
@@ -491,8 +591,12 @@ function renderSelected(root) {
   });
 
   if (items.length === 0) {
+    // 空状態は行き止まりになりやすいので、ヒント文の下に home へ戻る CTA を出す
     $("view-content").innerHTML =
-      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p></div>`;
+      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
+      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button></div>`;
+    const browse = $("gallery-browse");
+    if (browse) browse.addEventListener("click", goHome);
     return;
   }
 
@@ -517,7 +621,12 @@ function renderSelected(root) {
     <div class="skin-grid gallery-grid">${cards}</div>`;
   const dl = $("gallery-dl");
   if (dl) dl.addEventListener("click", downloadSelected);
-  $("gallery-ss").addEventListener("click", startGlobalSlideshow);
+  // ギャラリーツールバーの Slideshow: 通常は items がある時だけ出るが、splash の無い
+  // スキンばかり選んだエッジでは startGlobalSlideshow が false (再生対象 0) を返す。
+  // ここは既にギャラリービューなので追加導線は不要、toast で理由だけ伝える。
+  $("gallery-ss").addEventListener("click", () => {
+    if (!startGlobalSlideshow()) toast(t("slideshow_empty"));
+  });
   $("gallery-clear").addEventListener("click", clearSelected);
   const wp = $("gallery-wp");
   if (wp) wp.addEventListener("click", () => openWallpaperConfirm(items));

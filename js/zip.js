@@ -2,8 +2,11 @@
 // CDragon に直接 fetch → JSZip でブラウザ内パッキング → blob を a.download で保存。
 // GitHub の帯域は使わない (Pages → CDragon 経路は無く、ブラウザ ↔ CDragon の直接通信)。
 
-import { state, $, SKIN_BY_KEY } from "./state.js";
+import { state, $, SKIN_BY_KEY, trapFocus } from "./state.js";
 import { t, champName } from "./i18n.js";
+
+// 進捗オーバーレイのフォーカストラップ解除関数 (showProgress で張り、hideProgress で解除)。
+let releaseTrap = null;
 
 
 export function safeName(s) {
@@ -65,6 +68,9 @@ export function showProgress(title, desc) {
   const ov = $("progress-overlay");
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
+  // Tab で背景へ抜けないよう閉じ込める (hideProgress で解除)
+  if (releaseTrap) releaseTrap();
+  releaseTrap = trapFocus(ov);
 }
 export function updateProgress(done, total, failed) {
   // 描画コスト軽減のため、最後の更新から100ms以内ならスキップ (最終フレームは別途呼ぶ)
@@ -80,6 +86,7 @@ export function hideProgress() {
   const ov = $("progress-overlay");
   ov.classList.remove("open");
   ov.setAttribute("aria-hidden", "true");
+  if (releaseTrap) { releaseTrap(); releaseTrap = null; }
 }
 
 // JSZip 読み込み完了まで待つ (defer で後読みのため init より遅れることがある)

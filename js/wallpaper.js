@@ -5,7 +5,7 @@
 // モーダルの DOM は初回に遅延生成する (index.html を汚さない。toast と同じ手法)。
 // 配線も初回だけ行い、開くたびに対象 (_items) と表示だけ差し替える。
 
-import { state, $, esc, lockScroll, unlockScroll, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
+import { state, $, esc, lockScroll, unlockScroll, trapFocus, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
 import { t, champName, skinLabel } from "./i18n.js";
 import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
 
@@ -14,6 +14,7 @@ const WP_INTERVALS = [1, 5, 15, 30, 60];
 
 let _items = [];     // 現在モーダルが対象にしている選択アイテム
 let _applying = false; // 適用中フラグ。POST 完了までモーダルを閉じさせない (Esc/背景クリック含む)
+let releaseTrap = null; // フォーカストラップ解除関数 (open で張り、close で解除)
 
 function intervalOptionsHTML() {
   const saved = parseInt(lsGet(LS_WP_INTERVAL_KEY, ""), 10);
@@ -72,6 +73,7 @@ function closeModal() {
   if (!el || el.hidden) return;
   el.hidden = true;
   unlockScroll();
+  if (releaseTrap) { releaseTrap(); releaseTrap = null; }
 }
 
 // 適用成功後の「完了！楽しんでね〜」モーダル。確認モーダルとは別物 (トーストの代わり)。
@@ -192,4 +194,8 @@ export function openWallpaperConfirm(items) {
 
   $("wp-modal").hidden = false;
   lockScroll();
+  // Tab で背景へ抜けないよう閉じ込める (closeModal で解除)。遅延生成 DOM なので
+  // root 要素 (ensureModal 済み) をここで渡す。
+  if (releaseTrap) releaseTrap();
+  releaseTrap = trapFocus($("wp-modal"));
 }

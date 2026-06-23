@@ -7,7 +7,10 @@
 <head>
 <script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- ピンチズームを許可 (WCAG 1.4.4 拡大)。maximum-scale=1 / user-scalable=no は
+     入れない: iOS は元々これらを無視するが Android だけズーム不能になっていた。
+     ダブルタップズームの抑止は styles.css の touch-action: manipulation が担う -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Content Security Policy (defense-in-depth)
   ------------------------------------------
@@ -221,6 +224,11 @@
 <div class="offline-banner" id="offline-banner" role="status" aria-live="polite" hidden>
   <span id="offline-banner-text">You are offline — splash images may not load.</span>
 </div>
+
+<!-- 「トップへ戻る」FAB: 長い一覧 (全チャンピオン / スキンライン) を下までスクロール
+     した時に頭出しへ素早く戻す導線。グリフ (↑) なので文言は i18n 不要だが aria-label は
+     applyStaticUIStrings() が locale 追従させる。初期は hidden、app.js が scrollY 閾値で出す -->
+<button class="to-top" id="to-top" aria-label="Back to top" hidden>↑</button>
 
 <!-- スクリーンリーダー向けの状態通知。視覚ユーザーには共有ボタンのアイコンが
      チェックマークへ変わるが、aria-label の書き換えだけでは読み上げられないため、

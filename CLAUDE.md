@@ -25,13 +25,13 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── make_icon.py                     # favicon.svg から icon.ico を再生成 (Pillow、ブランド変更時のみ)
 ├── styles.css                       # 全 CSS (CSS 変数でテーマ管理)
 ├── js/                              # ES Modules
-│   ├── app.js                       #   エントリ: data.json fetch + イベント配線
+│   ├── app.js                       #   エントリ: data.json fetch + イベント配線 + hash ルーティング (#/...)
 │   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
-│   ├── tutorial.js                  #   初回訪問チュートリアル (3ステップ。? ボタン / ? キーで再表示)
+│   ├── tutorial.js                  #   初回訪問チュートリアル (4ステップ。? ボタン / ? キーで再表示)
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   └── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
@@ -55,7 +55,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 
 - **state.js**: mutable な `state` オブジェクトと、`let DATA` (setData 経由で
   更新)、SKIN_BY_KEY / LINE_INDEX、localStorage I/O、`$` / `esc` の汎用関数。
-  他モジュールを import しない (依存される側専用)
+  他モジュールを import しない (依存される側専用)。`trapFocus` (依存ゼロの DOM
+  ユーティリティ。モーダル/ライトボックス表示中に Tab で背景へフォーカスが抜けるのを
+  防ぎ、解除関数を返す) もここに置く
 - **i18n.js**: UI 文字列テーブル / `t()` / ROLE_LABELS / RARITY_LABELS /
   REGION_LABELS / 言語ピッカー描画と loadLocale。`applyStaticUIStrings`
   だけ render.js の `renderStats` を呼ぶので render.js への循環 import が
@@ -87,7 +89,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   toast と同手法)。import は state / i18n / local。1枚=静止、2枚以上=OS純正スライド
   ショー (サーバが枚数で振り分け)。ローカル実行時のみ render.js が起動ボタンを出す
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
-  `window.imgLoaded` / `window.imgErr` の露出だけを担当する
+  `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
+  (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/
+  popstate ハンドラはここに置く。render.js は `setRouteListener` フックを公開する
+  だけで history API は触らない (render() 末尾で「現在 state に対応する hash へ
+  pushState する」コールバックを app.js が登録 = 既存ナビ関数を書き換えずに URL 追従)。
+  ライトボックスの戻る対応 (open 時 pushState / 閉じ時 history.back) は lightbox.js
 
 ## 設計の意思決定 (なぜそうしたか)
 
@@ -321,7 +328,8 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   旧 data.json では従来通り静止 splash 表示 (完全に後方互換)
 - [x] ~~選択状態を localStorage に保存して再訪時に復元~~ → `LS_SELECTED_KEY` で実装済み (再訪時に選択モードも自動ON)
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
-- [ ] キーボードショートカット一覧モーダル (? キーで表示)
+- [x] ~~キーボードショートカット一覧モーダル (? キーで表示)~~ → 専用モーダルは作らず
+  チュートリアル第4ステップとして実装 (? キーで開く既存動線をそのまま流用)
 - [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み

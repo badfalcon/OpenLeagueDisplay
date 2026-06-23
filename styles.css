@@ -57,8 +57,8 @@
     min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* iOS Safari は viewport の user-scalable=no を無視するので、ダブルタップ
-       ズームだけは touch-action で抑える (通常のスクロール/タップは維持) */
+    /* ピンチズームは viewport で許可している (WCAG 1.4.4)。誤爆しやすいダブルタップ
+       ズームだけはここで抑える (通常のスクロール/タップ/ピンチズームは維持) */
     touch-action: manipulation;
   }
   /* 背景: 二段の放射状ヴィネット + SVGノイズ。ベタ塗りだと「とりあえずダーク」感が強いので
@@ -214,6 +214,16 @@
     vertical-align: middle;
     background: rgba(255, 255, 255, 0.04);
     flex-shrink: 0;
+  }
+  /* 旗の隣に出す言語コード (EN/JA/...): 旗だけだと旗⇄言語が直感的でないので併記。
+     PC のみ表示で、モバイルは幅が貴重なため下の @media で display:none に戻す */
+  .lang-code {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gold-hi);
+    letter-spacing: 0.04em;
+    margin-left: 7px;
+    vertical-align: middle;
   }
   .lang-menu {
     position: absolute;
@@ -600,6 +610,39 @@
     letter-spacing: -0.02em; line-height: 0.92;
     overflow-wrap: anywhere;  /* 長い名前で controls 列を圧迫した時の折返し */
   }
+  /* 詳細 (champion / line) ヘッダーのタイトル行: ‹ [タイトル] › を横並びにする。
+     h2 自身に付くので巨大イタリック書体の指定 (.champ-header h2) はそのまま継承される。
+     内側 span は min-width:0 で flex 縮小を許し、長い名前は折り返す */
+  .primary-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .primary-title-row > #primary-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  /* 前後ナビの小ゴーストボタン (lb-nav と同系の世界観: 透明地 + 金枠 + 金字、
+     hover でゴールド反転)。h2 の巨大フォント (clamp 96px / italic) を継承しないよう
+     font 系を明示リセットする。角丸なし = 鋭角の世界観 */
+  .detail-nav-btn {
+    flex-shrink: 0;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 20px; font-style: normal; font-weight: 400;
+    line-height: 1; letter-spacing: 0;
+    transition: all 0.18s;
+  }
+  .detail-nav-btn:hover {
+    background: var(--gold); color: #1a1208; border-color: var(--gold);
+  }
+  /* author の display:flex が UA の [hidden]{display:none} に勝つ既知問題を明示的に殺す */
+  .detail-nav-btn[hidden] { display: none; }
   /* 一覧画面 (チャンピオン一覧 / シリーズ一覧) のヘッダーは、固有名詞ではなく
      セクションラベル ("CHAMPIONS" / "SKIN LINES") を出すだけなので、個別画面の
      ような巨大表示は不要。フォントだけ抑える */
@@ -783,6 +826,7 @@
                   rgba(0, 0, 0, 0.35) 75%,
                   rgba(0, 0, 0, 0) 100%);
     pointer-events: none;
+    transition: opacity 0.2s ease;
   }
   .lb-skin {
     font-family: var(--font-display);
@@ -819,6 +863,17 @@
      full のときは class が付かず通常表示 (lb-desc は desc 無しなら [hidden] で畳む) */
   .lightbox.caption-name .lb-desc { display: none; }
   .lightbox.caption-none .lb-overlay { display: none; }
+  /* ステージタップで操作系 UI (chrome) を一括トグルする「純粋に絵を見る」モード。
+     display:none ではなく opacity + pointer-events で隠すのは、フォーカス中の
+     lb-close が消えてフォーカスが body に落ちる (= キーボード操作の起点を失う) のを
+     避けるため。要素は DOM に残るので矢印/Esc/Space は従来どおり効く。
+     フェードは各要素のベース transition が担う (クラス除去時にも対称に効かせるため。
+     ここに transition を置くとクラスが外れた瞬間に宣言ごと消えて再表示が瞬時になり非対称) */
+  .lightbox.chrome-hidden .lb-toolbar,
+  .lightbox.chrome-hidden .lb-nav,
+  .lightbox.chrome-hidden .lb-overlay {
+    opacity: 0; pointer-events: none;
+  }
   .lb-champ {
     font-family: var(--font-eyebrow);
     font-size: 11px; font-weight: 500;
@@ -851,6 +906,7 @@
   .lb-toolbar {
     position: absolute; top: 28px; left: 28px; right: 28px;
     display: flex; gap: 8px; align-items: center; font-size: 11px;
+    transition: opacity 0.2s ease;
   }
   .lb-toolbar-spacer { flex: 1 1 auto; }
   .lb-toolbar .badge {
@@ -982,6 +1038,14 @@
     background: transparent; color: var(--ink-soft);
     border-color: var(--rule);
   }
+  /* ギャラリーが空のときの Slideshow ボタン。disabled 属性は付けない (クリックで
+     My Gallery へ誘導する動線を生かすため) ので、見た目だけ disabled 風に淡色化する。
+     cursor はクリック可能なので pointer のまま残す。同期は refreshGalleryBtn() */
+  #slideshow-btn.is-empty {
+    opacity: 0.4;
+    color: var(--ink-soft);
+    border-color: var(--rule);
+  }
   .btn.danger { border-color: rgba(183, 58, 58, 0.55); color: #e8a8a8; }
   .btn.danger:hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
 
@@ -1080,6 +1144,10 @@
     margin-top: 8px;
     font-size: 13px;
     opacity: 0.7;
+  }
+  /* 空状態のヒント文の下に出す「チャンピオンを見る」CTA (.loading 内に置くので margin だけ面倒を見る) */
+  .gallery-browse-cta {
+    margin-top: 16px;
   }
 
   /* === FILTER CHIPS === home view 先頭の role/rarity/region ワンタップ絞り込み ===
@@ -1284,6 +1352,13 @@
     background: var(--bg-1);
     border: 1px solid var(--gold);
     position: relative;
+    /* .tut-body の min-height 予約 (ステップ間の高さ揺れ防止) は背の低い画面
+       (横向きスマホ) でボックスを溢れさせるため、はみ出す時だけ内部スクロールに
+       逃がして操作ボタン (Done/Next) へ届かなくなるのを防ぐ。100dvh が使える環境では
+       overlay padding を引いた値が正確なので二段書きでフォールバックさせる */
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
     clip-path: polygon(
       16px 0%, calc(100% - 16px) 0%,
       100% 16px, 100% calc(100% - 16px),
@@ -1317,9 +1392,9 @@
     line-height: 1.7;
     letter-spacing: 0.01em;
     margin-bottom: 26px;
-    /* ステップ間で高さが揺れるのを抑える。最も多い ja_jp/ko_kr/ru_ru の本文
-       (6 行前後 × line-height 1.7) を吸収する 11.5em で固定 */
-    min-height: 11.5em;
+    /* ステップ間で高さが揺れるのを抑える。最も行数が多いのは s4 (ショートカット
+       一覧、箇条書き 6 行 + 空行 + 補足 1 行 ≒ 8 行) なので 13em で固定 */
+    min-height: 13em;
   }
   .tut-body strong { color: var(--gold-hi); font-weight: 600; }
   .tut-body em { color: var(--gold); font-style: italic; }
@@ -1388,6 +1463,29 @@
     .offline-banner { bottom: 18px; padding: 12px 18px; }
   }
 
+  /* 「トップへ戻る」FAB。世界観に合わせて半透明ダーク地 + blur + ゴールド枠
+     (offline-banner / .ss-btn と同系)。z-index は offline-banner(90) より下、
+     gallery-toolbar(20) / topbar(30) より上の 40。author の display が UA の
+     [hidden] に勝つので非表示を明示する (既存の .offline-banner[hidden] と同手法) */
+  .to-top {
+    position: fixed; right: 24px; bottom: 24px; z-index: 40;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(12, 11, 20, 0.82);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--gold);
+    /* 正方形 (鋭角の世界観に合わせ角丸にしない)。clip-path のコーナーカットは
+       外側の box-shadow が消える既知の問題があるので使わず、直角スクエア
+       (.ss-btn / offline-banner と同系) にする */
+    color: var(--gold-hi); cursor: pointer;
+    font-size: 20px; line-height: 1;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .to-top:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+  .to-top[hidden] { display: none; }
+
   /* === RESPONSIVE ================================================= */
   /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
      champ-header の controls スロットを row 2 に落とす。h2 と controls が
@@ -1418,6 +1516,8 @@
     .champ-header { padding: 24px 0 22px; margin-bottom: 32px; }
     .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
     .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
+    /* タップ最小 (44px 角) に上げる */
+    .detail-nav-btn { width: 44px; height: 44px; }
     .lb-overlay { padding: 48px 24px 24px; }
     .lb-nav { width: 44px; height: 44px; }
     .lb-prev { left: 16px; }
@@ -1497,6 +1597,10 @@
       font-size: 8.5px;
       border: 1px solid var(--bg);
     }
+    /* モバイルではスライドショー導線を My Gallery ビューのツールバー (#gallery-ss) に
+       集約し、下部固定ナビは 3 ボタン (Champions / Skin Lines / My Gallery) に戻す。
+       4 等分だと長 locale で窮屈だったのを解消して可読性を回復する */
+    .header-secondary #slideshow-btn { display: none; }
 
     header {
       padding: 10px var(--container-pad);
@@ -1617,6 +1721,11 @@
     /* 下部固定の通知 (toast / offline-banner) はナビバーの上に逃がす */
     .toast { bottom: calc(36px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     .offline-banner { bottom: calc(18px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+    /* 下部固定ナビと重ならないよう .toast と同じ式で底上げする */
+    .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+
+    /* モバイルは幅が貴重なので言語コード併記は隠して旗のみに戻す */
+    .lang-code { display: none; }
 
     /* lang menu: 画面右端からはみ出さない max-width 制約 */
     .lang-menu {
@@ -1641,7 +1750,7 @@
     .tutorial-overlay { padding: 12px; }
     .tutorial-box { padding: 26px 22px 20px; }
     .tut-title { font-size: 26px; margin-bottom: 14px; }
-    .tut-body  { font-size: 13px; line-height: 1.65; min-height: 13em; margin-bottom: 20px; }
+    .tut-body  { font-size: 13px; line-height: 1.65; min-height: 15em; margin-bottom: 20px; }
     .tut-actions .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
     .tut-nav { gap: 6px; }
   }
