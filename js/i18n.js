@@ -58,12 +58,15 @@ export const UI_STRINGS = {
     lb_next_aria: "Next",
     lb_aria: "Splash zoom view",
     ss_interval: "⏱ {0}s",
+    ss_interval_tip: "Time each slide stays on screen — click to change",
     ss_pause: "⏸ Pause",
     ss_resume: "▶ Resume",
+    ss_pause_tip: "Pause or resume the slideshow",
     ss_options_aria: "Slideshow settings",
     ss_caption_full: "💬 Full",
     ss_caption_name: "💬 Name",
     ss_caption_none: "🚫 Off",
+    ss_caption_tip: "How much caption to show under each splash — click to change",
     wallpaper_set_btn: "🖥 Set as wallpaper",
     wallpaper_confirm_title: "Set as wallpaper",
     wallpaper_interval_label: "Change every",
@@ -158,12 +161,15 @@ export const UI_STRINGS = {
     lb_next_aria: "次へ",
     lb_aria: "スプラッシュ拡大表示",
     ss_interval: "⏱ 間隔 {0}秒",
+    ss_interval_tip: "1枚あたりの表示時間（クリックで変更）",
     ss_pause: "⏸ 一時停止",
     ss_resume: "▶ 再開",
+    ss_pause_tip: "スライドショーを一時停止／再開",
     ss_options_aria: "スライドショー設定",
     ss_caption_full: "💬 説明あり",
     ss_caption_name: "💬 名前のみ",
     ss_caption_none: "🚫 非表示",
+    ss_caption_tip: "スプラッシュ下のキャプション表示量（クリックで変更）",
     wallpaper_set_btn: "🖥 壁紙にする",
     wallpaper_confirm_title: "壁紙に設定",
     wallpaper_interval_label: "切り替え間隔",
@@ -1942,6 +1948,8 @@ export function syncPauseButton() {
   const btn = $("ss-pause");
   if (!btn) return;
   btn.textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
+  // ラベルは状態 (停止/再開) で変わるが、ホバー説明は「何のボタンか」を一定で伝える
+  btn.title = t("ss_pause_tip");
   btn.classList.toggle("active", !state.lb.paused);
 }
 
@@ -1951,6 +1959,8 @@ export function syncCaptionButton() {
   const btn = $("ss-caption");
   if (!btn) return;
   btn.textContent = t("ss_caption_" + state.lb.caption);
+  // ラベルは現在のモード (full/name/none) を表示するので、ホバー説明で役割を補う
+  btn.title = t("ss_caption_tip");
 }
 
 // ライトボックスの画像フィット切替ボタンを state.lb.fit に同期させる。アイコン (⛶) は
@@ -2016,8 +2026,14 @@ export function applyStaticUIStrings() {
   syncCaptionButton();
   syncFitButton();
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
+  // 間隔ボタンのラベルは現在値 (⏱ 7s) だけなので、ホバー説明で「クリックで変わる」ことを伝える。
+  // クリックで textContent は変わるが title は固定説明なのでここで一度入れれば足りる
+  $("ss-interval").title = t("ss_interval_tip");
   const ssOptions = $("ss-options");
-  if (ssOptions) ssOptions.setAttribute("aria-label", t("ss_options_aria"));
+  if (ssOptions) {
+    ssOptions.setAttribute("aria-label", t("ss_options_aria"));
+    ssOptions.title = t("ss_options_aria");
+  }
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
   // 「トップへ戻る」FAB はグリフ (↑) なのでテキストは触らず aria-label だけ locale 追従
