@@ -1206,7 +1206,7 @@ export const UI_STRINGS = {
     ss_resume: "▶ Devam",
     ss_pause_tip: "Slayt gösterisini duraklat veya sürdür",
     ss_options_aria: "Slayt gösterisi ayarları",
-    ss_options_tip: "Slayt gösterisi ayarları — aralık ve altyazılar",
+    ss_options_tip: "Slayt gösterisi ayarları — aralık ve açıklamalar",
     ss_caption_full: "💬 Tam",
     ss_caption_name: "💬 Yalnızca ad",
     ss_caption_none: "🚫 Kapalı",
