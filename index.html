@@ -111,9 +111,12 @@
       </div>
     </div>
     <div class="header-secondary">
-      <div class="view-tabs" role="tablist">
-        <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
-        <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
+      <!-- ビュー切替ナビ。role="tab" は tabpanel / 矢印キー操作までを伴って初めて
+           成立するので、ここでは実態 (クライアント側ナビゲーション) に合わせて
+           aria-current="page" で現在地を伝える (render() がトグルする) -->
+      <div class="view-tabs">
+        <button class="tab" id="tab-home" type="button">Champions</button>
+        <button class="tab" id="nav-lines" type="button">Skin Lines</button>
       </div>
       <div class="header-actions">
         <button class="btn" id="gallery-btn">My Gallery</button>
@@ -155,7 +158,10 @@
   </div>
 </div>
 
-<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Splash zoom view" aria-hidden="true">
+<!-- aria-labelledby で表示中スキン (lb-champ = チャンピオン名 / lb-skin = スキン名) を
+     ダイアログ名にする。openLightbox が表示直後に updateMeta() で両者を埋めてから
+     フォーカスを移すので、SR には「<チャンピオン> <スキン>, ダイアログ」と読まれる -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-champ lb-skin" aria-hidden="true">
   <div class="lb-stage">
     <img class="lb-img" id="lb-img-a" alt="">
     <img class="lb-img" id="lb-img-b" alt="">

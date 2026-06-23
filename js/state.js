@@ -31,6 +31,24 @@ export function unlockScroll() {
   se.scrollTop = _scrollLockY;
 }
 
+// モーダル/ライトボックス表示中、背景 (topbar / main / footer) を inert にして、
+// スクリーンリーダーの仮想カーソルや Tab が背景コンテンツへ到達するのを防ぐ。
+// trapFocus が Tab を閉じ込めるのと対になる「SR 到達制御」で、aria-modal だけでは
+// 止められない browse モードの巡回を遮断する。モーダルは body 直下の別要素なので
+// inert 対象から外れて操作可能なまま残る。入れ子表示に備えてカウンタで束ねる。
+let _inertCount = 0;
+function _inertTargets() {
+  return [document.querySelector(".topbar"), document.getElementById("root"), document.querySelector("footer")];
+}
+export function setBackgroundInert() {
+  if (_inertCount++ > 0) return;
+  for (const el of _inertTargets()) if (el) el.inert = true;
+}
+export function clearBackgroundInert() {
+  if (_inertCount === 0 || --_inertCount > 0) return;
+  for (const el of _inertTargets()) if (el) el.inert = false;
+}
+
 // モーダル/ライトボックス表示中に Tab で背景 (topbar 等) へフォーカスが抜けるのを防ぐ。
 // aria-modal は SR へのヒントでしかなく、キーボードの Tab 順序は制限しないため
 // JS で root 内に閉じ込める。戻り値の関数で解除する (開閉のたびに張り直す)。

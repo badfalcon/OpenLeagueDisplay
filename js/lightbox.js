@@ -1,7 +1,7 @@
 // ライトボックス (画像拡大表示) と全局スライドショー。
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
-import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus } from "./state.js";
+import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
 
 // フォーカストラップ解除関数 (open で張り、close で呼ぶ)。chrome-hidden (opacity:0) 中も
@@ -43,6 +43,7 @@ export function openLightbox(list, idx, mode) {
   lb.setAttribute("aria-hidden", "false");
   document.body.classList.add("lightbox-open");
   lockScroll();
+  setBackgroundInert();
   lb.classList.toggle("slideshow", mode === "slideshow");
   // ステージタップで隠せる操作系 (chrome) は開くたびに必ず表示状態に戻す。
   // caption と違い「隠したまま」を持ち越さない (永続化しない) ので毎回外す。
@@ -162,6 +163,7 @@ export function closeLightbox() {
   lb.setAttribute("aria-hidden", "true");
   document.body.classList.remove("lightbox-open");
   unlockScroll();
+  clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   stopSlideshow();
   // openLightbox の seq を進めて係争中の onload を無効化

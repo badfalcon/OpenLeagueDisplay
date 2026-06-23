@@ -2,7 +2,7 @@
 // CDragon に直接 fetch → JSZip でブラウザ内パッキング → blob を a.download で保存。
 // GitHub の帯域は使わない (Pages → CDragon 経路は無く、ブラウザ ↔ CDragon の直接通信)。
 
-import { state, $, SKIN_BY_KEY, trapFocus } from "./state.js";
+import { state, $, SKIN_BY_KEY, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t, champName } from "./i18n.js";
 
 // 進捗オーバーレイのフォーカストラップ解除関数 (showProgress で張り、hideProgress で解除)。
@@ -68,9 +68,12 @@ export function showProgress(title, desc) {
   const ov = $("progress-overlay");
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
+  setBackgroundInert();
   // Tab で背景へ抜けないよう閉じ込める (hideProgress で解除)
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus(ov);
+  // フォーカスを Cancel に移してキーボード/SR の起点を作る (他モーダルと作法を揃える)
+  $("prog-cancel").focus();
 }
 export function updateProgress(done, total, failed) {
   // 描画コスト軽減のため、最後の更新から100ms以内ならスキップ (最終フレームは別途呼ぶ)
@@ -86,6 +89,7 @@ export function hideProgress() {
   const ov = $("progress-overlay");
   ov.classList.remove("open");
   ov.setAttribute("aria-hidden", "true");
+  clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
 }
 

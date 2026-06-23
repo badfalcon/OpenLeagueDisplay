@@ -6,7 +6,10 @@
     --bg-3:      #221d36;
     --ink:       #ede5d3;
     --ink-soft:  #a89c80;
-    --ink-mute:  #6b6451;
+    /* #6b6451 は --bg に対して ~3.4:1 で WCAG AA (4.5:1) 未達だった。#stats / footer /
+       検索プレースホルダ / filter-chips-label など小サイズ本文に使うため、ムード
+       (くすんだ金茶) を保ったまま ~4.7:1 まで明度を上げて可読性を確保する */
+    --ink-mute:  #847b62;
     --gold:      #d4a857;
     --gold-hi:   #f4dfa6;
     --gold-deep: #8a6a2e;
@@ -1019,7 +1022,9 @@
     letter-spacing: 0.01em;
     font-size: 9.5px;
     line-height: 1.6;
-    opacity: 0.55;
+    /* 免責は法的に明示が要る本文なので、薄めつつも読める範囲に留める
+       (0.55 だと実効コントラストが AA を割っていた) */
+    opacity: 0.72;
     max-width: 60ch;
     margin: 4px auto 0;
   }
@@ -1075,6 +1080,8 @@
     min-height: 28px; max-height: 28px;
     box-sizing: border-box;
     overflow: hidden;
+    /* <button> 化したのでネイティブ外観をリセット (背景/枠は下で指定) */
+    appearance: none; -webkit-appearance: none;
     background: rgba(7, 6, 11, 0.7);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--gold-deep);
@@ -1083,6 +1090,7 @@
     font-family: var(--font-mono);
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.04em;
+    line-height: 1;
     /* ~170 枚のグリッドに常時乗るので普段は控えめ、hover/focus で前に出す */
     opacity: 0.55;
     pointer-events: auto; cursor: pointer;
@@ -1092,6 +1100,12 @@
   .champ-card:hover .sel-checkbox,
   .line-card:hover .sel-checkbox,
   .sel-checkbox:focus-visible { opacity: 1; border-color: var(--gold); }
+  /* キーボードフォーカスは画像の上でも視認できるよう二重リング (暗ギャップ + 金) で示す。
+     outset box-shadow は overflow:hidden に切られない */
+  .sel-checkbox:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
+  }
   /* 追加可能を示す ＋ (未選択時)。selected は ✓、partial は数字テキスト優先で空 */
   .sel-checkbox::before {
     content: "+"; font-size: 18px; font-weight: 600; line-height: 1;
@@ -1111,6 +1125,19 @@
   .champ-card.selected::after,
   .line-card.selected::after {
     box-shadow: var(--card-frame-shadow-selected);
+  }
+  /* キーボードフォーカスリング。カードは clip-path で外側の outline / box-shadow が
+     切れるので、selected と同じく ::after の inset box-shadow で内側に金リングを描く。
+     selected (実線 3px gold) と区別できるよう明るい gold-hi の 2px + 光彩にする */
+  .champ-card:focus-visible,
+  .skin-card:focus-visible,
+  .line-card:focus-visible { outline: none; }
+  .champ-card:focus-visible::after,
+  .skin-card:focus-visible::after,
+  .line-card:focus-visible::after {
+    box-shadow:
+      inset 0 0 0 2px var(--gold-hi),
+      inset 0 0 30px rgba(212, 168, 87, 0.3);
   }
   /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
      チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
@@ -1805,6 +1832,16 @@
     .lightbox.slideshow .lb-img.show,
     .lightbox.slideshow.fill .lb-img.show { animation: none; }
     .lightbox.slideshow.fill .lb-img { object-position: center; }
+    /* 装飾・無限ループ系のモーションも抑制する。読み込みシマー / 進捗バーのシマー /
+       main のフェードイン / カード hover のリフト & ズームを止める (機能上の
+       transition = 進捗バーの width 等は残す)。前庭障害への配慮 */
+    .champ-card:not(.img-loaded)::before,
+    .skin-card:not(.img-loaded)::before,
+    .line-card:not(.img-loaded)::before,
+    .progress-bar .fill { animation: none; }
+    main { animation: none; }
+    .champ-card:hover, .skin-card:hover, .line-card:hover { transform: none; }
+    .champ-card:hover img, .skin-card:hover img, .line-card:hover img { transform: none; }
   }
 
   /* 説明枠の領域確保 (説明の有無でスキン名がズレないように) は「縦に余裕がある時だけ」

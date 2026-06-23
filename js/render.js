@@ -172,8 +172,13 @@ export function render() {
   const isDetail = (state.view === "champion" || state.view === "line" || isSelected);
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
-  $("tab-home").classList.toggle("active", !isLines && !isSelected);
+  // タブは「現在のビュー」を示すナビ。.active は見た目、aria-current は SR 向け
+  // (role="tab" の不完全実装を避け、ナビゲーションとして aria-current="page" を使う)
+  const homeActive = !isLines && !isSelected;
+  $("tab-home").classList.toggle("active", homeActive);
   $("nav-lines").classList.toggle("active", isLines);
+  $("tab-home").setAttribute("aria-current", homeActive ? "page" : "false");
+  $("nav-lines").setAttribute("aria-current", isLines ? "page" : "false");
   if (state.view === "home") renderHome(root);
   else if (state.view === "champion") renderChampion(root);
   else if (state.view === "lines") renderLines(root);
@@ -220,7 +225,9 @@ export function refreshGalleryBtn() {
     badge.textContent = n;
     btn.appendChild(badge);
   }
-  btn.classList.toggle("primary", state.view === "selected");
+  const galleryActive = state.view === "selected";
+  btn.classList.toggle("primary", galleryActive);
+  btn.setAttribute("aria-current", galleryActive ? "page" : "false");
   // 役割は本来「ギャラリーボタンの件数表示」だが、選択数が変わる全経路 + render() から
   // 呼ばれる唯一の同期点なので、ヘッダーの Slideshow ボタンの空状態表現もここに相乗りさせる。
   // 選択 0 件なら .is-empty で淡色化 (disabled 風) するが、disabled 属性は付けない:
@@ -363,21 +370,45 @@ function renderHome(root) {
   wireFilterChips(root);
 }
 
+// ＋ ボタン (sel-checkbox) の type/aria 属性を組む。三状態 (full=全選択 / partial=一部 /
+// 未選択) を aria-pressed (true / mixed / false) でスクリーンリーダーへ伝える。可視の
+// "+/✓/3-14" は ::before と textContent が担うので、aria-label は操作 (追加/解除) の説明にする。
+// (title 属性は SR・キーボードに乗らないので aria-label へ置き換えた)
+function cbAttrs(full, partial) {
+  const pressed = partial ? "mixed" : (full ? "true" : "false");
+  const label = full ? t("gallery_remove") : t("gallery_add");
+  return `type="button" aria-pressed="${pressed}" aria-label="${esc(label)}"`;
+}
+
+// クリック可能カード (role="button" の div) を Enter/Space でも起動する。カード内の
+// ＋ ボタンにフォーカスがある時のキー操作は素通しさせる (e.target === currentTarget 判定で、
+// ＋ のネイティブ Space/Enter がカード本体の起動と二重発火しないようにする)。
+function wireCardKey(el, fn) {
+  el.addEventListener("keydown", (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
+  });
+}
+
 function renderChampCards(list) {
   return list.map(c => {
     // 配下スキンの選択件数を集計して partial/selected を分ける。
     // state.selected は per-skin なので、ここは派生情報の計算でしかない (集合の真実は Set 側)
-    let cls = "", cbText = "";
+    let cls = "", cbText = "", full = false, partial = false;
     if (c.skins.length > 0) {
       const sel = c.skins.reduce((n, s) => n + (state.selected.has(SELECT_KEY(c.alias, s.label)) ? 1 : 0), 0);
-      if (sel === c.skins.length) cls = " selected";
-      else if (sel > 0) { cls = " partial"; cbText = `${sel}/${c.skins.length}`; }
+      if (sel === c.skins.length) { cls = " selected"; full = true; }
+      else if (sel > 0) { cls = " partial"; partial = true; cbText = `${sel}/${c.skins.length}`; }
     }
+    // カード本体は role="button" + tabindex で keyboard/SR から起動可能にする。名前は
+    // aria-label で 1 度だけ出し、内側の img/label は aria-hidden で二重読みを防ぐ
+    // (img alt も空に)。＋ は別の <button> なので Tab で個別に到達できる。
+    const name = champName(c);
     return `
-    <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
-      <div class="sel-checkbox" title="${esc(t("gallery_add"))}">${esc(cbText)}</div>
-      <img loading="lazy" src="${esc(c.portrait)}" alt="${esc(champName(c))}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(champName(c))}</div>
+    <div class="champ-card${cls}" data-alias="${esc(c.alias)}" role="button" tabindex="0" aria-label="${esc(name)}">
+      <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
+      <img loading="lazy" src="${esc(c.portrait)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="label" aria-hidden="true">${esc(name)}</div>
     </div>`;
   }).join("");
 }
@@ -391,12 +422,11 @@ function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }
   const selected = forceSelected || state.selected.has(k);
   const aliasAttr = alias ? ` data-alias="${esc(c.alias)}"` : "";
   const badge = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
-  const title = selected ? t("gallery_remove") : t("gallery_add");
   return `
-    <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
-      <div class="sel-checkbox" title="${esc(title)}"></div>${badge}
-      <img loading="lazy" src="${esc(s.splash)}" alt="${esc(skinLabel(c, s))}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="label">${esc(label)}</div>
+    <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr} role="button" tabindex="0" aria-label="${esc(label)}">
+      <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
+      <img loading="lazy" src="${esc(s.splash)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="label" aria-hidden="true">${esc(label)}</div>
     </div>`;
 }
 
@@ -408,8 +438,10 @@ function renderSkinCards(matches) {
 
 function wireChampCards(root) {
   root.querySelectorAll(".champ-card").forEach(el => {
-    // 本体クリックは詳細画面へ。個別スキンの細かい調整は詳細でやる
-    el.addEventListener("click", () => openChampion(el.dataset.alias));
+    // 本体クリック/Enter/Space は詳細画面へ。個別スキンの細かい調整は詳細でやる
+    const open = () => openChampion(el.dataset.alias);
+    el.addEventListener("click", open);
+    wireCardKey(el, open);
     // ＋ クリックは「このチャンプの全スキンを一括 toggle」のショートカット
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
@@ -426,7 +458,9 @@ function wireChampCards(root) {
 // champion/line/selected/検索結果のどの view も同じ配線なので 1 箇所に集約する。
 function wireSkinCards(scope, lbList) {
   scope.querySelectorAll(".skin-card").forEach(el => {
-    el.addEventListener("click", () => openLightbox(lbList, parseInt(el.dataset.idx, 10), "manual"));
+    const open = () => openLightbox(lbList, parseInt(el.dataset.idx, 10), "manual");
+    el.addEventListener("click", open);
+    wireCardKey(el, open);
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
       cb.addEventListener("click", (ev) => {
@@ -509,17 +543,18 @@ function renderLines(root) {
     return;
   }
   const cards = entries.map(e => {
-    let cls = "", cbText = "";
+    let cls = "", cbText = "", full = false, partial = false;
     if (e.count > 0) {
       const sel = selectedCounts[e.id] || 0;
-      if (sel === e.count) cls = " selected";
-      else if (sel > 0) { cls = " partial"; cbText = `${sel}/${e.count}`; }
+      if (sel === e.count) { cls = " selected"; full = true; }
+      else if (sel > 0) { cls = " partial"; partial = true; cbText = `${sel}/${e.count}`; }
     }
+    const aria = `${e.name}, ${t("skins_count", e.count)}`;
     return `
-    <div class="line-card${cls}" data-line="${esc(e.id)}">
-      <div class="sel-checkbox" title="${esc(t("gallery_add"))}">${esc(cbText)}</div>
-      <img loading="lazy" src="${esc(e.thumb)}" alt="${esc(e.name)}" onload="imgLoaded(this)" onerror="imgErr(this)">
-      <div class="meta">
+    <div class="line-card${cls}" data-line="${esc(e.id)}" role="button" tabindex="0" aria-label="${esc(aria)}">
+      <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
+      <img loading="lazy" src="${esc(e.thumb)}" alt="" onload="imgLoaded(this)" onerror="imgErr(this)">
+      <div class="meta" aria-hidden="true">
         <div class="name">${esc(e.name)}</div>
         <div class="count">${t("skins_count", e.count)}</div>
       </div>
@@ -528,7 +563,9 @@ function renderLines(root) {
   setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
   $("view-content").innerHTML = `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
-    el.addEventListener("click", () => openLine(el.dataset.line));
+    const open = () => openLine(el.dataset.line);
+    el.addEventListener("click", open);
+    wireCardKey(el, open);
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
       cb.addEventListener("click", (ev) => {
@@ -657,7 +694,10 @@ export function toggleSelected(key, el) {
   // どのビューでもカードの class 更新で済ませ、件数表示 (ヘッダー / ボタン) だけ即時更新。
   if (el) {
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) cb.title = nowSelected ? t("gallery_remove") : t("gallery_add");
+    if (cb) {
+      cb.setAttribute("aria-pressed", String(nowSelected));
+      cb.setAttribute("aria-label", nowSelected ? t("gallery_remove") : t("gallery_add"));
+    }
   }
   refreshGalleryBtn();
   if (state.view === "selected") {
@@ -698,10 +738,16 @@ function applyCardSelectionStates() {
   const vc = $("view-content");
   if (!vc) return;
   const setState = (el, sel, total) => {
-    el.classList.toggle("selected", total > 0 && sel === total);
-    el.classList.toggle("partial", sel > 0 && sel < total);
+    const full = total > 0 && sel === total;
+    const partial = sel > 0 && sel < total;
+    el.classList.toggle("selected", full);
+    el.classList.toggle("partial", partial);
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) cb.textContent = (sel > 0 && sel < total) ? `${sel}/${total}` : "";
+    if (cb) {
+      cb.textContent = partial ? `${sel}/${total}` : "";
+      cb.setAttribute("aria-pressed", partial ? "mixed" : String(full));
+      cb.setAttribute("aria-label", full ? t("gallery_remove") : t("gallery_add"));
+    }
   };
   vc.querySelectorAll(".champ-card").forEach(el => {
     const c = DATA.champions.find(x => x.alias === el.dataset.alias);
@@ -719,7 +765,10 @@ function applyCardSelectionStates() {
     const on = state.selected.has(el.dataset.key);
     el.classList.toggle("selected", on);
     const cb = el.querySelector(".sel-checkbox");
-    if (cb) cb.title = on ? t("gallery_remove") : t("gallery_add");
+    if (cb) {
+      cb.setAttribute("aria-pressed", String(on));
+      cb.setAttribute("aria-label", on ? t("gallery_remove") : t("gallery_add"));
+    }
   });
 }
 // 詳細画面 (champion/line) の主アクション。Web=ZIP DL、ローカル=全部選択トグル。
