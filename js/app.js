@@ -1,6 +1,6 @@
 // エントリポイント: data.json ロード → 初期 locale 解決 → イベント配線 → 初回 render。
-// <img onload="imgLoaded(...)"> のインライン属性は ES Modules スコープを見ないため、
-// window.* に露出させる必要がある (最初の render 前に立てる)。
+// グリッド画像のロード/失敗は #root への capture 委譲リスナ (wireImgDelegation) で拾う。
+// 旧来のインライン <img onload=...> を撤廃して CSP の script-src 'unsafe-inline' を外した。
 
 import {
   state, DATA, $, esc, setData,
@@ -32,9 +32,23 @@ import {
 import { shareSite } from "./share.js";
 import { probeLocal, toast } from "./local.js";
 
-// インライン onload/onerror から呼ばれる窓口。最初の render() より前に立てる
-window.imgLoaded = imgLoaded;
-window.imgErr = imgErr;
+// グリッド画像 (champ/skin/line カード内 <img>) のロード完了/失敗を #root への
+// capture フェーズ委譲で処理する。load/error はバブルしないので capture で拾う。
+// olSettled フラグで再処理を防ぐ (imgErr の src 除去が再 error を誘発しても二重実行しない)。
+// カードは innerHTML で都度作り直されるので、新しい <img> には毎回フラグが付いていない。
+function wireImgDelegation() {
+  const root = $("root");
+  if (!root) return;
+  const settle = (e, handler) => {
+    const img = e.target;
+    if (!img || img.tagName !== "IMG" || img.dataset.olSettled) return;
+    if (!img.closest(".champ-card, .skin-card, .line-card")) return;
+    img.dataset.olSettled = "1";
+    handler(img);
+  };
+  root.addEventListener("load", (e) => settle(e, imgLoaded), true);
+  root.addEventListener("error", (e) => settle(e, imgErr), true);
+}
 
 async function init() {
   // data.json 取得前でも localStorage の保存 locale で UI を仮表示しておく。
@@ -97,7 +111,7 @@ async function init() {
       const flag = url
         ? `<img class="lang-flag" src="${esc(url)}" alt="" loading="lazy" decoding="async">`
         : `<span class="lang-flag" aria-hidden="true"></span>`;
-      return `<li><button type="button" role="option" data-code="${esc(l.code)}">`
+      return `<li><button type="button" data-code="${esc(l.code)}">`
         + flag
         + `<span>${esc(l.label)}</span></button></li>`;
     })
@@ -109,6 +123,12 @@ async function init() {
     await loadLocale(initial);
     // ロード失敗時は loadLocale 内で "default" に戻されているので、UI も合わせる
     if (state.locale === "default") setLangButton("default");
+  } else if (state.locale !== "default") {
+    // 保存 locale が UI_STRINGS には在るが data.json の locales から外れている
+    // (per-locale 生成失敗 / CDragon 側の locale 削除など) と pickInitialLocale が
+    // default に倒れる。その時 state.locale を放置すると「ボタン=EN / UI chrome=旧言語 /
+    // 名前=英語 (i18n 空) / <html lang> 不整合」の三重ズレになる。default に揃え直す。
+    await loadLocale("default");
   }
   // data.json 取得後に最終的な locale が確定したので、改めて static UI を反映
   // (stats/last_updated を含むため、必ず DATA セット後に呼ぶこと)
@@ -451,6 +471,12 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
+    // ローカルの壁紙モーダル (確認 / 完了) が開いている間は、モーダル自身の Esc 処理に
+    // 委ね、app 側のキー処理 (Esc=goBack / ? / 等) を一切走らせない。これがないと
+    // gallery view (view!=="home") で Esc を押すとモーダルを閉じつつ goBack も発火して
+    // 裏で画面遷移してしまう。Tab の閉じ込めは各モーダルの trapFocus が担う。
+    const wp = $("wp-modal"), wpDone = $("wp-done-modal");
+    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden)) return;
     // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();
@@ -523,6 +549,8 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // グリッド画像の load/error 委譲リスナを初回 render より前に張る (#root は初期 HTML に在る)
+  wireImgDelegation();
   // hash ルーティングの popstate 配線 + render 後の URL 同期フックを先に張る。
   // init() の初回 render でフックが呼ばれても、ディープリンク解決で hash は既に
   // 正規化済みなので余計な pushState は出ない。

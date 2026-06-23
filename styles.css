@@ -6,7 +6,10 @@
     --bg-3:      #221d36;
     --ink:       #ede5d3;
     --ink-soft:  #a89c80;
-    --ink-mute:  #6b6451;
+    /* #6b6451 は --bg に対して ~3.4:1 で WCAG AA (4.5:1) 未達だった。#stats / footer /
+       検索プレースホルダ / filter-chips-label など小サイズ本文に使うため、ムード
+       (くすんだ金茶) を保ったまま ~4.7:1 まで明度を上げて可読性を確保する */
+    --ink-mute:  #847b62;
     --gold:      #d4a857;
     --gold-hi:   #f4dfa6;
     --gold-deep: #8a6a2e;
@@ -55,6 +58,11 @@
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font-body);
     min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
+    /* WCAG 2.4.11: Tab で本文 (グリッド/フッター) へフォーカス移動した時、ブラウザの
+       「フォーカスを可視領域へスクロール」が sticky topbar の裏にカードを送り込まない
+       よう、スクロールポートの上端に topbar 高さ分の余白を確保する (--topbar-h は
+       trackTopbarHeight が実測してライブ更新)。下端の fixed 下部ナビ分はモバイルブロックで加算 */
+    scroll-padding-top: var(--topbar-h, 80px);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     /* ピンチズームは viewport で許可している (WCAG 1.4.4)。誤爆しやすいダブルタップ
@@ -81,6 +89,26 @@
   ::-webkit-scrollbar-thumb { background: var(--bg-3); border-left: 1px solid var(--rule); }
   ::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
   body { scrollbar-color: var(--bg-3) var(--bg); }
+
+  /* スキップリンク: 普段は画面外、フォーカス時だけ左上に滑り出す。z-index は topbar(30)
+     より上、各オーバーレイ (offline 90 / lightbox 100) が出るのはページ上部を抜けた後
+     なので 60 で十分。世界観に合わせて黒紫地 + 金枠 */
+  .skip-link {
+    position: fixed; top: 8px; left: 8px; z-index: 60;
+    transform: translateY(-150%);
+    padding: 10px 16px;
+    background: var(--bg-1);
+    border: 1px solid var(--gold);
+    color: var(--gold-hi);
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translateY(0); outline: none; box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.25); }
+  /* スキップリンクの着地先。プログラム的フォーカス (tabindex:-1) なので枠は出さない */
+  #root:focus { outline: none; }
 
   /* === HEADER ====================================================== */
   /* topbar = 2 段構成の header (行1: brand + ?/lang / 行2: view-tabs + 操作
@@ -152,6 +180,22 @@
     cursor: pointer; user-select: none;
     display: flex; align-items: baseline; gap: 10px;
     white-space: nowrap;
+  }
+  /* ロゴ内のクリック対象。見た目はワードマークそのまま (font/字間/色を継承) にし、
+     ネイティブ button の外観だけ消す。キーボードフォーカス時のみ金リングを出す */
+  header h1 button {
+    font: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none; border: 0; margin: 0; padding: 0;
+    line-height: inherit;
+    cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+  }
+  header h1 button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.25);
   }
   header h1::before {
     content: "✦";
@@ -258,7 +302,7 @@
     color: var(--gold-hi);
     outline: none;
   }
-  .lang-menu button[aria-selected="true"] {
+  .lang-menu button[aria-current="true"] {
     color: var(--gold-hi);
     background: rgba(212, 168, 87, 0.06);
   }
@@ -1019,7 +1063,9 @@
     letter-spacing: 0.01em;
     font-size: 9.5px;
     line-height: 1.6;
-    opacity: 0.55;
+    /* 免責は法的に明示が要る本文なので、薄めつつも読める範囲に留める
+       (0.55 だと実効コントラストが AA を割っていた) */
+    opacity: 0.72;
     max-width: 60ch;
     margin: 4px auto 0;
   }
@@ -1075,6 +1121,8 @@
     min-height: 28px; max-height: 28px;
     box-sizing: border-box;
     overflow: hidden;
+    /* <button> 化したのでネイティブ外観をリセット (背景/枠は下で指定) */
+    appearance: none; -webkit-appearance: none;
     background: rgba(7, 6, 11, 0.7);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     border: 1px solid var(--gold-deep);
@@ -1083,6 +1131,7 @@
     font-family: var(--font-mono);
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.04em;
+    line-height: 1;
     /* ~170 枚のグリッドに常時乗るので普段は控えめ、hover/focus で前に出す */
     opacity: 0.55;
     pointer-events: auto; cursor: pointer;
@@ -1092,6 +1141,30 @@
   .champ-card:hover .sel-checkbox,
   .line-card:hover .sel-checkbox,
   .sel-checkbox:focus-visible { opacity: 1; border-color: var(--gold); }
+  /* キーボードフォーカスは画像の上でも視認できるよう二重リング (暗ギャップ + 金) で示す。
+     outset box-shadow は overflow:hidden に切られない */
+  .sel-checkbox:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
+  }
+
+  /* Windows High Contrast / forced-colors では box-shadow が一切描画されない。
+     フォーカスインジケータを box-shadow に寄せている要素 (カード被せ/＋/各種ボタン/
+     タブ/チップ/ロゴ/言語項目/検索/スキップ) が HC で完全に見えなくなるため、
+     outline でフォールバックを与える (システムカラーで描かれる)。カード被せボタンは
+     親の clip-path で切られるので offset を負にして内側に出す */
+  @media (forced-colors: active) {
+    .card-open:focus-visible { outline: 2px solid; outline-offset: -3px; }
+    .sel-checkbox:focus-visible,
+    .btn:focus-visible,
+    .ctrl-select:focus-visible,
+    .view-tabs .tab:focus-visible,
+    .filter-chip:focus-visible,
+    header h1 button:focus-visible,
+    .lang-menu button:focus-visible,
+    #search:focus,
+    .skip-link:focus { outline: 2px solid; outline-offset: 2px; }
+  }
   /* 追加可能を示す ＋ (未選択時)。selected は ✓、partial は数字テキスト優先で空 */
   .sel-checkbox::before {
     content: "+"; font-size: 18px; font-weight: 600; line-height: 1;
@@ -1111,6 +1184,25 @@
   .champ-card.selected::after,
   .line-card.selected::after {
     box-shadow: var(--card-frame-shadow-selected);
+  }
+  /* カードを開く被せボタン。カード全面を覆う透明ボタンで、入れ子インタラクティブ
+     (role=button の中に ＋ ボタン) を避けつつネイティブの Enter/Space を効かせる。
+     z-index は ＋ (z5) / anim-badge (z5) より下、::after フレーム (z3) / label (z2) /
+     img (z1) より上に置いて、＋ 以外のクリック/フォーカスを受ける */
+  .card-open {
+    position: absolute; inset: 0; z-index: 4;
+    appearance: none; -webkit-appearance: none;
+    background: transparent; border: 0; margin: 0; padding: 0;
+    cursor: pointer;
+  }
+  /* キーボードフォーカスリング。被せボタンは親カードの clip-path で切り抜かれるので、
+     inset box-shadow が切り欠きフレーム形状に沿った金リングになる。selected (実線 3px
+     gold) と区別できるよう明るい gold-hi の 2px + 光彩にする */
+  .card-open:focus-visible {
+    outline: none;
+    box-shadow:
+      inset 0 0 0 2px var(--gold-hi),
+      inset 0 0 30px rgba(212, 168, 87, 0.3);
   }
   /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
      チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
@@ -1171,7 +1263,15 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding-bottom: 2px;
+    /* overflow-x:auto は overflow-y も clip 化する。チップの focus リング (3px の
+       outset box-shadow) が上下で切れないよう縦パディングで逃がす。右端は下の
+       scroll-padding-right で focus 時にマスクのフェード帯へ入らないようにする */
+    padding: 4px 0;
+    scroll-padding-right: 32px;
+    /* スクロールバーを隠しているので、はみ出して続きがあることを右端のフェードで示す
+       (収まっている時は右端が空白なのでフェードは見えない) */
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .filter-chips::-webkit-scrollbar { display: none; }
   .filter-chips-label {
@@ -1549,6 +1649,11 @@
        --bottom-nav-h は下部固定ナビ (header-secondary) の本体高さ (safe-area は別途加算) */
     :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; --bottom-nav-h: 56px; }
 
+    /* WCAG 2.4.11 (下端): 行2 が画面下部の fixed ナビになるので、Tab で最下部付近の
+       カード/フッターリンクへフォーカスが移った時にナビの裏へ送られないよう、
+       スクロールポート下端にナビ高さ + safe-area 分の余白を確保する */
+    html { scroll-padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 12px); }
+
     /* topbar の backdrop-filter は CSS 仕様上「fixed 子孫の containing block」を作るため、
        これを残すと下で fixed 化する header-secondary が viewport ではなく topbar 基準に
        なってしまう。モバイルでは blur をほぼ不透明な背景で代替して containing block を
@@ -1805,6 +1910,16 @@
     .lightbox.slideshow .lb-img.show,
     .lightbox.slideshow.fill .lb-img.show { animation: none; }
     .lightbox.slideshow.fill .lb-img { object-position: center; }
+    /* 装飾・無限ループ系のモーションも抑制する。読み込みシマー / 進捗バーのシマー /
+       main のフェードイン / カード hover のリフト & ズームを止める (機能上の
+       transition = 進捗バーの width 等は残す)。前庭障害への配慮 */
+    .champ-card:not(.img-loaded)::before,
+    .skin-card:not(.img-loaded)::before,
+    .line-card:not(.img-loaded)::before,
+    .progress-bar .fill { animation: none; }
+    main { animation: none; }
+    .champ-card:hover, .skin-card:hover, .line-card:hover { transform: none; }
+    .champ-card:hover img, .skin-card:hover img, .line-card:hover img { transform: none; }
   }
 
   /* 説明枠の領域確保 (説明の有無でスキン名がズレないように) は「縦に余裕がある時だけ」
@@ -1859,14 +1974,16 @@
   }
 
   /* === TOAST (ローカル実行モードの壁紙操作フィードバック) ===============
-     壁紙ボタンはライトボックス (z-index:100) 内にあり、他オーバーレイも最大 200 な
-     ので、トーストは 300 で確実に手前に出す。視覚通知は #toast、スクリーンリーダー
-     向けは既存の #sr-status (aria-live) を local.js が併用する */
+     トーストは全オーバーレイの最前面に出す必要がある。最も高いのは壁紙モーダル
+     (.wp-modal, z-index:1000) で、しかも不透明 backdrop を持つ。壁紙適用失敗時の
+     エラートーストはこのモーダルが開いたまま出る (onApply は失敗時に閉じない) ため、
+     1000 より上 (1100) に置かないとモーダルの裏に隠れて視覚的に見えなくなる。
+     視覚通知は #toast、スクリーンリーダー向けは既存の #sr-status (aria-live) を併用 */
   .toast {
     position: fixed;
     left: 50%; bottom: 36px;
     transform: translateX(-50%) translateY(8px);
-    z-index: 300;
+    z-index: 1100;
     max-width: min(90vw, 480px);
     padding: 12px 20px;
     background: rgba(12, 11, 20, 0.92);

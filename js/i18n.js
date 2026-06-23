@@ -10,6 +10,7 @@ import { renderStats, refreshGalleryBtn } from "./render.js";
 export const UI_STRINGS = {
   default: {
     filters_label: "Filters",
+    skip_to_content: "Skip to content",
     lb_fit_aria: "Toggle image fit",
     search_placeholder: "Search champion or skin…",
     search_placeholder_global: "Search all champions…",
@@ -1884,7 +1885,7 @@ function localeShortCode(code) {
   return code.split("_")[0].toUpperCase();
 }
 
-// 言語ボタンの表示 (国旗 + 言語コード) と aria-selected を現在の locale に合わせる
+// 言語ボタンの表示 (国旗 + 言語コード) と現在言語の aria-current を現在の locale に合わせる
 export function setLangButton(code) {
   const img = $("lang-flag");
   const url = localeFlagURL(code);
@@ -1911,7 +1912,7 @@ export function setLangButton(code) {
   const menu = $("lang-menu");
   if (!menu) return;
   menu.querySelectorAll("button[data-code]").forEach(b => {
-    b.setAttribute("aria-selected", b.dataset.code === code ? "true" : "false");
+    b.setAttribute("aria-current", b.dataset.code === code ? "true" : "false");
   });
 }
 
@@ -1973,7 +1974,12 @@ export function applyStaticUIStrings() {
   document.documentElement.lang = state.locale === "default"
     ? "en"
     : LANG_TAG_OVERRIDES[state.locale] || state.locale.split("_")[0];
+  // placeholder はアクセシブルネームにならないので、同じ翻訳済み文言を aria-label にも当てる
+  // (render() が view 別の placeholder/aria-label に上書きするが、初期/locale 切替時はこれで名前を確保)
   $("search").placeholder = t("search_placeholder");
+  $("search").setAttribute("aria-label", t("search_placeholder"));
+  const skip = $("skip-link");
+  if (skip) skip.textContent = t("skip_to_content");
   $("lang-btn").setAttribute("aria-label", t("lang_aria"));
   $("tab-home").textContent = t("nav_home");
   $("nav-lines").textContent = t("nav_lines");

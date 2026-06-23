@@ -1,7 +1,7 @@
 // ライトボックス (画像拡大表示) と全局スライドショー。
 // state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
 
-import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus } from "./state.js";
+import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
 
 // フォーカストラップ解除関数 (open で張り、close で呼ぶ)。chrome-hidden (opacity:0) 中も
@@ -41,8 +41,10 @@ export function openLightbox(list, idx, mode) {
   const lb = $("lightbox");
   lb.classList.add("open");
   lb.setAttribute("aria-hidden", "false");
+  lb.inert = false;  // 閉じ状態の inert を解除 (フォーカス/タブ/操作を有効化)。focus より前に必須
   document.body.classList.add("lightbox-open");
   lockScroll();
+  setBackgroundInert();
   lb.classList.toggle("slideshow", mode === "slideshow");
   // ステージタップで隠せる操作系 (chrome) は開くたびに必ず表示状態に戻す。
   // caption と違い「隠したまま」を持ち越さない (永続化しない) ので毎回外す。
@@ -160,8 +162,10 @@ export function closeLightbox() {
   const lb = $("lightbox");
   lb.classList.remove("open");
   lb.setAttribute("aria-hidden", "true");
+  lb.inert = true;  // 閉じたら操作ボタンをタブ順 / a11y ツリーから除く (フェード中も非操作で問題ない)
   document.body.classList.remove("lightbox-open");
   unlockScroll();
+  clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   stopSlideshow();
   // openLightbox の seq を進めて係争中の onload を無効化

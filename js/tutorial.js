@@ -6,7 +6,7 @@
 // 本文 (tut_s*_body) は i18n テーブルに <strong>/<em>/<code>/<br> を埋め込んだ
 // 信頼済み文字列なので innerHTML に直接流す。ユーザー入力経路は無いので XSS シンクは無い。
 
-import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus } from "./state.js";
+import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t } from "./i18n.js";
 
 const TOTAL_STEPS = 4;
@@ -30,6 +30,7 @@ export function openTutorial() {
   ov.setAttribute("aria-hidden", "false");
   document.body.classList.add("tutorial-open");
   lockScroll();
+  setBackgroundInert();
   // Tab で背景へ抜けないよう閉じ込める (close で解除)
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus(ov);
@@ -47,6 +48,7 @@ export function closeTutorial() {
   ov.setAttribute("aria-hidden", "true");
   document.body.classList.remove("tutorial-open");
   unlockScroll();
+  clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   lsSet(LS_TUTORIAL_KEY, "1");
   const prev = state.tut.lastFocus;

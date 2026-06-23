@@ -8,6 +8,17 @@ export function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
 
+// スクリーンリーダー向けの polite ライブリージョン (#sr-status) 通知。視覚表示は伴わない
+// (検索結果件数の変化など、画面が変わったのに SR へ伝わらない status を読み上げさせる用)。
+// 同一文言でも再アナウンスされるよう、一度空にして次フレームで入れ直す
+// (share.js / local.js のコピー完了通知と同手法)。文字列は textContent なので esc 不要。
+export function announce(msg) {
+  const sr = $("sr-status");
+  if (!sr) return;
+  sr.textContent = "";
+  requestAnimationFrame(() => { sr.textContent = msg; });
+}
+
 // 背景スクロールのロック (ライトボックス / チュートリアルのモーダル表示中)。
 // overflow:hidden だけだと iOS Safari はタッチスクロールを止めないので、body を
 // position:fixed にして現在のスクロール位置を退避する (= 定番の iOS scroll-lock)。
@@ -29,6 +40,33 @@ export function unlockScroll() {
   document.body.style.top = "";
   const se = document.scrollingElement || document.documentElement;
   se.scrollTop = _scrollLockY;
+}
+
+// モーダル/ライトボックス表示中、背景 (topbar / main / footer) を inert にして、
+// スクリーンリーダーの仮想カーソルや Tab が背景コンテンツへ到達するのを防ぐ。
+// trapFocus が Tab を閉じ込めるのと対になる「SR 到達制御」で、aria-modal だけでは
+// 止められない browse モードの巡回を遮断する。モーダルは body 直下の別要素なので
+// inert 対象から外れて操作可能なまま残る。入れ子表示に備えてカウンタで束ねる。
+let _inertCount = 0;
+function _inertTargets() {
+  // topbar / 本文 / footer に加えて、body 直下に浮く唯一の操作要素 #to-top も対象にする
+  // (スクロール後にモーダルを開くと表示されたまま残り、SR の browse カーソルが裏の
+  // 「トップへ戻る」に到達できてしまうため)。#offline-banner / #sr-status / #toast は
+  // ライブリージョン (状態通知) なので意図的に対象外 = a11y ツリーに残す。
+  return [
+    document.querySelector(".topbar"),
+    document.getElementById("root"),
+    document.querySelector("footer"),
+    document.getElementById("to-top"),
+  ];
+}
+export function setBackgroundInert() {
+  if (_inertCount++ > 0) return;
+  for (const el of _inertTargets()) if (el) el.inert = true;
+}
+export function clearBackgroundInert() {
+  if (_inertCount === 0 || --_inertCount > 0) return;
+  for (const el of _inertTargets()) if (el) el.inert = false;
 }
 
 // モーダル/ライトボックス表示中に Tab で背景 (topbar 等) へフォーカスが抜けるのを防ぐ。

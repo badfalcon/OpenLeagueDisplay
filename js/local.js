@@ -98,6 +98,12 @@ export function toast(msg, kind = "ok") {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("show"), 2600);
 
+  // aria-live は同じ文字列を入れ直しても再アナウンスされないので、一度空にしてから
+  // 次フレームで入れ直す (share.js のコピー完了通知と同じ手法)。同じ toast (例:
+  // 「スライドショーが空」) を連続で出しても確実に読み上げさせる。
   const sr = $("sr-status");
-  if (sr) sr.textContent = msg;
+  if (sr) {
+    sr.textContent = "";
+    requestAnimationFrame(() => { sr.textContent = msg; });
+  }
 }

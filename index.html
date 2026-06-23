@@ -5,7 +5,7 @@
      JS が完全に失敗した時のための保険として 3 秒経過で自動解除する -->
 <html lang="en" class="i18n-loading">
 <head>
-<script>setTimeout(function(){document.documentElement.classList.remove("i18n-loading");},3000);</script>
+<script src="js/i18n-failsafe.js"></script>
 <meta charset="utf-8">
 <!-- ピンチズームを許可 (WCAG 1.4.4 拡大)。maximum-scale=1 / user-scalable=no は
      入れない: iOS は元々これらを無視するが Android だけズーム不能になっていた。
@@ -16,10 +16,11 @@
   ------------------------------------------
   全 innerHTML 補間は esc() で HTML エスケープ済みなので XSS シンクは無いが、
   将来の回帰防止と CDN 侵害時の影響軽減のためのバックストップ。
-  - script-src: 'self' で js/*.js (ES Modules) をカバー。'unsafe-inline' は
-    onload="imgLoaded(this)" 等のインラインイベント属性のために残す
-    (event delegation 化までの暫定)。jsdelivr は JSZip の CDN ロード用、
-    static.cloudflareinsights.com は Cloudflare Web Analytics の beacon.min.js 用
+  - script-src: 'self' で js/*.js (ES Modules + i18n-failsafe.js の classic script) を
+    カバー。インライン JS は全廃したので 'unsafe-inline' は付けない (画像の load/error は
+    #root への capture 委譲で拾い、i18n-loading のフェイルセーフは js/i18n-failsafe.js に
+    外出しした)。jsdelivr は JSZip の CDN ロード用、static.cloudflareinsights.com は
+    Cloudflare Web Analytics の beacon.min.js 用
   - style-src: 'self' で styles.css をカバー。Google Fonts と一部 innerHTML 内の
     style="min-width:Nch" のような inline style 属性のため 'unsafe-inline'
   - img-src: data: は styles.css の inline SVG アイコン (検索虫眼鏡 / セレクト矢印 /
@@ -29,7 +30,7 @@
     cloudflareinsights.com は Web Analytics の計測 beacon 送信先
   - manifest-src: PWA の manifest.webmanifest は同一オリジン
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
 <!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
      できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
@@ -73,6 +74,11 @@
 </head>
 <body>
 
+<!-- スキップリンク: キーボード利用者が 2 段ヘッダ (タイトル/?/言語/タブ/操作ボタン) を
+     Tab で抜けずに本文 (チャンピオングリッド) へ直行できる導線。普段は画面外に隠し、
+     フォーカス時だけ左上に出す。文言は applyStaticUIStrings() が locale 追従させる -->
+<a href="#root" class="skip-link" id="skip-link">Skip to content</a>
+
 <!-- topbar: 2 段構成の sticky バー。
      行1 (.header-primary):   brand (ロゴ + 件数) … ? + 言語ピッカー (.header-utils)
      行2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
@@ -84,7 +90,9 @@
     <div class="header-primary">
       <div class="header-brand">
         <div class="header-brand-info">
-          <h1 id="title">OpenLeagueDisplay</h1>
+          <!-- ロゴ = home へ戻る操作。見出し (h1) の意味は残しつつ、クリック操作を
+               キーボードでも使えるよう内側を <button> にする (透明・font 継承で見た目は不変) -->
+          <h1><button id="title" type="button">OpenLeagueDisplay</button></h1>
           <span id="stats"></span>
         </div>
       </div>
@@ -103,17 +111,28 @@
           </svg>
         </button>
         <div class="lang-picker" id="lang-picker">
-          <button class="btn" id="lang-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Display language">
+          <!-- disclosure (開閉トグル) なので aria-haspopup は付けない (aria-haspopup="true"
+               は "menu" を意味し、矢印キー等のメニュー操作モデルが無い実装と不整合になる)。
+               aria-expanded だけで開閉状態を伝える -->
+          <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
           </button>
-          <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+          <!-- 開閉式の言語メニュー (disclosure)。当初 role="listbox" + role="option" だったが、
+               <li> を挟むと listbox→option の所有関係が崩れ、option を Tab フォーカス可能な
+               <button> にしているのも listbox パターン (矢印キー/activedescendant) と不整合
+               だった。実態 (ボタンを押すと開く、項目もボタン) に合わせて素のリストにし、
+               現在の言語は aria-current で示す。キーボードは Tab/Enter/Esc で従来通り動く -->
+          <ul class="lang-menu" id="lang-menu" hidden></ul>
         </div>
       </div>
     </div>
     <div class="header-secondary">
-      <div class="view-tabs" role="tablist">
-        <button class="tab" id="tab-home" role="tab" type="button">Champions</button>
-        <button class="tab" id="nav-lines" role="tab" type="button">Skin Lines</button>
+      <!-- ビュー切替ナビ。role="tab" は tabpanel / 矢印キー操作までを伴って初めて
+           成立するので、ここでは実態 (クライアント側ナビゲーション) に合わせて
+           aria-current="page" で現在地を伝える (render() がトグルする) -->
+      <div class="view-tabs">
+        <button class="tab" id="tab-home" type="button">Champions</button>
+        <button class="tab" id="nav-lines" type="button">Skin Lines</button>
       </div>
       <div class="header-actions">
         <button class="btn" id="gallery-btn">My Gallery</button>
@@ -136,7 +155,8 @@
   </select>
 </div>
 
-<main id="root">
+<!-- tabindex="-1" でスキップリンクの着地先 (プログラム的フォーカス) になれるようにする -->
+<main id="root" tabindex="-1">
   <div class="loading"><h2 id="loading-title">LOADING</h2><p id="loading-msg">Loading manifest…</p></div>
 </main>
 
@@ -155,7 +175,14 @@
   </div>
 </div>
 
-<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Splash zoom view" aria-hidden="true">
+<!-- aria-labelledby で表示中スキン (lb-champ = チャンピオン名 / lb-skin = スキン名) を
+     ダイアログ名にする。openLightbox が表示直後に updateMeta() で両者を埋めてから
+     フォーカスを移すので、SR には「<チャンピオン> <スキン>, ダイアログ」と読まれる -->
+<!-- 閉じている間 (既定) は inert: フェード用に opacity/pointer-events で隠すだけだと、
+     非表示の操作ボタン (閉じる/前後/fit 等) がタブ順に残り SR からも届いてしまう
+     (他オーバーレイは display:none で消えるのに対しライトボックスはフェードのため残る)。
+     openLightbox で inert を外し、closeLightbox で再付与する -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-champ lb-skin" aria-hidden="true" inert>
   <div class="lb-stage">
     <img class="lb-img" id="lb-img-a" alt="">
     <img class="lb-img" id="lb-img-b" alt="">
@@ -179,7 +206,9 @@
     <!-- 間隔・キャプションは「一度決めたら固定」の設定なので ⚙ メニューに集約する。
          スライドショー時のみ JS で wrap ごと表示する -->
     <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
-      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-haspopup="true" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
+      <!-- 言語メニューと同じく disclosure (間隔/キャプションのトグル群) なので
+           aria-haspopup は付けず aria-expanded だけで開閉を伝える -->
+      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
       <div class="ss-menu" id="ss-menu" hidden>
         <button class="ss-btn" id="ss-interval">⏱ 7s</button>
         <button class="ss-btn" id="ss-caption">💬 Full</button>
