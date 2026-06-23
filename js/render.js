@@ -785,6 +785,10 @@ function clearSelected() {
 
 export function openLine(lid) {
   state.view = "line"; state.currentLine = lid;
+  // 検索中に (90ms debounce 内で) ライン詳細を開くと、保留中の debounce が view を
+  // line→lines に戻して一覧へ弾き返す (+余計な history)。詳細は検索スコープでないので
+  // 他ナビ (openLines/goHome 等) と同じく検索をクリアして不変条件を保つ
+  state.searchQuery = ""; $("search").value = "";
   window.scrollTo(0, 0); render();
 }
 export function openLines() {
@@ -799,6 +803,9 @@ function buildChampList(c) {
 
 export function openChampion(alias) {
   state.view = "champion"; state.currentChamp = alias;
+  // openLine と同様、検索中 (90ms debounce 内) に詳細を開いた時の弾き返しと
+  // history 汚染を防ぐため検索をクリアする (詳細は検索スコープでない)
+  state.searchQuery = ""; $("search").value = "";
   window.scrollTo(0, 0); render();
 }
 // 戻る: 検索中なら検索クリアを優先 (現在の view は維持)。
