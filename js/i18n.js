@@ -63,10 +63,11 @@ export const UI_STRINGS = {
     ss_resume: "▶ Resume",
     ss_pause_tip: "Pause or resume the slideshow",
     ss_options_aria: "Slideshow settings",
+    ss_options_tip: "Slideshow settings — interval and captions",
     ss_caption_full: "💬 Full",
     ss_caption_name: "💬 Name",
     ss_caption_none: "🚫 Off",
-    ss_caption_tip: "How much caption to show under each splash — click to change",
+    ss_caption_tip: "Caption detail shown under each splash — click to change",
     wallpaper_set_btn: "🖥 Set as wallpaper",
     wallpaper_confirm_title: "Set as wallpaper",
     wallpaper_interval_label: "Change every",
@@ -166,6 +167,7 @@ export const UI_STRINGS = {
     ss_resume: "▶ 再開",
     ss_pause_tip: "スライドショーを一時停止／再開",
     ss_options_aria: "スライドショー設定",
+    ss_options_tip: "スライドショー設定（間隔・キャプション）",
     ss_caption_full: "💬 説明あり",
     ss_caption_name: "💬 名前のみ",
     ss_caption_none: "🚫 非表示",
@@ -2031,8 +2033,10 @@ export function applyStaticUIStrings() {
   $("ss-interval").title = t("ss_interval_tip");
   const ssOptions = $("ss-options");
   if (ssOptions) {
+    // aria-label は簡潔な名前、title は中身 (間隔/キャプション) まで補う一段詳しい説明にして、
+    // 同一文字列の二重 (アクセシブルネーム + title) を避ける
     ssOptions.setAttribute("aria-label", t("ss_options_aria"));
-    ssOptions.title = t("ss_options_aria");
+    ssOptions.title = t("ss_options_tip");
   }
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
