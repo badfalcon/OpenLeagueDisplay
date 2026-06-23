@@ -95,6 +95,7 @@ export const UI_STRINGS = {
     gallery_remove: "Remove from gallery",
     sort_aria: "Sort order",
     sort_release: "Release date",
+    sort_release_short: "Release",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Open guide",
@@ -199,6 +200,7 @@ export const UI_STRINGS = {
     gallery_remove: "ギャラリーから削除",
     sort_aria: "並び順",
     sort_release: "リリース日順",
+    sort_release_short: "リリース順",
     sort_name_asc: "名前 A → Z",
     sort_name_desc: "名前 Z → A",
     tut_help_aria: "ガイドを開く",
@@ -285,6 +287,7 @@ export const UI_STRINGS = {
     gallery_remove: "갤러리에서 제거",
     sort_aria: "정렬 순서",
     sort_release: "출시일순",
+    sort_release_short: "출시순",
     sort_name_asc: "이름 ㄱ → ㅎ",
     sort_name_desc: "이름 ㅎ → ㄱ",
     tut_help_aria: "가이드 열기",
@@ -371,6 +374,7 @@ export const UI_STRINGS = {
     gallery_remove: "从画廊移除",
     sort_aria: "排序方式",
     sort_release: "发布日期",
+    sort_release_short: "发布",
     sort_name_asc: "名称 A → Z",
     sort_name_desc: "名称 Z → A",
     tut_help_aria: "打开指南",
@@ -456,6 +460,7 @@ export const UI_STRINGS = {
     gallery_remove: "從畫廊移除",
     sort_aria: "排序方式",
     sort_release: "發佈日期",
+    sort_release_short: "發佈",
     sort_name_asc: "名稱 A → Z",
     sort_name_desc: "名稱 Z → A",
     tut_help_aria: "開啟指南",
@@ -541,6 +546,7 @@ export const UI_STRINGS = {
     gallery_remove: "Retirer de la galerie",
     sort_aria: "Ordre de tri",
     sort_release: "Date de sortie",
+    sort_release_short: "Sortie",
     sort_name_asc: "Nom A → Z",
     sort_name_desc: "Nom Z → A",
     tut_help_aria: "Ouvrir le guide",
@@ -626,6 +632,7 @@ export const UI_STRINGS = {
     gallery_remove: "Aus Galerie entfernen",
     sort_aria: "Sortierreihenfolge",
     sort_release: "Erscheinungsdatum",
+    sort_release_short: "Erschienen",
     sort_name_asc: "Name A → Z",
     sort_name_desc: "Name Z → A",
     tut_help_aria: "Anleitung öffnen",
@@ -711,6 +718,7 @@ export const UI_STRINGS = {
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
     sort_release: "Fecha de lanzamiento",
+    sort_release_short: "Lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -796,6 +804,7 @@ export const UI_STRINGS = {
     gallery_remove: "Remover da galeria",
     sort_aria: "Ordem",
     sort_release: "Data de lançamento",
+    sort_release_short: "Lançamento",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Abrir guia",
@@ -881,6 +890,7 @@ export const UI_STRINGS = {
     gallery_remove: "Удалить из галереи",
     sort_aria: "Порядок сортировки",
     sort_release: "По дате выхода",
+    sort_release_short: "По дате",
     sort_name_asc: "Имя А → Я",
     sort_name_desc: "Имя Я → А",
     tut_help_aria: "Открыть руководство",
@@ -966,6 +976,7 @@ export const UI_STRINGS = {
     gallery_remove: "Rimuovi dalla galleria",
     sort_aria: "Ordine",
     sort_release: "Data di uscita",
+    sort_release_short: "Uscita",
     sort_name_asc: "Nome A → Z",
     sort_name_desc: "Nome Z → A",
     tut_help_aria: "Apri guida",
@@ -1051,6 +1062,7 @@ export const UI_STRINGS = {
     gallery_remove: "Quitar de la galería",
     sort_aria: "Orden",
     sort_release: "Fecha de lanzamiento",
+    sort_release_short: "Lanzamiento",
     sort_name_asc: "Nombre A → Z",
     sort_name_desc: "Nombre Z → A",
     tut_help_aria: "Abrir guía",
@@ -1136,6 +1148,7 @@ export const UI_STRINGS = {
     gallery_remove: "Usuń z galerii",
     sort_aria: "Sortowanie",
     sort_release: "Data wydania",
+    sort_release_short: "Wydanie",
     sort_name_asc: "Nazwa A → Z",
     sort_name_desc: "Nazwa Z → A",
     tut_help_aria: "Otwórz przewodnik",
@@ -1221,6 +1234,7 @@ export const UI_STRINGS = {
     gallery_remove: "Galeriden çıkar",
     sort_aria: "Sıralama",
     sort_release: "Çıkış tarihi",
+    sort_release_short: "Çıkış",
     sort_name_asc: "İsim A → Z",
     sort_name_desc: "İsim Z → A",
     tut_help_aria: "Kılavuzu aç",
@@ -1306,6 +1320,7 @@ export const UI_STRINGS = {
     gallery_remove: "Odebrat z galerie",
     sort_aria: "Řazení",
     sort_release: "Datum vydání",
+    sort_release_short: "Vydání",
     sort_name_asc: "Jméno A → Z",
     sort_name_desc: "Jméno Z → A",
     tut_help_aria: "Otevřít průvodce",
@@ -1391,6 +1406,7 @@ export const UI_STRINGS = {
     gallery_remove: "Αφαίρεση από τη συλλογή",
     sort_aria: "Ταξινόμηση",
     sort_release: "Ημερομηνία κυκλοφορίας",
+    sort_release_short: "Κυκλοφορία",
     sort_name_asc: "Όνομα Α → Ω",
     sort_name_desc: "Όνομα Ω → Α",
     tut_help_aria: "Άνοιγμα οδηγού",
@@ -1476,6 +1492,7 @@ export const UI_STRINGS = {
     gallery_remove: "Eltávolítás a galériából",
     sort_aria: "Rendezés",
     sort_release: "Megjelenés dátuma",
+    sort_release_short: "Megjelenés",
     sort_name_asc: "Név A → Z",
     sort_name_desc: "Név Z → A",
     tut_help_aria: "Útmutató megnyitása",
@@ -1561,6 +1578,7 @@ export const UI_STRINGS = {
     gallery_remove: "Elimină din galerie",
     sort_aria: "Ordine",
     sort_release: "Data lansării",
+    sort_release_short: "Lansare",
     sort_name_asc: "Nume A → Z",
     sort_name_desc: "Nume Z → A",
     tut_help_aria: "Deschide ghidul",
@@ -1646,6 +1664,7 @@ export const UI_STRINGS = {
     gallery_remove: "นำออกจากแกลเลอรี",
     sort_aria: "การเรียงลำดับ",
     sort_release: "วันที่วางจำหน่าย",
+    sort_release_short: "วางจำหน่าย",
     sort_name_asc: "ชื่อ A → Z",
     sort_name_desc: "ชื่อ Z → A",
     tut_help_aria: "เปิดคู่มือ",
@@ -1731,6 +1750,7 @@ export const UI_STRINGS = {
     gallery_remove: "Hapus dari galeri",
     sort_aria: "Urutan",
     sort_release: "Tanggal rilis",
+    sort_release_short: "Rilis",
     sort_name_asc: "Nama A → Z",
     sort_name_desc: "Nama Z → A",
     tut_help_aria: "Buka panduan",
@@ -2077,14 +2097,20 @@ export function applyStaticUIStrings() {
   $("back-btn").textContent = t("back");
   const sortSel = $("sort-select");
   if (sortSel) {
-    sortSel.setAttribute("aria-label", t("sort_aria"));
-    // <option> はラベルだけ差し替え (value は固定キーのまま)。
-    // A→Z / Z→A は localized name 比較、"release" は data.json の順 (リリース順)
-    const opts = { name_asc: "sort_name_asc", name_desc: "sort_name_desc", release: "sort_release" };
-    for (const o of sortSel.options) {
-      const k = opts[o.value];
-      if (k) o.textContent = t(k);
-    }
+    // 接頭ラベル (locale 追従)。可視 <label for="sort-select"> が SR のアクセシブル
+    // ネームを供給するので、select 側に aria-label は持たせない (二重命名回避)
+    const lbl = $("sort-label");
+    if (lbl) lbl.textContent = t("sort_aria");
+    // option ラベルは静的・常に略称。name は先頭トークンを落として方向表記だけ残し
+    // ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ")、release は locale 別の短縮
+    // (無ければ当 locale のフル表記)。発見性は隣の接頭ラベルが担保するので開閉で切替えない
+    const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
+    const labelFor = (val) => {
+      if (val === "release") return table.sort_release_short || t("sort_release");
+      const full = t(val === "name_asc" ? "sort_name_asc" : "sort_name_desc");
+      return full.replace(/^\S+\s+/, "");
+    };
+    for (const o of sortSel.options) o.textContent = labelFor(o.value);
     sortSel.value = state.sortOrder;
   }
   const lt = $("loading-title");

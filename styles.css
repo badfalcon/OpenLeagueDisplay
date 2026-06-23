@@ -419,6 +419,22 @@
      OS によっては無視される (Win Chromium 系) が問題なし */
   .ctrl-select option { background: var(--bg-1); color: var(--ink); }
   .ctrl-select[hidden] { display: none; }
+  /* ソートの接頭ラベル: select の左に出す静的な eyebrow ラベル。可視 <label for> が
+     SR のアクセシブルネームも兼ねる (select 側に aria-label は持たせない)。値 (ゴールド)
+     を引き立てるよう本文はミュート色。クリックで select にフォーカス/展開できる */
+  .sort-label {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    white-space: nowrap; line-height: 1;
+    cursor: pointer; user-select: none;
+  }
+  .sort-label[hidden] { display: none; }
+  /* 選択値で幅が暴れないよう控えめな min-width で footprint を安定させる
+     (モバイルでは search との折返し競合を避けるため後段の媒体クエリで 0 に戻す) */
+  #sort-select { min-width: 7em; }
 
   /* セグメントタブ: Champions / Skin Lines。アクティブはゴールド地、非アクティブは
      ゴーストの色を踏襲。.btn と高さ揃え (--ctrl-h) */
@@ -708,6 +724,7 @@
     min-width: 0;
   }
   .champ-header-controls > #back-btn,
+  .champ-header-controls > .sort-label,
   .champ-header-controls > .ctrl-select { flex: 0 0 auto; }
   .champ-header .count {
     grid-column: 1; grid-row: 2;
@@ -1770,6 +1787,7 @@
     }
     .champ-header-controls > .ctrl-select {
       flex: 0 0 auto;
+      min-width: 0; /* search との折返し競合を避ける (デスクトップの 7em min-width を解除) */
     }
     /* 戻るボタンは内容幅に収めて場所を空ける (左寄せの小さな矢印ボタン) */
     .champ-header-controls > #back-btn {
@@ -1974,6 +1992,7 @@
       padding: 0 3px;
     }
     .champ-header-controls .ctrl-select { padding-right: 20px; }
+    .champ-header-controls .sort-label { letter-spacing: 0; font-size: 9.5px; }
     header .view-tabs .tab { max-width: 36vw; }
   }
 
