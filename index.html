@@ -178,7 +178,11 @@
 <!-- aria-labelledby で表示中スキン (lb-champ = チャンピオン名 / lb-skin = スキン名) を
      ダイアログ名にする。openLightbox が表示直後に updateMeta() で両者を埋めてから
      フォーカスを移すので、SR には「<チャンピオン> <スキン>, ダイアログ」と読まれる -->
-<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-champ lb-skin" aria-hidden="true">
+<!-- 閉じている間 (既定) は inert: フェード用に opacity/pointer-events で隠すだけだと、
+     非表示の操作ボタン (閉じる/前後/fit 等) がタブ順に残り SR からも届いてしまう
+     (他オーバーレイは display:none で消えるのに対しライトボックスはフェードのため残る)。
+     openLightbox で inert を外し、closeLightbox で再付与する -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-champ lb-skin" aria-hidden="true" inert>
   <div class="lb-stage">
     <img class="lb-img" id="lb-img-a" alt="">
     <img class="lb-img" id="lb-img-b" alt="">

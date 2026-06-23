@@ -41,6 +41,7 @@ export function openLightbox(list, idx, mode) {
   const lb = $("lightbox");
   lb.classList.add("open");
   lb.setAttribute("aria-hidden", "false");
+  lb.inert = false;  // 閉じ状態の inert を解除 (フォーカス/タブ/操作を有効化)。focus より前に必須
   document.body.classList.add("lightbox-open");
   lockScroll();
   setBackgroundInert();
@@ -161,6 +162,7 @@ export function closeLightbox() {
   const lb = $("lightbox");
   lb.classList.remove("open");
   lb.setAttribute("aria-hidden", "true");
+  lb.inert = true;  // 閉じたら操作ボタンをタブ順 / a11y ツリーから除く (フェード中も非操作で問題ない)
   document.body.classList.remove("lightbox-open");
   unlockScroll();
   clearBackgroundInert();
