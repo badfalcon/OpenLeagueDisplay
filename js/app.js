@@ -57,7 +57,9 @@ async function init() {
   const savedLoc = lsGet(LS_LOCALE_KEY);
   if (savedLoc && UI_STRINGS[savedLoc]) state.locale = savedLoc;
   // 並び順も再訪時に復元。未知の値が来てたら無視して既定 (name_asc) のまま。
-  // 旧バージョンの "default" (= リリース順) は新しい "release" にマップして挙動を保つ
+  // 旧バージョンはこの選択肢を "default" というキーで保存していた (UI は「リリース日順」)。
+  // 新キー "release" にマップして選択を引き継ぐ (中身は id 順 → 実リリース日順に
+  // 改善したが、ユーザーが選んだ「リリース日順」である点は変わらない)
   const savedSort = lsGet(LS_SORT_KEY);
   if (savedSort === "default") {
     state.sortOrder = "release";
