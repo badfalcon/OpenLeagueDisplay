@@ -153,6 +153,71 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
+def fetch_text(url: str) -> str:
+    """Retry付きで生テキストを取得 (fetch_json と同じ SSL/retry 方針)。"""
+    global SSL_INSECURE
+    last_err = None
+    for attempt in range(RETRY):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            ctx = ssl._create_unverified_context() if SSL_INSECURE else SSL_CTX
+            with urllib.request.urlopen(req, timeout=TIMEOUT, context=ctx) as r:
+                return r.read().decode("utf-8", "replace")
+        except urllib.error.URLError as e:
+            if not SSL_INSECURE and "CERTIFICATE_VERIFY_FAILED" in str(e):
+                print(
+                    "[警告] SSL 証明書検証に失敗。検証を無効化して続行します"
+                    " (LOL_INSECURE=1 と同等)",
+                    flush=True,
+                )
+                SSL_INSECURE = True
+                continue
+            last_err = e
+            if attempt < RETRY - 1:
+                time.sleep(1 + attempt)
+    raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
+
+
+# リリース日は CDragon/DDragon の静的データには存在しない (champion-summary も
+# per-champion JSON も date フィールドを持たない)。そのため UI の「リリース日順」は
+# 長らく champion-summary の並び (= 内部 champion id 昇順) を流用していたが、id は
+# 開発初期に予約されるため実リリース日とズレる (例: Naafiri は id=950 で 2023-07 実装
+# なのに、後発の Hwei(910)/Smolder(901) より後ろに来る / Aurora は id=893 で 2024-07
+# 実装なのに前方に来る)。実日付は LoL Wiki の Module:ChampionData/data が
+# `id` と `date = "YYYY-MM-DD"` で機械可読に持っているので、ここから取って data.json に
+# 埋める (id で突合 = 名前ゆれ無し)。週次 update.yml が自動で最新化するので手動メンテ不要。
+# 失敗時は {} を返し、フロントは従来の data.json 順 (id 順) にフォールバックする。
+RELEASE_DATA_URLS = (
+    "https://wiki.leagueoflegends.com/en-us/Module:ChampionData/data?action=raw",
+    "https://leagueoflegends.fandom.com/wiki/Module:ChampionData/data?action=raw",
+)
+# `id = N,` と `date = "YYYY-MM-DD"` を、間に別の `id =` を挟まない範囲でペアにする。
+# 負の先読みが「次チャンピオンの id」を跨いでその date を誤取得するのを防ぐので、
+# date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
+_RELEASE_PAT = re.compile(
+    r'\bid\s*=\s*(\d+)\s*,(?:(?!\bid\s*=)[\s\S])*?\bdate\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']'
+)
+
+
+def fetch_release_dates() -> dict[int, str]:
+    """LoL Wiki から {champion id: "YYYY-MM-DD"} を取得する。
+
+    取得・パースに失敗したら空 dict を返す (= 呼び出し側は id 順フォールバック)。
+    """
+    for url in RELEASE_DATA_URLS:
+        try:
+            text = fetch_text(url)
+        except Exception as e:
+            print(f"   [警告] リリース日ソース取得失敗 ({type(e).__name__}): {url}", flush=True)
+            continue
+        dates = {int(cid): d for cid, d in _RELEASE_PAT.findall(text)}
+        if dates:
+            return dates
+        print(f"   [警告] リリース日をパースできず (0 件): {url}", flush=True)
+    print("   [警告] リリース日が取得できませんでした。id 順にフォールバックします", flush=True)
+    return {}
+
+
 # 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
 # が、サーバ側の S3 IAM 設定が壊れていて永続的に 403 を返すことが probe で確定
 # (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
@@ -508,6 +573,11 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         print(f"   [警告] skinlines.json の取得に失敗: {e}", flush=True)
         skin_lines = {}
 
+    # リリース日 (LoL Wiki)。UI の「リリース日順」ソート用。取得できなくても続行する
+    print("==> リリース日 (LoL Wiki) を取得...", flush=True)
+    release_dates = fetch_release_dates()
+    print(f"    {len(release_dates)} 体ぶんのリリース日", flush=True)
+
     # 並列に全 champion JSON を取得。返却順序は champions の元順を保ちたいので
     # 結果を id→detail の dict に入れてから再度元順で組み上げる
     print(f"==> {len(champions)} champion JSON を並列取得 (concurrency={FETCH_CONCURRENCY})...", flush=True)
@@ -600,11 +670,25 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
             entry["regions"] = regions
         if bio:
             entry["bio"] = bio
+        # リリース日 (YYYY-MM-DD)。欠落 (Wiki 未掲載の新キャラ等) は付けない =
+        # フロントが末尾 (最新側) に回す。release_dates が空なら全員付かず id 順
+        release = release_dates.get(cid)
+        if release:
+            entry["release"] = release
         out_champs.append(entry)
         # 4 要素目に英語 bio を持たせて、locale 取得時の「未訳 = 英語と同じ」判定に使う
         align_meta.append((cid, alias, paths_for_locale, bio))
 
     total = sum(len(c["skins"]) for c in out_champs)
+
+    # リリース日の欠落検知。release_dates を取得できた (= ソースは生きている) のに
+    # 一部チャンピオンに日付が無い場合だけ警告する (Wiki 側に未掲載の新キャラなど。
+    # 次回以降の週次更新で Wiki が追記されれば自動で埋まる)。ソース自体が落ちて
+    # release_dates が空の時はチャンピオン名を全部並べても無意味なので黙る
+    if release_dates:
+        missing = [c["alias"] for c in out_champs if "release" not in c]
+        if missing:
+            print(f"   [警告] リリース日 未取得: {missing}", flush=True)
 
     # 実際に使われた skin line のみを残す (data.json を小さく)
     used_line_ids: set[int] = set()
