@@ -1661,6 +1661,13 @@
     .champ-header .count { grid-row: 3; }
     .champ-header > .btn,
     .champ-header > .btn.primary { grid-row: 3; }
+    /* Once the controls/download button drop to rows 2-3, the auto-sized col 2 is set
+       by the wide download button ("全スキンをZIP") and keeps that width on row 1 too
+       (grid tracks span all rows), squeezing the detail title's col 1 to a sliver. The
+       huge display font then wraps CJK names mid-character into an ugly vertical stack.
+       Let the detail title span the full width on its own (now-empty) row-1 line.
+       is-list headers keep their count in col 2 / row 1, so exclude them. */
+    .champ-header:not(.is-list) h2 { grid-column: 1 / -1; }
     .champ-header-controls > #search {
       flex: 1 1 240px;
       max-width: none;
