@@ -502,7 +502,7 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
     # CDragon's champion-summary mixes in PvE NPCs like Doom Bots. In practice
     # the special entries are identifiable as id >= 1000 (currently the 66600s)
     # AND alias starting with "Ruby_", so reject on both conditions (the id cap
-    # still catches future NPC lines).
+    # still catches future NPC families).
     champions = [
         c for c in summary
         if 0 < c.get("id", 0) < 1000
