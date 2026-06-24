@@ -146,7 +146,7 @@ export const state = {
   // (to restore on close). Mirrors the shape of state.lb.
   tut: { step: 1, lastFocus: null },
   // Detection result for local mode (local_app.py). null = normal Web (Pages) mode.
-  // local.js's probeLocal() sets { wallpaper, slideshow, platform }.
+  // local.js's probeLocal() sets { wallpaper, platform }.
   local: null,
 };
 

@@ -163,7 +163,7 @@ def fetch_json(url: str) -> dict | list:
 # `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is not authori...`).
 # CDragon also has no champion->region mapping, so we hardcode it. When a new
 # champion is added, add one line here. For a new region, also add it to
-# REGION_NAMES and REGION_LABELS in js/i18n.js.
+# REGION_NAMES (below) and REGION_LABELS in js/i18n.js.
 REGION_NAMES: dict[str, str] = {
     "demacia": "Demacia",
     "noxus": "Noxus",
