@@ -333,7 +333,7 @@ function onBackButton() {
 // which reads as "Back not available". Called from the scroll listener and after each render().
 // Cache the flag so the DOM is touched only when crossing the threshold (same trick as the to-top FAB).
 let backFabShown = false;
-let _topbar;  // cached .topbar (the sticky bar covering the viewport top); resolved once, lazily
+let _topbar = null;  // cached .topbar (the sticky bar covering the viewport top); resolved lazily
 function syncBackFab() {
   const fab = $("to-back");
   if (!fab) return;
@@ -341,8 +341,9 @@ function syncBackFab() {
   const rect = realBack ? realBack.getBoundingClientRect() : null;
   // The sticky topbar covers the top of the viewport, so "out of reach" means the real button's
   // bottom edge has slipped above the topbar's bottom (not merely above y=0). Cache the lookup
-  // (the topbar is never recreated) so a scroll burst doesn't re-query the DOM each frame.
-  if (_topbar === undefined) _topbar = document.querySelector(".topbar");
+  // (the topbar is never recreated) so a scroll burst doesn't re-query the DOM each frame; the
+  // truthy guard keeps retrying until it resolves, so a transient null is never pinned.
+  if (!_topbar) _topbar = document.querySelector(".topbar");
   const coverBottom = _topbar ? _topbar.getBoundingClientRect().bottom : 0;
   const show = !!rect && rect.height > 0 && rect.bottom <= coverBottom;
   if (show === backFabShown) return;
@@ -368,6 +369,9 @@ function wirePopstate() {
   // Register the URL sync hook that runs after render(), and the snapshot hook that saves the
   // outgoing list's scroll + search before a forward nav clears them. The post-render hook also
   // re-evaluates the Back FAB, since its visibility tracks render()'s show/hide of #back-btn.
+  // This call is intentionally synchronous (not rAF-coalesced like the scroll path): render() is
+  // low-frequency, and reflecting the new view's Back availability in the same frame avoids a
+  // one-frame stale FAB on navigation. Only the high-frequency scroll/resize path is throttled.
   setRouteListener(() => { syncRouteFromState(); syncBackFab(); });
   setNavListener(snapshotCurrentEntry);
 }
