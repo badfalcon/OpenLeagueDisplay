@@ -325,6 +325,29 @@ function onBackButton() {
   goBack();
 }
 
+// Floating "Back" FAB visibility. The real ← Back button lives in the scrolling champ-header (not the
+// sticky topbar), so on tall screens it scrolls out of reach. This mirrors it as a bottom-left FAB,
+// surfaced only once the real button has slipped behind the topbar (= out of reach). Mirrors the
+// real button's own availability: render() shows #back-btn only in detail views / while searching,
+// and hides it (display:none) otherwise — a hidden / dom-stash-parked button has a zero-size rect,
+// which reads as "Back not available". Called from the scroll listener and after each render().
+// Cache the flag so the DOM is touched only when crossing the threshold (same trick as the to-top FAB).
+let backFabShown = false;
+function syncBackFab() {
+  const fab = $("to-back");
+  if (!fab) return;
+  const realBack = $("back-btn");
+  const rect = realBack ? realBack.getBoundingClientRect() : null;
+  // The sticky topbar covers the top of the viewport, so "out of reach" means the real button's
+  // bottom edge has slipped above the topbar's bottom (not merely above y=0).
+  const topbar = document.querySelector(".topbar");
+  const coverBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
+  const show = !!rect && rect.height > 0 && rect.bottom <= coverBottom;
+  if (show === backFabShown) return;
+  backFabShown = show;
+  fab.hidden = !show;
+}
+
 function wirePopstate() {
   window.addEventListener("popstate", (e) => {
     // (1) If the lightbox is open, Back is spent on "close". By this point history has already
@@ -341,14 +364,17 @@ function wirePopstate() {
     applyRoute(location.hash, e.state);
   });
   // Register the URL sync hook that runs after render(), and the snapshot hook that saves the
-  // outgoing list's scroll + search before a forward nav clears them.
-  setRouteListener(syncRouteFromState);
+  // outgoing list's scroll + search before a forward nav clears them. The post-render hook also
+  // re-evaluates the Back FAB, since its visibility tracks render()'s show/hide of #back-btn.
+  setRouteListener(() => { syncRouteFromState(); syncBackFab(); });
   setNavListener(snapshotCurrentEntry);
 }
 
 function wireEvents() {
   $("title").addEventListener("click", goHome);
   $("back-btn").addEventListener("click", onBackButton);
+  // The floating Back FAB drives the same in-app Back as the real button.
+  $("to-back").addEventListener("click", onBackButton);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
   // Slideshow button: if it can start, go to the global slideshow. If empty (no splash-bearing
@@ -520,8 +546,10 @@ function wireEvents() {
       toTopShown = show;
       toTopBtn.hidden = !show;
     };
-    window.addEventListener("scroll", syncToTop, { passive: true });
-    syncToTop();
+    // One passive scroll listener drives both FABs: top-right "Back to top" and bottom-left "Back".
+    const onScroll = () => { syncToTop(); syncBackFab(); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     toTopBtn.addEventListener("click", () => {
       // Respect reduce-motion: jump instantly if the user wants animations disabled
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

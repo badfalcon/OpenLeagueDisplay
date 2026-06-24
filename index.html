@@ -260,6 +260,13 @@
      in sync with the locale. Initially hidden; app.js shows it past a scrollY threshold -->
 <button class="to-top" id="to-top" aria-label="Back to top" hidden>↑</button>
 
+<!-- In-app "Back" FAB: the real ← Back button lives in the scrolling champ-header (not the sticky
+     topbar), so on tall screens it scrolls out of reach and you'd otherwise have to scroll all the
+     way up to go back. This bottom-left FAB mirrors it — app.js shows it once the real button has
+     scrolled behind the topbar, and only in views where Back applies (detail views / while
+     searching). The glyph (←) needs no i18n; applyStaticUIStrings() keeps the aria-label localized -->
+<button class="to-back" id="to-back" aria-label="Back" hidden>←</button>
+
 <!-- Status announcements for screen readers. Sighted users see the share button's icon turn
      into a checkmark, but rewriting aria-label alone isn't announced, so copy-complete is
      reported by updating this live region's text -->

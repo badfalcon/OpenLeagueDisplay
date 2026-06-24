@@ -2143,6 +2143,10 @@ export function applyStaticUIStrings() {
   // The "back to top" FAB is a glyph (↑), so leave the text alone and only follow the locale on aria-label
   const toTop = $("to-top");
   if (toTop) toTop.setAttribute("aria-label", t("back_to_top"));
+  // The "back" FAB is a glyph (←); reuse the back label for its aria-label, stripping the leading
+  // arrow ("← Back" → "Back") since the glyph already conveys direction visually
+  const toBack = $("to-back");
+  if (toBack) toBack.setAttribute("aria-label", t("back").replace(/^[←\s]+/, ""));
   const disclaimer = $("footer-disclaimer");
   if (disclaimer) disclaimer.textContent = t("disclaimer");
   if (DATA) {
