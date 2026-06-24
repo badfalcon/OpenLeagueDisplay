@@ -640,12 +640,12 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    // While a local wallpaper modal (confirm / done) is open, defer to the modal's own Esc handling
-    // and don't run any of the app's key handling (Esc=goBack / ? / etc.). Without this, pressing Esc
-    // in the gallery view (view!=="home") would close the modal and also fire goBack, navigating away
-    // underneath. Tab containment is handled by each modal's trapFocus.
-    const wp = $("wp-modal"), wpDone = $("wp-done-modal");
-    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden)) return;
+    // While a local wallpaper modal (confirm / done) or the desktop choice modal is open, defer to the
+    // modal's own Esc handling and don't run any of the app's key handling (Esc=goBack / ? / etc.).
+    // Without this, pressing Esc in the gallery view (view!=="home") would close the modal and also fire
+    // goBack, navigating away underneath. Tab containment is handled by each modal's trapFocus.
+    const wp = $("wp-modal"), wpDone = $("wp-done-modal"), choice = $("choice-modal");
+    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden) || (choice && !choice.hidden)) return;
     // While the tutorial is shown, absorb keys with top priority (Esc/arrows/Enter only)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();

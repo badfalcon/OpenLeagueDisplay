@@ -54,6 +54,7 @@ export const UI_STRINGS = {
     zip_count_failed: "failed {0}",
     progress_cancel: "Cancel",
     lb_close_aria: "Close",
+    lb_wallpaper_aria: "Set as wallpaper",
     lb_prev_aria: "Previous",
     lb_next_aria: "Next",
     lb_aria: "Splash zoom view",
@@ -96,6 +97,7 @@ export const UI_STRINGS = {
     handoff_open: "Open desktop app",
     handoff_get: "🖥 Get the desktop app",
     import_done: "Imported {0} splashes from the web ✓",
+    import_done_file: "Imported {0} splashes from the file ✓",
     export_selection: "⬆ Export selection",
     import_selection: "⬇ Import selection",
     export_done: "Selection saved to a file ✓",
@@ -175,6 +177,7 @@ export const UI_STRINGS = {
     zip_count_failed: "失敗 {0}",
     progress_cancel: "中止",
     lb_close_aria: "閉じる",
+    lb_wallpaper_aria: "壁紙にする",
     lb_prev_aria: "前へ",
     lb_next_aria: "次へ",
     lb_aria: "スプラッシュ拡大表示",
@@ -215,6 +218,7 @@ export const UI_STRINGS = {
     handoff_open: "デスクトップ版を開く",
     handoff_get: "🖥 デスクトップ版を入手",
     import_done: "Web から {0} 枚を取り込みました ✓",
+    import_done_file: "ファイルから {0} 枚を取り込みました ✓",
     export_selection: "⬆ 選択を書き出し",
     import_selection: "⬇ 選択を読み込み",
     export_done: "選択をファイルに保存しました ✓",
@@ -2152,6 +2156,9 @@ export function applyStaticUIStrings() {
   $("prog-cancel").textContent = t("progress_cancel");
   $("lightbox").setAttribute("aria-label", t("lb_aria"));
   $("lb-close").setAttribute("aria-label", t("lb_close_aria"));
+  // lb-wallpaper is local-run-only (hidden on Pages) but still in the static markup, so localize its
+  // accessible name here alongside the other lightbox icon buttons (its only content is an emoji glyph).
+  $("lb-wallpaper").setAttribute("aria-label", t("lb_wallpaper_aria"));
   $("lb-prev").setAttribute("aria-label", t("lb_prev_aria"));
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   syncPauseButton();

@@ -699,7 +699,7 @@ function wireImportSelection(btn) {
   if (!btn) return;
   btn.addEventListener("click", () => {
     pickSelectionFile().then((n) => {
-      if (n > 0) { toast(t("import_done", n)); render(); }
+      if (n > 0) { toast(t("import_done_file", n)); render(); }
       else toast(t("import_none"), "err");
     });
   });

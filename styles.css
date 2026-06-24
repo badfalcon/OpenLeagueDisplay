@@ -1048,6 +1048,9 @@
     font-size: 10.5px; font-weight: 500;
     letter-spacing: 0.22em; text-transform: uppercase;
   }
+  /* Dimmed while disabled (e.g. #lb-wallpaper during an in-flight wallpaper apply), mirroring
+     .btn:disabled so the click visibly registers on a slow apply */
+  .ss-btn:disabled { opacity: 0.5; cursor: default; }
   /* Hover lighting on mouse devices only (on touch, :hover sticks after a tap and
      the lit state lingers after toggling off, looking "stuck active"). Real active
      is handled by the .active class below */
