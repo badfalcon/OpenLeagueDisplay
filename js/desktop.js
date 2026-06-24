@@ -152,7 +152,7 @@ function mergeKeys(keys) {
   return added;
 }
 
-// ---- 4. file-based selection transfer (cross-machine) ------------------------
+// ---- 3. file-based selection transfer (cross-machine) ------------------------
 // The deep-link hand-off (openInDesktop) only works same-machine. For phone → PC, export the
 // selection to a small JSON file, move it across, and import it on the other device. Works in any
 // mode (web or native) and in either direction. Format: { v: 1, keys: [...] }.
@@ -174,9 +174,13 @@ export function exportSelection() {
   return true;
 }
 
-// Open a file picker, read the chosen JSON, merge its keys, and resolve to the number newly added.
-// Resolves 0 on cancel / parse failure / no new keys. Accepts both our { keys: [...] } envelope and a
-// bare array. Reuses a single lazily-created hidden input.
+// Open a file picker, read the chosen JSON, and merge its keys. The caller needs to tell three
+// outcomes apart (so a re-import of your own export doesn't read as a broken file), so resolve to:
+//   null  → dialog cancelled / dismissed (no feedback wanted)
+//   -1    → unreadable / not valid selection JSON (genuine error)
+//   0     → valid file but every key was already selected (nothing new)
+//   n > 0 → n keys newly added
+// Accepts both our { keys: [...] } envelope and a bare array. Reuses a single lazily-created input.
 export function pickSelectionFile() {
   return new Promise((resolve) => {
     let input = $("selection-file");
@@ -188,27 +192,30 @@ export function pickSelectionFile() {
       input.style.display = "none";
       document.body.appendChild(input);
     }
+    // A file input doesn't fire 'change' when the picker is dismissed; the 'cancel' event covers that
+    // so the Promise always settles (older browsers without 'cancel' simply leave a cancel un-toasted).
+    input.oncancel = () => resolve(null);
     input.onchange = () => {
       const file = input.files && input.files[0];
       input.value = "";  // let the same file be picked again next time
-      if (!file) { resolve(0); return; }
+      if (!file) { resolve(null); return; }
       const reader = new FileReader();
       reader.onload = () => {
         let keys = null;
         try {
           const obj = JSON.parse(String(reader.result));
           keys = Array.isArray(obj) ? obj : (obj && obj.keys);
-        } catch (_) { /* invalid file → resolve 0 below */ }
-        resolve(Array.isArray(keys) ? mergeKeys(keys) : 0);
+        } catch (_) { /* invalid JSON → falls through to the -1 below */ }
+        resolve(Array.isArray(keys) ? mergeKeys(keys) : -1);
       };
-      reader.onerror = () => resolve(0);
+      reader.onerror = () => resolve(-1);
       reader.readAsText(file);
     };
     input.click();
   });
 }
 
-// ---- 3. footer CTA ------------------------------------------------------------
+// ---- 4. footer CTA ------------------------------------------------------------
 // Footer CTA pointing web users at the desktop app. Web / Pages only (in local mode you already
 // have it). Kept in English to match the footer's other text — attribution / policy there are
 // intentionally not localized (see index.html). Injected once.
