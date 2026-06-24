@@ -8,6 +8,23 @@ import { t, champName } from "./i18n.js";
 // Focus-trap release function for the progress overlay (installed in showProgress, released in hideProgress).
 let releaseTrap = null;
 
+// Legal notice bundled into every ZIP. The download is the point where Riot's splash art actually
+// lands on the user's disk, detached from the site (where the footer disclaimer lives), so the terms
+// travel with the files. Kept in English / locale-independent like the in-ZIP filenames and paths.
+// A .txt is ignored by OS wallpaper slideshows (they scan the folder for images), so it doesn't
+// disturb rotation. Mirrors the README's License/Disclaimer sections.
+const ZIP_NOTICE =
+`OpenLeagueDisplay — https://github.com/badfalcon/OpenLeagueDisplay
+
+The images in this archive are League of Legends splash art, copyright Riot Games, Inc.
+They are provided for personal, non-commercial use only (e.g. setting your own desktop
+wallpaper). Please do not redistribute them or use them commercially.
+
+OpenLeagueDisplay is fan-made under Riot Games' "Legal Jibber Jabber" policy
+(https://www.riotgames.com/en/legal) and is not endorsed by Riot Games. League of Legends
+and Riot Games are trademarks or registered trademarks of Riot Games, Inc.
+`;
+
 
 export function safeName(s) {
   return String(s).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/[. ]+$/g, "").trim() || "_";
@@ -136,6 +153,8 @@ async function downloadAsZip(items, zipName, opts = {}) {
   }, 6);
 
   if (state.packAbort) { hideProgress(); return; }
+  // Bundle the legal/usage notice alongside the images (locale-independent, fixed name).
+  zip.file("README.txt", ZIP_NOTICE);
   updateProgress(items.length, items.length, failed);
   $("prog-title").textContent = t("zip_compressing");
   $("prog-desc").textContent = t("zip_bundling");
