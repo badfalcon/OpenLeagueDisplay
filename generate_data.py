@@ -159,9 +159,12 @@ def fetch_json(url: str) -> dict | list:
 # 開発初期に予約されるため実リリース日とズレる (例: Naafiri は id=950 で 2023-07 実装
 # なのに、後発の Hwei(910)/Smolder(901) より後ろに来る / Aurora は id=893 で 2024-07
 # 実装なのに前方に来る)。実日付は LoL Wiki の Module:ChampionData/data が
-# `["id"]` と `["date"] = "YYYY-MM-DD"` で機械可読に持っているので、ここから取って
-# data.json に埋める (id で突合 = 名前ゆれ無し)。週次 update.yml が自動で最新化するので
-# 手動メンテ不要。
+# `["apiname"]` (= Riot 内部名 = CDragon の alias) と `["date"] = "YYYY-MM-DD"` で
+# 機械可読に持っているので、ここから取って data.json に埋める。**突合は apiname で行う**:
+# 当初は `["id"]` で突合していたが、wiki の id は Ahri のブロックをテンプレ流用した
+# コピペミスで誤っていることがある (実例: Ambessa/Mel が Ahri と同じ id=103 を持ち、
+# id 突合だと Mel の date が Ahri を上書きしていた)。apiname は champion 名なので
+# 編集者が必ず直す = 信頼できる。週次 update.yml が自動で最新化するので手動メンテ不要。
 #
 # 取得経路: wiki の `?action=raw` は両 wiki とも 403。公式 wiki
 # (wiki.leagueoflegends.com) は API も 403 で bot を弾く。唯一 API が通る Fandom ミラー
@@ -175,30 +178,31 @@ RELEASE_API_URLS = (
     "?action=query&prop=revisions&titles=Module:ChampionData/data"
     "&rvslots=main&rvprop=content&format=json&formatversion=2",
 )
-# `["id"] = N,` と `["date"] = "YYYY-MM-DD"` を、間に別の `["id"]` を挟まない範囲で
-# ペアにする。負の先読みが「次チャンピオンの ["id"]」を跨いでその date を誤取得するのを
-# 防ぐので、date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
+# `["apiname"] = "X"` と `["date"] = "YYYY-MM-DD"` を、間に別の `["apiname"]` を挟まない
+# 範囲でペアにする。負の先読みが「次チャンピオンの ["apiname"]」を跨いでその date を
+# 誤取得するのを防ぐので、date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
+# 鍵を id ではなく apiname にするのは wiki の id にコピペ由来の重複/誤りがあるため (上記)。
 _RELEASE_PAT = re.compile(
-    r'\["id"\]\s*=\s*(\d+)\s*,'
-    r'(?:(?!\["id"\]\s*=)[\s\S])*?'
+    r'\["apiname"\]\s*=\s*"([^"]+)"'
+    r'(?:(?!\["apiname"\]\s*=)[\s\S])*?'
     r'\["date"\]\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']'
 )
 
 
-def _parse_release_api(data: dict) -> dict[int, str]:
+def _parse_release_api(data: dict) -> dict[str, str]:
     """MediaWiki API (formatversion=2) のレスポンスから Lua 本文を取り出し、
-    {champion id: "YYYY-MM-DD"} を抽出する。"""
+    {apiname(小文字): "YYYY-MM-DD"} を抽出する (apiname = CDragon の alias)。"""
     content = data["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
-    return {int(cid): d for cid, d in _RELEASE_PAT.findall(content)}
+    return {name.lower(): d for name, d in _RELEASE_PAT.findall(content)}
 
 
-def fetch_release_dates() -> dict[int, str]:
-    """LoL Wiki から {champion id: "YYYY-MM-DD"} を取得する。
+def fetch_release_dates() -> dict[str, str]:
+    """LoL Wiki から {apiname(小文字): "YYYY-MM-DD"} を取得する。
 
     複数ソースを叩いて最も件数が多い結果を採用する (= 古いミラーに引きずられない)。
     全ソースが取得・パース失敗なら空 dict を返す (= 呼び出し側は id 順フォールバック)。
     """
-    best: dict[int, str] = {}
+    best: dict[str, str] = {}
     for url in RELEASE_API_URLS:
         try:
             dates = _parse_release_api(fetch_json(url))
@@ -665,9 +669,10 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
             entry["regions"] = regions
         if bio:
             entry["bio"] = bio
-        # リリース日 (YYYY-MM-DD)。欠落 (Wiki 未掲載の新キャラ等) は付けない =
-        # フロントが末尾 (最新側) に回す。release_dates が空なら全員付かず id 順
-        release = release_dates.get(cid)
+        # リリース日 (YYYY-MM-DD)。apiname (= alias) で突合する。欠落 (Wiki 未掲載の
+        # 新キャラ等) は付けない = フロントが末尾 (最新側) に回す。release_dates が空なら
+        # 全員付かず id 順フォールバック
+        release = release_dates.get(alias.lower())
         if release:
             entry["release"] = release
         out_champs.append(entry)

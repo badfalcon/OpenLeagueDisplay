@@ -273,10 +273,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   LoL Wiki の `Module:ChampionData/data` から `{id: "YYYY-MM-DD"}` を取り、各
   チャンピオンに `release` として埋める。取得は MediaWiki API
   (`api.php?action=query&prop=revisions&rvprop=content`) 経由で Lua 本文を JSON で
-  受け取り、正規表現で `["id"]`↔`["date"]` をペア抽出する (wiki の `?action=raw` は両
-  wiki とも 403、公式 wiki は API も 403 で bot を弾くため、唯一 API が通る Fandom
-  ミラー `leagueoflegends.fandom.com` を使う)。**id で突合する**ので名前ゆれ
-  (Renata/Renata Glasc, KSante/K'Sante, MonkeyKing/Wukong) の影響を受けない。週次
+  受け取り、正規表現で `["apiname"]`↔`["date"]` をペア抽出する (wiki の `?action=raw`
+  は両 wiki とも 403、公式 wiki は API も 403 で bot を弾くため、唯一 API が通る Fandom
+  ミラー `leagueoflegends.fandom.com` を使う)。**突合は apiname (= Riot 内部名 =
+  CDragon alias) で行う**ので表示名ゆれ (Renata Glasc/Renata, K'Sante/KSante,
+  Wukong/MonkeyKing) を吸収できる。当初は `["id"]` で突合していたが、wiki の id は
+  Ahri のブロックをテンプレ流用したコピペミスで誤りがある (Ambessa/Mel が Ahri と同じ
+  id=103 を持ち、id 突合だと Mel の date "2025-01-23" が Ahri を上書きしていた) ため
+  apiname に切替えた。週次
   `update.yml` が毎回叩くので**手動メンテ不要** (CHAMPION_REGIONS と違い新キャラ追加時の
   追記も要らない)。多層フォールバック: ①取得/パース失敗時は `{}` を返し全員 `release`
   無し → フロント (`relKey`/`cmpRelease` in render.js) が "9999-99-99" 扱いで従来の
