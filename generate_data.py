@@ -159,27 +159,29 @@ def fetch_json(url: str) -> dict | list:
 # 開発初期に予約されるため実リリース日とズレる (例: Naafiri は id=950 で 2023-07 実装
 # なのに、後発の Hwei(910)/Smolder(901) より後ろに来る / Aurora は id=893 で 2024-07
 # 実装なのに前方に来る)。実日付は LoL Wiki の Module:ChampionData/data が
-# `id` と `date = "YYYY-MM-DD"` で機械可読に持っているので、ここから取って data.json に
-# 埋める (id で突合 = 名前ゆれ無し)。週次 update.yml が自動で最新化するので手動メンテ不要。
+# `["id"]` と `["date"] = "YYYY-MM-DD"` で機械可読に持っているので、ここから取って
+# data.json に埋める (id で突合 = 名前ゆれ無し)。週次 update.yml が自動で最新化するので
+# 手動メンテ不要。
 #
-# 取得経路: wiki の `?action=raw` は両 wiki とも 403 で封じられているため、MediaWiki
-# API (`action=query&prop=revisions&rvprop=content`) で Lua 本文を JSON 経由で取る。
-# 公式 wiki (移行先・最新) と Fandom (旧・ミラー) の両方を叩き、**日付が多く取れた方**
-# を採用する (片方が古い/落ちていても、もう片方で最新を拾える自己修復)。両方失敗時は
+# 取得経路: wiki の `?action=raw` は両 wiki とも 403。公式 wiki
+# (wiki.leagueoflegends.com) は API も 403 で bot を弾く。唯一 API が通る Fandom ミラー
+# (leagueoflegends.fandom.com) の MediaWiki API (`action=query&prop=revisions&
+# rvprop=content`) で Lua 本文を JSON 経由で受け取る。Fandom が最新キャラを取りこぼして
+# も、そのキャラは date 欠落として末尾 (最新側) に回るので順序は破綻しない。複数ソースを
+# 試して最も件数が多い結果を採る構造は残してある (将来別ミラーを足せる)。全ソース失敗時は
 # {} を返し、フロントは従来の data.json 順 (id 順) にフォールバックする。
 RELEASE_API_URLS = (
-    "https://wiki.leagueoflegends.com/en-us/api.php"
-    "?action=query&prop=revisions&titles=Module:ChampionData/data"
-    "&rvslots=main&rvprop=content&format=json&formatversion=2",
     "https://leagueoflegends.fandom.com/api.php"
     "?action=query&prop=revisions&titles=Module:ChampionData/data"
     "&rvslots=main&rvprop=content&format=json&formatversion=2",
 )
-# `id = N,` と `date = "YYYY-MM-DD"` を、間に別の `id =` を挟まない範囲でペアにする。
-# 負の先読みが「次チャンピオンの id」を跨いでその date を誤取得するのを防ぐので、
-# date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
+# `["id"] = N,` と `["date"] = "YYYY-MM-DD"` を、間に別の `["id"]` を挟まない範囲で
+# ペアにする。負の先読みが「次チャンピオンの ["id"]」を跨いでその date を誤取得するのを
+# 防ぐので、date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
 _RELEASE_PAT = re.compile(
-    r'\bid\s*=\s*(\d+)\s*,(?:(?!\bid\s*=)[\s\S])*?\bdate\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']'
+    r'\["id"\]\s*=\s*(\d+)\s*,'
+    r'(?:(?!\["id"\]\s*=)[\s\S])*?'
+    r'\["date"\]\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']'
 )
 
 
