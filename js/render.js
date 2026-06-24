@@ -173,6 +173,13 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
 let onRouteChange = null;
 export function setRouteListener(fn) { onRouteChange = fn; }
 
+// Forward-navigation hook. app.js registers a callback (snapshotCurrentEntry) that saves the
+// outgoing list view's scroll + search query into the current history entry BEFORE a nav function
+// clears the search / scrolls to top. Called as the first line of the forward-nav functions below,
+// so the snapshot captures the real pre-clear values. render.js stays free of the history API.
+let onBeforeNav = null;
+export function setNavListener(fn) { onBeforeNav = fn; }
+
 export function render() {
   const root = $("root");
   ensureLayout(root);
@@ -747,6 +754,7 @@ function renderSelected(root) {
 }
 
 export function openSelected() {
+  if (onBeforeNav) onBeforeNav();   // snapshot the outgoing list (scroll + search) before we clear it
   state.view = "selected";
   state.currentChamp = null;
   state.currentLine = null;
@@ -881,6 +889,7 @@ function clearSelected() {
 }
 
 export function openLine(lid) {
+  if (onBeforeNav) onBeforeNav();   // snapshot the outgoing list (scroll + search) before we clear it
   state.view = "line"; state.currentLine = lid;
   // Opening a line detail while searching (within the 90ms debounce) would let the pending debounce
   // flip the view line->lines and bounce back to the list (+ spurious history). Detail views aren't in
@@ -889,6 +898,7 @@ export function openLine(lid) {
   window.scrollTo(0, 0); render();
 }
 export function openLines() {
+  if (onBeforeNav) onBeforeNav();   // snapshot the outgoing list (scroll + search) before we clear it
   state.view = "lines"; state.currentLine = null;
   state.searchQuery = ""; $("search").value = "";
   window.scrollTo(0, 0); render();
@@ -899,6 +909,7 @@ function buildChampList(c) {
 }
 
 export function openChampion(alias) {
+  if (onBeforeNav) onBeforeNav();   // snapshot the outgoing list (scroll + search) before we clear it
   state.view = "champion"; state.currentChamp = alias;
   // Like openLine, clear the search to prevent the bounce-back and history pollution when a detail is
   // opened while searching (within the 90ms debounce) (detail views aren't in the search scope).
@@ -916,6 +927,7 @@ export function goBack() {
   else { state.view = "home"; state.currentChamp = null; state.currentLine = null; render(); }
 }
 export function goHome() {
+  if (onBeforeNav) onBeforeNav();   // snapshot the outgoing list (scroll + search) before we clear it
   state.view = "home"; state.currentChamp = null; state.currentLine = null;
   state.searchQuery = ""; $("search").value = ""; render();
 }
