@@ -167,6 +167,10 @@ export const LS_LB_FIT_KEY = "old.lbFit";
 // Seen flag for the first-visit tutorial. Value is "1" (set once shown); unset means unseen.
 // Re-showing it from the header ? button / ? key doesn't change this flag (stays seen).
 export const LS_TUTORIAL_KEY = "old.tutorial.seen";
+// Seen flag for the first ZIP-download upsell (Web only). On the first download we offer the
+// desktop app (which sets wallpaper directly) instead of a ZIP; once the user has chosen, we
+// never interrupt the download again. Value is "1" (set after the first choice); unset = unseen.
+export const LS_DL_PROMPT_SEEN = "old.dlPrompt.seen";
 
 // Best-effort persistence: can throw under QuotaExceeded / private browsing / read-only
 // environments, so swallow failures and return the fallback.

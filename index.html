@@ -31,7 +31,7 @@
   - manifest-src: the PWA manifest.webmanifest is same-origin
 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
-<meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
+<meta name="description" content="OpenLeagueDisplay — the community successor to LeagueDisplays. Browse every League of Legends champion and skin, and set any splash as your desktop wallpaper in one click with the desktop app. The web version is the no-install way to browse (and grab ZIPs).">
 <!-- OGP / Twitter Card: og:image / twitter:image use absolute URLs because crawlers
      can't resolve relative ones. ogp.png is 1200x630 (the 1.91:1 ratio recommended for
      twitter:card summary_large_image), a static asset at the repo root.
@@ -39,14 +39,14 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://badfalcon.github.io/OpenLeagueDisplay/">
 <meta property="og:title" content="OpenLeagueDisplay">
-<meta property="og:description" content="Static splash viewer aiming to replace LeagueDisplays. Download by champion / skin line / selection as ZIP.">
+<meta property="og:description" content="The community successor to LeagueDisplays: browse every champion & skin and set any splash as your wallpaper. The desktop app sets it in one click; the web version is the no-install way to browse.">
 <meta property="og:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="OpenLeagueDisplay — splash viewer for every League of Legends champion and skin">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="OpenLeagueDisplay">
-<meta name="twitter:description" content="Static splash viewer aiming to replace LeagueDisplays">
+<meta name="twitter:description" content="The community successor to LeagueDisplays — browse every champion & skin and set any splash as your wallpaper in one click with the desktop app">
 <meta name="twitter:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
 <title>OpenLeagueDisplay</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -215,6 +215,9 @@
         <button class="ss-btn" id="ss-caption">💬 Full</button>
       </div>
     </div>
+    <!-- Set the currently shown splash as wallpaper in one click. Local-run mode only; JS toggles
+         display in openLightbox (hidden = display:none on Pages, where wallpaper can't be set). -->
+    <button class="ss-btn lb-icon" id="lb-wallpaper" style="display:none" aria-label="Set as wallpaper">🖥</button>
     <button class="ss-btn lb-icon" id="lb-close" aria-label="Close">✕</button>
   </div>
   <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">‹</button>

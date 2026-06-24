@@ -15,6 +15,7 @@ import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
+import { gateDownload, openInDesktop } from "./desktop.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -541,7 +542,7 @@ function renderChampion(root) {
     title: champName(c),
     count: t("skins_count", c.skins.length),
     nav,
-    ...detailPrimary(keys, t("dl_champion"), () => downloadChampion(c)),
+    ...detailPrimary(keys, t("dl_champion"), () => gateDownload(() => downloadChampion(c))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
@@ -678,7 +679,7 @@ function renderLine(root) {
     title: lname,
     count: t("skins_count", items.length),
     nav,
-    ...detailPrimary(keys, t("dl_line"), () => downloadLine(lid, lname, items)),
+    ...detailPrimary(keys, t("dl_line"), () => gateDownload(() => downloadLine(lid, lname, items))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
@@ -731,16 +732,22 @@ function renderSelected(root) {
     : "";
   // ZIP DL is Web-only (the way to work around the browser sandbox). Hide it in local mode.
   const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
+  // Web only: hand this selection to the desktop app (set as wallpaper in one click). localStorage
+  // is per-origin so it can't be shared automatically — this deep-links the selection across.
+  const handoffBtn = isLocal() ? "" : `<button class="btn" id="gallery-handoff">${t("open_in_desktop")}</button>`;
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       ${dlBtn}
       ${wpBtn}
+      ${handoffBtn}
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
   const dl = $("gallery-dl");
-  if (dl) dl.addEventListener("click", downloadSelected);
+  if (dl) dl.addEventListener("click", () => gateDownload(downloadSelected));
+  const handoff = $("gallery-handoff");
+  if (handoff) handoff.addEventListener("click", openInDesktop);
   // The gallery toolbar's Slideshow: normally only shown when there are items, but in the edge case
   // of selecting only skins without a splash, startGlobalSlideshow returns false (0 playable). We're
   // already in the gallery view here, so no extra navigation is needed, just toast the reason.

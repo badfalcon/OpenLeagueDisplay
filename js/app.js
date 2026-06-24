@@ -30,7 +30,8 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
-import { probeLocal, toast } from "./local.js";
+import { probeLocal, toast, applyWallpaper, isLocalWallpaper } from "./local.js";
+import { applyImportFromHash, mountFooterCTA } from "./desktop.js";
 
 // Own scroll restoration ourselves (see applyRoute). The browser's default "auto" restoration
 // tries to re-apply a remembered scroll on a re-rendered SPA at the wrong time and would fight our
@@ -154,8 +155,20 @@ async function init() {
     // The header gallery button count is reflected by applyStaticUIStrings / render()
   }
 
+  // Web → native hand-off: a #import=<keys> link (built by the desktop CTA on Pages) carries a
+  // selection across the origin boundary (github.io ≠ 127.0.0.1, so localStorage can't be shared).
+  // Merge it into the selection, then rewrite the hash to the gallery so a reload doesn't re-import.
+  // Must run after buildIndexes (SKIN_BY_KEY ready) and before routing (it rewrites the hash).
+  const imported = applyImportFromHash();
+  if (imported > 0) {
+    history.replaceState(null, "", "#/gallery");
+    toast(t("import_done", imported));
+  }
+
   // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility state)
   await localProbe;
+  // Promote the desktop app to web visitors (footer CTA). No-op in local mode (you already have it).
+  mountFooterCTA();
 
   // Deep link: if there's an initial hash, reflect it into state and render once
   // (applyRoute would call render twice, so here we only set state and leave render to below).
@@ -531,6 +544,26 @@ function wireEvents() {
     $("lightbox").classList.toggle("fill", state.lb.fit === "cover");
     lsSet(LS_LB_FIT_KEY, state.lb.fit);
     syncFitButton();
+  });
+  // One-click "set as wallpaper" (local-run mode only — the button is hidden on Pages). Sets the
+  // splash currently shown in the lightbox as a static wallpaper. This is the philosophically core
+  // "see it → it's your wallpaper" gesture; the My Gallery multi-select / slideshow path is the
+  // browser-era compromise. Disabled while applying so a double-click can't fire two requests.
+  $("lb-wallpaper").addEventListener("click", async () => {
+    if (!isLocalWallpaper()) return;
+    const item = state.lb.list[state.lb.idx];
+    const url = item && item.src;
+    if (!url) { toast(t("wallpaper_none"), "err"); return; }
+    const btn = $("lb-wallpaper");
+    btn.disabled = true;
+    try {
+      await applyWallpaper([url]);
+      toast(t("wallpaper_set"));
+    } catch (err) {
+      toast(t("wallpaper_failed", err.message), "err");
+    } finally {
+      btn.disabled = false;
+    }
   });
   // Offline detection: CDragon splash images aren't cached, so offline they all fail to appear.
   // Announce the reason to avoid the "it's broken" misunderstanding.

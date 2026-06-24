@@ -1099,6 +1099,22 @@
     max-width: 60ch;
     margin: 4px auto 0;
   }
+  /* Desktop-app CTA (Web only, injected by desktop.js at the top of the footer). The rest of the
+     footer is small/dim source & legal text; this is a promotion, so give it a touch more presence —
+     a thin gold pill — without shouting. Normal casing (the footer is uppercase by default).
+     The background rgba mirrors --gold (#d4a857) at low alpha (can't rgba() a hex CSS var directly). */
+  .footer-cta {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 auto 6px;
+    padding: 8px 14px;
+    max-width: 58ch;
+    border: 1px solid var(--gold-deep);
+    border-radius: 999px;
+    background: rgba(212, 168, 87, 0.08);
+  }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;
