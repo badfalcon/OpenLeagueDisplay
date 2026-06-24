@@ -50,9 +50,9 @@ export function unlockScroll() {
 // A counter bundles nested displays.
 let _inertCount = 0;
 function _inertTargets() {
-  // Besides topbar / body / footer, also target #to-top, the one interactive element
-  // floating directly under body (if a modal opens after scrolling it stays visible and the
-  // SR browse cursor could reach the "back to top" behind the modal). #offline-banner /
+  // Besides topbar / body / footer, also target the FABs (#to-top / #to-back), the interactive
+  // elements floating directly under body (if a modal opens after scrolling they stay visible and
+  // the SR browse cursor could reach them behind the modal). #offline-banner /
   // #sr-status / #toast are live regions (status notices), so they're intentionally excluded
   // and kept in the a11y tree.
   return [
@@ -60,6 +60,7 @@ function _inertTargets() {
     document.getElementById("root"),
     document.querySelector("footer"),
     document.getElementById("to-top"),
+    document.getElementById("to-back"),
   ];
 }
 export function setBackgroundInert() {

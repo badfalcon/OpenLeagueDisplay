@@ -1628,6 +1628,26 @@
   .to-top:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   .to-top[hidden] { display: none; }
 
+  /* In-app "Back" FAB. Same family/visuals as .to-top, but pinned bottom-LEFT (back
+     conventionally goes left, and it stays clear of the bottom-right "Back to top").
+     Surfaced by app.js once the real ← Back button (in the scrolling champ-header) has
+     slipped behind the sticky topbar. author display beats UA [hidden], so hide explicitly */
+  .to-back {
+    position: fixed; left: 24px; bottom: 24px; z-index: 40;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(12, 11, 20, 0.82);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--gold);
+    color: var(--gold-hi); cursor: pointer;
+    font-size: 20px; line-height: 1;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .to-back:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+  .to-back[hidden] { display: none; }
+
   /* === RESPONSIVE ================================================= */
   /* At 1100px (the upper bound where mid-size laptops can keep the desktop one-row
      topbar), drop champ-header's controls slot to row 2. This is the size where
@@ -1906,6 +1926,7 @@
     .offline-banner { bottom: calc(18px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     /* Raise it with the same formula as .toast so it doesn't overlap the fixed bottom nav */
     .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+    .to-back { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
 
     /* Width is precious on mobile, so hide the language code and go flag-only */
     .lang-code { display: none; }

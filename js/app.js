@@ -325,6 +325,32 @@ function onBackButton() {
   goBack();
 }
 
+// Floating "Back" FAB visibility. The real ← Back button lives in the scrolling champ-header (not the
+// sticky topbar), so on tall screens it scrolls out of reach. This mirrors it as a bottom-left FAB,
+// surfaced only once the real button has slipped behind the topbar (= out of reach). Mirrors the
+// real button's own availability: render() shows #back-btn only in detail views / while searching,
+// and hides it (display:none) otherwise — a hidden / dom-stash-parked button has a zero-size rect,
+// which reads as "Back not available". Called from the scroll listener and after each render().
+// Cache the flag so the DOM is touched only when crossing the threshold (same trick as the to-top FAB).
+let backFabShown = false;
+let _topbar = null;  // cached .topbar (the sticky bar covering the viewport top); resolved lazily
+function syncBackFab() {
+  const fab = $("to-back");
+  if (!fab) return;
+  const realBack = $("back-btn");
+  const rect = realBack ? realBack.getBoundingClientRect() : null;
+  // The sticky topbar covers the top of the viewport, so "out of reach" means the real button's
+  // bottom edge has slipped above the topbar's bottom (not merely above y=0). Cache the lookup
+  // (the topbar is never recreated) so a scroll burst doesn't re-query the DOM each frame; the
+  // truthy guard keeps retrying until it resolves, so a transient null is never pinned.
+  if (!_topbar) _topbar = document.querySelector(".topbar");
+  const coverBottom = _topbar ? _topbar.getBoundingClientRect().bottom : 0;
+  const show = !!rect && rect.height > 0 && rect.bottom <= coverBottom;
+  if (show === backFabShown) return;
+  backFabShown = show;
+  fab.hidden = !show;
+}
+
 function wirePopstate() {
   window.addEventListener("popstate", (e) => {
     // (1) If the lightbox is open, Back is spent on "close". By this point history has already
@@ -341,14 +367,20 @@ function wirePopstate() {
     applyRoute(location.hash, e.state);
   });
   // Register the URL sync hook that runs after render(), and the snapshot hook that saves the
-  // outgoing list's scroll + search before a forward nav clears them.
-  setRouteListener(syncRouteFromState);
+  // outgoing list's scroll + search before a forward nav clears them. The post-render hook also
+  // re-evaluates the Back FAB, since its visibility tracks render()'s show/hide of #back-btn.
+  // This call is intentionally synchronous (not rAF-coalesced like the scroll path): render() is
+  // low-frequency, and reflecting the new view's Back availability in the same frame avoids a
+  // one-frame stale FAB on navigation. Only the high-frequency scroll/resize path is throttled.
+  setRouteListener(() => { syncRouteFromState(); syncBackFab(); });
   setNavListener(snapshotCurrentEntry);
 }
 
 function wireEvents() {
   $("title").addEventListener("click", goHome);
   $("back-btn").addEventListener("click", onBackButton);
+  // The floating Back FAB drives the same in-app Back as the real button.
+  $("to-back").addEventListener("click", onBackButton);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
   // Slideshow button: if it can start, go to the global slideshow. If empty (no splash-bearing
@@ -520,8 +552,19 @@ function wireEvents() {
       toTopShown = show;
       toTopBtn.hidden = !show;
     };
-    window.addEventListener("scroll", syncToTop, { passive: true });
-    syncToTop();
+    // One passive listener drives both FABs: top-right "Back to top" and bottom-left "Back".
+    // syncBackFab() reads layout (getBoundingClientRect), so coalesce bursts into one rAF tick to
+    // avoid forcing a reflow on every scroll event. Also runs on resize, since the Back FAB's
+    // visibility depends on the back button's layout position (not just scrollY) — a resize that
+    // reflows the header without scrolling would otherwise leave it stale.
+    let scrollRaf = 0;
+    const syncFabs = () => {
+      if (scrollRaf) return;
+      scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; syncToTop(); syncBackFab(); });
+    };
+    window.addEventListener("scroll", syncFabs, { passive: true });
+    window.addEventListener("resize", syncFabs, { passive: true });
+    syncFabs();
     toTopBtn.addEventListener("click", () => {
       // Respect reduce-motion: jump instantly if the user wants animations disabled
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
