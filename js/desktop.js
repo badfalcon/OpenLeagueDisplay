@@ -134,7 +134,13 @@ export function applyImportFromHash() {
   if (!m) return 0;
   let keys;
   try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return 0; }
-  if (!Array.isArray(keys)) return 0;
+  return Array.isArray(keys) ? mergeKeys(keys) : 0;
+}
+
+// Merge a list of SELECT_KEY strings into the current selection, keeping only keys that exist in the
+// loaded data (renamed/removed skins are dropped) and aren't already selected. Returns how many were
+// newly added; persists if anything changed. Shared by the deep-link and file-import paths.
+function mergeKeys(keys) {
   let added = 0;
   for (const k of keys) {
     if (typeof k === "string" && SKIN_BY_KEY.has(k) && !state.selected.has(k)) {
@@ -144,6 +150,62 @@ export function applyImportFromHash() {
   }
   if (added) saveSelected();
   return added;
+}
+
+// ---- 4. file-based selection transfer (cross-machine) ------------------------
+// The deep-link hand-off (openInDesktop) only works same-machine. For phone → PC, export the
+// selection to a small JSON file, move it across, and import it on the other device. Works in any
+// mode (web or native) and in either direction. Format: { v: 1, keys: [...] }.
+const SELECTION_FILE = "openleaguedisplay-selection.json";
+
+// Download the current selection as a JSON file. Returns false if nothing is selected.
+export function exportSelection() {
+  const keys = [...state.selected];
+  if (!keys.length) return false;
+  const blob = new Blob([JSON.stringify({ v: 1, keys })], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = SELECTION_FILE;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);  // revoke once the download has grabbed the blob
+  return true;
+}
+
+// Open a file picker, read the chosen JSON, merge its keys, and resolve to the number newly added.
+// Resolves 0 on cancel / parse failure / no new keys. Accepts both our { keys: [...] } envelope and a
+// bare array. Reuses a single lazily-created hidden input.
+export function pickSelectionFile() {
+  return new Promise((resolve) => {
+    let input = $("selection-file");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "selection-file";
+      input.accept = ".json,application/json";
+      input.style.display = "none";
+      document.body.appendChild(input);
+    }
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      input.value = "";  // let the same file be picked again next time
+      if (!file) { resolve(0); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        let keys = null;
+        try {
+          const obj = JSON.parse(String(reader.result));
+          keys = Array.isArray(obj) ? obj : (obj && obj.keys);
+        } catch (_) { /* invalid file → resolve 0 below */ }
+        resolve(Array.isArray(keys) ? mergeKeys(keys) : 0);
+      };
+      reader.onerror = () => resolve(0);
+      reader.readAsText(file);
+    };
+    input.click();
+  });
 }
 
 // ---- 3. footer CTA ------------------------------------------------------------

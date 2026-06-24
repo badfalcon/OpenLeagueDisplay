@@ -1299,6 +1299,17 @@
   .gallery-browse-cta {
     margin-top: 16px;
   }
+  /* Empty-gallery action row (Browse + Import selection). Centered, wraps on narrow screens. */
+  .gallery-empty-actions {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  .gallery-empty-actions .gallery-browse-cta {
+    margin-top: 0;
+  }
 
   /* === FILTER CHIPS === one-tap role/rarity/region filter at the top of the home view ===
      A shortcut that just feeds a term into the existing search pipeline (renderHome's

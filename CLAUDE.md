@@ -101,7 +101,11 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   SKIN_BY_KEY に在るキーだけ選択へマージし件数を返す (app.js 起動時に buildIndexes 後・
   ルーティング前に1回呼ぶ。終わったら hash を `#/gallery` に書換えて再取り込みを防ぐ)。
   ローカル限定にはしない (手貼りリンクでも動くように) ④`mountFooterCTA()` = フッターに
-  デスクトップ版 CTA を1回注入 (ローカル時は no-op)。汎用 2択モーダル (`choiceModal`) は
+  デスクトップ版 CTA を1回注入 (ローカル時は no-op)。**別端末 (スマホ→PC) 向けに
+  `exportSelection()` / `pickSelectionFile()` = 選択を JSON ファイル (`{v,keys}`) で
+  書き出し/読み込み** (deep link が使えないクロスマシン経路。モード非依存で双方向)。
+  キーのマージは `mergeKeys()` に共通化し ③ファイル取り込み両方が使う (data に在る・
+  未選択のキーだけ採用)。汎用 2択モーダル (`choiceModal`) は
   wp-* の CSS を流用して①②で共用。**フッター CTA だけは英語固定** (フッターの帰属・
   ポリシー表記が意図的に非ローカライズなのに合わせる。①②③のUI文字列は i18n 済み)。
   ライトボックスのワンクリック「壁紙にする」(`#lb-wallpaper`) は別系統で、表示制御は

@@ -128,7 +128,9 @@ tiny local helper that sets the wallpaper for you.
     slideshow in your system settings.
   - **Sent from the web**: browsing on the [web version](https://badfalcon.github.io/OpenLeagueDisplay/)?
     Build a selection in My Gallery there and click **🖥 Open in desktop app** — it
-    opens your picks in the desktop app (running on this PC) ready to set.
+    opens your picks in the desktop app (running on this PC) ready to set. Picking
+    on a *different* device (phone → PC)? Use **⬆ Export selection** to save a small
+    file and **⬇ Import selection** to load it on the other end.
   - **Windows — installer (recommended):**
     `OpenLeagueDisplay-windows-setup.exe` installs per-user (no admin prompt),
     adds a **Start Menu** entry and an optional **desktop shortcut**, and

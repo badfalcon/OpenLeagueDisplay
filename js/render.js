@@ -15,7 +15,7 @@ import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
-import { gateDownload, openInDesktop } from "./desktop.js";
+import { gateDownload, openInDesktop, exportSelection, pickSelectionFile } from "./desktop.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -692,6 +692,19 @@ function renderLine(root) {
 // A DL / Slideshow / Clear toolbar goes above the grid (the old pack-bar's role).
 // Clicking + on a card calls toggleSelected but doesn't remove it immediately, just dims it in place
 // (so it's undoable). It actually leaves the grid only the next time the gallery is reopened.
+
+// Wire an "Import selection" button: open the file picker, merge the keys, then refresh the gallery
+// so the imported cards appear (or are shown alongside the existing selection).
+function wireImportSelection(btn) {
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    pickSelectionFile().then((n) => {
+      if (n > 0) { toast(t("import_done", n)); render(); }
+      else toast(t("import_none"), "err");
+    });
+  });
+}
+
 function renderSelected(root) {
   const items = [];
   for (const k of state.selected) {
@@ -713,11 +726,17 @@ function renderSelected(root) {
 
   if (items.length === 0) {
     // The empty state tends to be a dead end, so show a CTA back to home below the hint text
+    // Offer Import here too: a fresh desktop app (or a new device) starts with an empty gallery, and
+    // importing a file exported elsewhere is exactly the cross-machine hand-off path.
     $("view-content").innerHTML =
       `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
-      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button></div>`;
+      `<div class="gallery-empty-actions">` +
+      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
+      `<button class="btn" id="gallery-import">${t("import_selection")}</button>` +
+      `</div></div>`;
     const browse = $("gallery-browse");
     if (browse) browse.addEventListener("click", goHome);
+    wireImportSelection($("gallery-import"));
     return;
   }
 
@@ -735,12 +754,16 @@ function renderSelected(root) {
   // Web only: hand this selection to the desktop app (set as wallpaper in one click). localStorage
   // is per-origin so it can't be shared automatically — this deep-links the selection across.
   const handoffBtn = isLocal() ? "" : `<button class="btn" id="gallery-handoff">${t("open_in_desktop")}</button>`;
+  // Export / Import the selection as a file. Mode-independent (works either direction): the file is
+  // the cross-machine path that the same-machine deep-link hand-off (handoffBtn) can't cover.
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       ${dlBtn}
       ${wpBtn}
       ${handoffBtn}
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      <button class="btn" id="gallery-export">${t("export_selection")}</button>
+      <button class="btn" id="gallery-import">${t("import_selection")}</button>
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
@@ -748,6 +771,9 @@ function renderSelected(root) {
   if (dl) dl.addEventListener("click", () => gateDownload(downloadSelected));
   const handoff = $("gallery-handoff");
   if (handoff) handoff.addEventListener("click", openInDesktop);
+  const ex = $("gallery-export");
+  if (ex) ex.addEventListener("click", () => { if (exportSelection()) toast(t("export_done")); });
+  wireImportSelection($("gallery-import"));
   // The gallery toolbar's Slideshow: normally only shown when there are items, but in the edge case
   // of selecting only skins without a splash, startGlobalSlideshow returns false (0 playable). We're
   // already in the gallery view here, so no extra navigation is needed, just toast the reason.
