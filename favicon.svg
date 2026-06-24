@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Cinzel 風セリフを添えた L 1 文字。サイトの --bg / --gold に合わせる -->
+  <!-- Cinzel 風セリフを添えた L 1 文字。サイトの bg / gold カラー (#07060b / #d4a857) に合わせる -->
   <rect width="64" height="64" rx="10" fill="#07060b"/>
   <path d="M20 12 L20 52 L48 52"
         fill="none" stroke="#d4a857" stroke-width="7"
