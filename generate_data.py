@@ -153,31 +153,6 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
-def fetch_text(url: str) -> str:
-    """Retry付きで生テキストを取得 (fetch_json と同じ SSL/retry 方針)。"""
-    global SSL_INSECURE
-    last_err = None
-    for attempt in range(RETRY):
-        try:
-            req = urllib.request.Request(url, headers=UA)
-            ctx = ssl._create_unverified_context() if SSL_INSECURE else SSL_CTX
-            with urllib.request.urlopen(req, timeout=TIMEOUT, context=ctx) as r:
-                return r.read().decode("utf-8", "replace")
-        except urllib.error.URLError as e:
-            if not SSL_INSECURE and "CERTIFICATE_VERIFY_FAILED" in str(e):
-                print(
-                    "[警告] SSL 証明書検証に失敗。検証を無効化して続行します"
-                    " (LOL_INSECURE=1 と同等)",
-                    flush=True,
-                )
-                SSL_INSECURE = True
-                continue
-            last_err = e
-            if attempt < RETRY - 1:
-                time.sleep(1 + attempt)
-    raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
-
-
 # リリース日は CDragon/DDragon の静的データには存在しない (champion-summary も
 # per-champion JSON も date フィールドを持たない)。そのため UI の「リリース日順」は
 # 長らく champion-summary の並び (= 内部 champion id 昇順) を流用していたが、id は
@@ -186,10 +161,19 @@ def fetch_text(url: str) -> str:
 # 実装なのに前方に来る)。実日付は LoL Wiki の Module:ChampionData/data が
 # `id` と `date = "YYYY-MM-DD"` で機械可読に持っているので、ここから取って data.json に
 # 埋める (id で突合 = 名前ゆれ無し)。週次 update.yml が自動で最新化するので手動メンテ不要。
-# 失敗時は {} を返し、フロントは従来の data.json 順 (id 順) にフォールバックする。
-RELEASE_DATA_URLS = (
-    "https://wiki.leagueoflegends.com/en-us/Module:ChampionData/data?action=raw",
-    "https://leagueoflegends.fandom.com/wiki/Module:ChampionData/data?action=raw",
+#
+# 取得経路: wiki の `?action=raw` は両 wiki とも 403 で封じられているため、MediaWiki
+# API (`action=query&prop=revisions&rvprop=content`) で Lua 本文を JSON 経由で取る。
+# 公式 wiki (移行先・最新) と Fandom (旧・ミラー) の両方を叩き、**日付が多く取れた方**
+# を採用する (片方が古い/落ちていても、もう片方で最新を拾える自己修復)。両方失敗時は
+# {} を返し、フロントは従来の data.json 順 (id 順) にフォールバックする。
+RELEASE_API_URLS = (
+    "https://wiki.leagueoflegends.com/en-us/api.php"
+    "?action=query&prop=revisions&titles=Module:ChampionData/data"
+    "&rvslots=main&rvprop=content&format=json&formatversion=2",
+    "https://leagueoflegends.fandom.com/api.php"
+    "?action=query&prop=revisions&titles=Module:ChampionData/data"
+    "&rvslots=main&rvprop=content&format=json&formatversion=2",
 )
 # `id = N,` と `date = "YYYY-MM-DD"` を、間に別の `id =` を挟まない範囲でペアにする。
 # 負の先読みが「次チャンピオンの id」を跨いでその date を誤取得するのを防ぐので、
@@ -199,23 +183,32 @@ _RELEASE_PAT = re.compile(
 )
 
 
+def _parse_release_api(data: dict) -> dict[int, str]:
+    """MediaWiki API (formatversion=2) のレスポンスから Lua 本文を取り出し、
+    {champion id: "YYYY-MM-DD"} を抽出する。"""
+    content = data["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+    return {int(cid): d for cid, d in _RELEASE_PAT.findall(content)}
+
+
 def fetch_release_dates() -> dict[int, str]:
     """LoL Wiki から {champion id: "YYYY-MM-DD"} を取得する。
 
-    取得・パースに失敗したら空 dict を返す (= 呼び出し側は id 順フォールバック)。
+    複数ソースを叩いて最も件数が多い結果を採用する (= 古いミラーに引きずられない)。
+    全ソースが取得・パース失敗なら空 dict を返す (= 呼び出し側は id 順フォールバック)。
     """
-    for url in RELEASE_DATA_URLS:
+    best: dict[int, str] = {}
+    for url in RELEASE_API_URLS:
         try:
-            text = fetch_text(url)
+            dates = _parse_release_api(fetch_json(url))
         except Exception as e:
-            print(f"   [警告] リリース日ソース取得失敗 ({type(e).__name__}): {url}", flush=True)
+            print(f"   [警告] リリース日ソース取得失敗 ({type(e).__name__}): {url[:48]}...", flush=True)
             continue
-        dates = {int(cid): d for cid, d in _RELEASE_PAT.findall(text)}
-        if dates:
-            return dates
-        print(f"   [警告] リリース日をパースできず (0 件): {url}", flush=True)
-    print("   [警告] リリース日が取得できませんでした。id 順にフォールバックします", flush=True)
-    return {}
+        print(f"   {len(dates)} 件取得: {url[:48]}...", flush=True)
+        if len(dates) > len(best):
+            best = dates
+    if not best:
+        print("   [警告] リリース日が取得できませんでした。id 順にフォールバックします", flush=True)
+    return best
 
 
 # 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
