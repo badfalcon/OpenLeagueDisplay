@@ -1,16 +1,16 @@
 name: Build & release binaries
 
-# タグ (v*) を push した時に、各 OS のローカル実行ファイルをビルドして Release に添付する。
-# バイナリはリポジトリにコミットせず Release アセットとして配布する (no-binaries-in-repo)。
-# 週次の data.json 更新 (update.yml) とは独立。
+# On tag push (v*), build the local executable for each OS and attach it to the Release.
+# Binaries are distributed as Release assets, not committed to the repo (no-binaries-in-repo).
+# Independent of the weekly data.json update (update.yml).
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:   # 手動でも実行可 (ドライラン用。Release 作成は tag push 時のみ)
+  workflow_dispatch:   # Manual runs allowed (for dry runs; a Release is only created on tag push)
 
 permissions:
-  contents: write   # Release の作成 / アセットアップロードに必要
+  contents: write   # Needed to create the Release / upload assets
 
 jobs:
   build:
@@ -28,10 +28,10 @@ jobs:
             asset: OpenLeagueDisplay-linux
             bin: dist/OpenLeagueDisplay
     runs-on: ${{ matrix.os }}
-    # Windows ランナーの既定コンソールは cp1252 で、generate_data.py や pyinstaller の
-    # 日本語/非ASCIIログ出力が UnicodeEncodeError ('charmap' codec) でジョブを落とす。
-    # UTF-8 モード (PEP 540) を立てて stdout/stderr/open() の既定を UTF-8 に固定する
-    # (Linux/macOS は元から UTF-8 なので無害)。
+    # The Windows runner's default console is cp1252, so non-ASCII/Japanese log
+    # output from generate_data.py or pyinstaller fails the job with
+    # UnicodeEncodeError ('charmap' codec). Enable UTF-8 mode (PEP 540) to pin
+    # stdout/stderr/open() defaults to UTF-8 (harmless on Linux/macOS, already UTF-8).
     env:
       PYTHONUTF8: "1"
       PYTHONIOENCODING: "utf-8"
@@ -42,8 +42,8 @@ jobs:
         with:
           python-version: '3.x'
 
-      # pywebview の Linux backend (WebKitGTK) に必要なシステムライブラリ。
-      # Windows/macOS は OS 同梱の WebView2 / WKWebView を使うので追加導入は不要。
+      # System libraries needed by pywebview's Linux backend (WebKitGTK).
+      # Windows/macOS use the OS-bundled WebView2 / WKWebView, so no extra install is needed.
       - name: Install Linux webview deps
         if: runner.os == 'Linux'
         run: |
@@ -53,14 +53,14 @@ jobs:
       - name: Install build deps
         run: pip install pyinstaller pywebview
 
-      # 同梱前に最新の data.json / i18n を生成 (バンドルされるスナップショットを最新化)。
-      # Actions では LOL_INSECURE は使わない。
+      # Regenerate data.json / i18n before bundling (refresh the snapshot that gets bundled).
+      # Don't use LOL_INSECURE in Actions.
       - name: Generate data.json + i18n
         run: python generate_data.py
 
-      # アイコン (icon.ico) はリポジトリにコミット済み (make_icon.py で生成・更新)。
-      # local_app.spec が Windows で exe に埋め込み、installer/windows.iss が
-      # インストーラ / ショートカットに使う。ここでの生成ステップは不要。
+      # The icon (icon.ico) is committed to the repo (generated/updated by make_icon.py).
+      # local_app.spec embeds it into the exe on Windows, and installer/windows.iss
+      # uses it for the installer / shortcuts. No generation step needed here.
       - name: Build with PyInstaller
         run: pyinstaller local_app.spec
 
@@ -70,10 +70,10 @@ jobs:
           mkdir -p out
           cp "${{ matrix.bin }}" "out/${{ matrix.asset }}"
 
-      # Windows だけ Inno Setup で正規のインストーラ (setup.exe) も作る。
-      # スタートメニュー登録 / アンインストーラ (アプリと機能) / デスクトップ
-      # ショートカットを備えた "ちゃんとしたソフトウェア" 体験を提供する。
-      # ポータブル exe (上の bare バイナリ) と両方を Release に置く。
+      # On Windows only, also build a proper installer (setup.exe) with Inno Setup.
+      # Provides a "real software" experience with Start Menu entry, uninstaller
+      # (Apps & features) and desktop shortcut.
+      # Ship both this and the portable exe (the bare binary above) in the Release.
       - name: Install Inno Setup (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -83,28 +83,29 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # タグ push なら版番号をタグから (v1.2.3 → 1.2.3)、手動実行なら dev。
+          # On tag push, take the version from the tag (v1.2.3 -> 1.2.3); on manual runs, "dev".
           $ver = "dev"
           if ($env:GITHUB_REF -like "refs/tags/*") { $ver = "$env:GITHUB_REF_NAME" -replace '^v','' }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           & "$iscc" "/DAppVersion=$ver" installer\windows.iss
           if (-not (Test-Path installer\out\OpenLeagueDisplay-windows-setup.exe)) { throw "installer build failed" }
 
-      # tag push 時は Release にアップロード。手動実行 (workflow_dispatch) では
-      # Artifacts に上げるだけ (Release は作らない)。
+      # On tag push, upload to the Release. On manual runs (workflow_dispatch),
+      # only upload to Artifacts (no Release is created).
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          # Windows ジョブだけ setup.exe も同梱する (存在しない OS では glob が
-          # 無視されるだけ)。
+          # The Windows job also bundles setup.exe (on other OSes the glob is
+          # just ignored).
           files: |
             out/${{ matrix.asset }}
             installer/out/OpenLeagueDisplay-windows-setup.exe
-          # 前回タグからの PR/コミットを GitHub に自動集約させて Release ノートにする
-          # (分類ルールは .github/release.yml で定義)。matrix の各 OS が同じ tag に
-          # 対して action-gh-release を呼ぶが、同一 Release への upsert なので最初に
-          # 生成されたノートが共有される (3 回上書きされても内容は同じ)。
+          # Let GitHub auto-aggregate PRs/commits since the previous tag into the
+          # Release notes (categorization rules in .github/release.yml). Each OS in
+          # the matrix calls action-gh-release for the same tag, but since it's an
+          # upsert to the same Release, the first generated notes are shared
+          # (overwriting 3 times yields identical content).
           generate_release_notes: true
 
       - name: Upload as workflow artifact
@@ -114,7 +115,7 @@ jobs:
           name: ${{ matrix.asset }}
           path: out/${{ matrix.asset }}
 
-      # ドライラン (workflow_dispatch) でも Windows インストーラを Artifacts で確認できる。
+      # Make the Windows installer inspectable via Artifacts on dry runs (workflow_dispatch) too.
       - name: Upload installer as workflow artifact (Windows)
         if: ${{ runner.os == 'Windows' && !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4

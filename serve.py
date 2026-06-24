@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-ローカル配信用ラッパー
-======================
-`python -m http.server` 相当だが、PyCharm の Python Run Configuration から
-モジュールモード経由で起動するとうまく動かないケースがあるため、
-スクリプトモードで実行できるよう薄く包んである。
+Local static-serving wrapper
+============================
+Equivalent to `python -m http.server`, wrapped thinly so it can run in script
+mode. PyCharm's Python Run Configuration sometimes fails to launch it via
+module mode, so this script-mode wrapper sidesteps that.
 
-実行:
-    python serve.py            # 8000番で起動
-    python serve.py 8080       # ポート指定
+Usage:
+    python serve.py            # serve on port 8000
+    python serve.py 8080       # specify a port
 """
 
 from __future__ import annotations
@@ -16,14 +16,14 @@ from __future__ import annotations
 import http.server
 import sys
 
-HOST = "127.0.0.1"  # 外向きには公開しない (開発用)
+HOST = "127.0.0.1"  # not exposed externally (dev only)
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 
 
 def main() -> None:
     handler = http.server.SimpleHTTPRequestHandler
-    # 素の socketserver.TCPServer と違い allow_reuse_address=1 なので、Ctrl+C 直後の
-    # 再起動でも TIME_WAIT の "Address already in use" にならない
+    # Unlike bare socketserver.TCPServer, HTTPServer sets allow_reuse_address=1,
+    # so restarting right after Ctrl+C won't hit TIME_WAIT "Address already in use"
     with http.server.HTTPServer((HOST, PORT), handler) as httpd:
         print(f"Serving at http://{HOST}:{PORT}  (Ctrl+C to stop)")
         try:

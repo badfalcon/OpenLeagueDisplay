@@ -1,18 +1,18 @@
-// 初回訪問チュートリアル: 4 ステップの簡易オンボーディングモーダル。
-// 既読フラグは localStorage (LS_TUTORIAL_KEY) で持ち、ヘッダの ? ボタンと
-// ? キーから何度でも再表示できる (フラグは変わらない)。閉じる経路 (Skip / Done /
-// Esc / 外側クリック) はどれも初回表示時にフラグを立てる。
+// First-visit tutorial: a simple 4-step onboarding modal.
+// The seen flag lives in localStorage (LS_TUTORIAL_KEY); the header's ? button and the ? key
+// can re-show it any number of times (without changing the flag). Every close path (Skip / Done /
+// Esc / outside click) sets the flag on the first display.
 //
-// 本文 (tut_s*_body) は i18n テーブルに <strong>/<em>/<code>/<br> を埋め込んだ
-// 信頼済み文字列なので innerHTML に直接流す。ユーザー入力経路は無いので XSS シンクは無い。
+// Bodies (tut_s*_body) are trusted strings with <strong>/<em>/<code>/<br> embedded in the i18n
+// table, so they go straight into innerHTML. There's no user-input path, so no XSS sink.
 
 import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t } from "./i18n.js";
 
 const TOTAL_STEPS = 4;
 
-// フォーカストラップ解除関数 (open で張り、close で呼ぶ)。Skip ボタンは最終ステップで
-// 隠れる等、ボタンが状態で増減するので trapFocus は毎回その場でリストを計算する。
+// Focus-trap release fn (set on open, called on close). Since buttons come and go by state
+// (e.g. Skip hides on the last step), trapFocus recomputes the list on the fly each time.
 let releaseTrap = null;
 
 export function isTutorialOpen() {
@@ -31,10 +31,10 @@ export function openTutorial() {
   document.body.classList.add("tutorial-open");
   lockScroll();
   setBackgroundInert();
-  // Tab で背景へ抜けないよう閉じ込める (close で解除)
+  // Trap focus so Tab can't escape to the background (released on close)
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus(ov);
-  // 主操作 (Next) にフォーカスを移して Enter / 矢印で進めるように
+  // Move focus to the main action (Next) so Enter / arrows advance it
   requestAnimationFrame(() => {
     const next = $("tut-next");
     if (next) next.focus();
@@ -105,16 +105,16 @@ export function renderTutorial() {
   }
   if (skipBtn) {
     skipBtn.textContent = t("tut_skip");
-    // 最終ステップでは Next が "Done" を兼ねるので Skip は隠す (重複動線を消す)
+    // On the last step Next doubles as "Done", so hide Skip (removes the redundant path)
     skipBtn.style.visibility = step === TOTAL_STEPS ? "hidden" : "visible";
   }
 }
 
-// 初回訪問時のみ自動表示。他のオーバーレイ (進捗 / lightbox) が先に出ている
-// レアケースでは譲って、次回起動で再試行させる
+// Auto-show only on the first visit. In the rare case another overlay (progress / lightbox) is
+// already up, yield and retry on the next launch.
 export function maybeAutoOpenTutorial() {
   if (lsGet(LS_TUTORIAL_KEY) === "1") return;
-  // .champ-grid の fadeIn 0.5s が落ち着いた頃に出すと体感が穏やか
+  // Showing it once .champ-grid's 0.5s fadeIn has settled feels gentler
   setTimeout(() => {
     const prog = $("progress-overlay");
     const lb   = $("lightbox");

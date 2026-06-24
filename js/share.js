@@ -1,32 +1,32 @@
-// サイト自体の共有リンク。Web Share API が使える端末 (主にモバイル) は OS の
-// ネイティブ共有シートを開き、無い端末はサイト URL をクリップボードへコピーして、
-// ボタンを一時的にチェックマークへ差し替えて成功を知らせる。
+// Share link for the site itself. Devices with the Web Share API (mostly mobile) open the OS
+// native share sheet; devices without it copy the site URL to the clipboard and briefly swap
+// the button to a checkmark to signal success.
 
 import { $ } from "./state.js";
 import { t } from "./i18n.js";
 
-// 共有先は現在表示中のルート込み URL (location.href)。hash ルーティング導入により
-// チャンピオン/スキンライン詳細などへのディープリンク共有が可能になったため、
-// 固定のトップ URL ではなく現在地をそのまま共有する。検索クエリ/ソート順は URL に
-// 載せない設計 (state/localStorage 専用) なので、共有されるのは view + 対象 ID だけ。
+// Share target is the current URL including its route (location.href). Hash routing made it
+// possible to deep-link to champion / skin-line detail pages, so we share the current location
+// rather than a fixed top URL. Search query / sort order are intentionally kept out of the URL
+// (state/localStorage only), so what's shared is just the view + target ID.
 const shareUrl = () => location.href;
 
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
-// コピー成功時のアイコン差し替えを元に戻すためのタイマーと元 innerHTML。
-// 連打でタイマーが多重化しないよう 1 本に集約する。
+// Timer and original innerHTML for reverting the icon swap after a successful copy.
+// Kept as a single timer so rapid clicks don't stack multiple timers.
 let revertTimer = null;
 let originalIcon = "";
 
 export async function shareSite() {
   const btn = $("share-btn");
-  // 共有のたびに現在地を読む (ディープリンク対応)。固定 URL を定数で持たない。
+  // Read the current location on every share (deep-link support). Don't hold a fixed URL in a constant.
   const url = shareUrl();
   if (navigator.share) {
     try {
       await navigator.share({ title: "OpenLeagueDisplay", url });
     } catch (_) {
-      // ユーザーによるキャンセル (AbortError) や失敗は黙って無視する
+      // Silently ignore user cancellation (AbortError) and failures
     }
     return;
   }
@@ -35,7 +35,7 @@ export async function shareSite() {
     await navigator.clipboard.writeText(url);
     ok = true;
   } catch (_) {
-    // clipboard API 非対応 / 非セキュアコンテキスト向けのフォールバック
+    // Fallback for browsers without the clipboard API / non-secure contexts
     ok = legacyCopy(url);
   }
   if (ok && btn) showCopied(btn);
@@ -56,14 +56,14 @@ function legacyCopy(text) {
 }
 
 function showCopied(btn) {
-  // 最初の 1 回だけ元アイコンを覚える (差し替え中の innerHTML を保存しないため)
+  // Remember the original icon only on the first call (so we don't save the swapped-in innerHTML)
   if (revertTimer) clearTimeout(revertTimer);
   else originalIcon = btn.innerHTML;
   btn.innerHTML = CHECK_ICON;
   btn.classList.add("copied");
   btn.setAttribute("aria-label", t("share_copied"));
-  // aria-label の書き換えは読み上げられないので、live region 経由で通知する。
-  // 連打で同じ文言を入れても再アナウンスされるよう、一度空にしてから入れ直す
+  // Rewriting aria-label isn't announced, so notify via the live region instead.
+  // Clear it first then set it again so repeated clicks with the same text still re-announce.
   const live = $("sr-status");
   if (live) {
     live.textContent = "";

@@ -1,12 +1,12 @@
-// UI 文字列 (UI_STRINGS) と locale 解決まわり。
-// チャンピオン/スキン名翻訳 (i18n/<locale>.json) とは別に UI chrome は同梱する。
+// UI strings (UI_STRINGS) and locale resolution.
+// UI chrome ships inline, separate from champion/skin name translations (i18n/<locale>.json).
 
 import { state, $, lsGet, LS_LOCALE_KEY, DATA, SELECT_KEY } from "./state.js";
 import { renderStats, refreshGalleryBtn } from "./render.js";
 
-// UI 文字列の i18n テーブル。チャンピオン/スキン名翻訳 (i18n/<locale>.json) とは別に、
-// UI chrome (ボタン/プレースホルダ/エラー/進捗) は同梱で済ませる。未掲載 locale は
-// default (英語) にフォールバック。プレースホルダは {0}, {1} 形式。
+// i18n table for UI strings. UI chrome (buttons/placeholders/errors/progress)
+// ships inline, separate from champion/skin name translations (i18n/<locale>.json).
+// Locales not listed fall back to default (English). Placeholders use {0}, {1} form.
 export const UI_STRINGS = {
   default: {
     filters_label: "Filters",
@@ -1770,7 +1770,7 @@ export const UI_STRINGS = {
     disclaimer: "OpenLeagueDisplay tidak didukung oleh Riot Games dan tidak mencerminkan pandangan atau pendapat Riot Games maupun siapa pun yang terlibat secara resmi dalam produksi atau pengelolaan League of Legends. League of Legends dan Riot Games adalah merek dagang atau merek dagang terdaftar dari Riot Games, Inc.",
   },
 };
-// t("key", arg0, arg1, ...) — locale 未掲載なら default に、key 未定義なら key 文字列を返す
+// t("key", arg0, arg1, ...) — falls back to default if the locale is missing, returns the key string if the key is undefined
 export function t(key, ...args) {
   const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
   const tmpl = table[key] || UI_STRINGS.default[key] || key;
@@ -1780,10 +1780,10 @@ export function t(key, ...args) {
   });
 }
 
-// 検索キーワード用の翻訳マップ。表示には現状使わず、フィルタ判定でのみ使う。
-// data.json は英語キーをそのまま持つ ("mage" / "Legendary") ので、ユーザが
-// 翻訳済みワード ("メイジ" / "レジェンダリー") を打っても拾えるようにする。
-// 値が無い locale は default にフォールバック (英語表記でだけマッチ)。
+// Translation map for search keywords. Currently used only for filter matching, not for display.
+// data.json keeps the English keys verbatim ("mage" / "Legendary"), so this lets a user
+// type the localized word (e.g. the Japanese for "mage"/"legendary") and still get a hit.
+// Locales without a value fall back to default (match only against English text).
 export const ROLE_LABELS = {
   default: { assassin: "Assassin", fighter: "Fighter", mage: "Mage", marksman: "Marksman", support: "Support", tank: "Tank" },
   ja_jp:   { assassin: "アサシン", fighter: "ファイター", mage: "メイジ", marksman: "マークスマン", support: "サポート", tank: "タンク" },
@@ -1828,14 +1828,14 @@ export const RARITY_LABELS = {
   th_th:   { Epic: "เอปิก", Legendary: "ตำนาน", Mythic: "มิธิก", Ultimate: "อัลทิเมท" },
   id_id:   { Epic: "Epik", Legendary: "Legendaris", Mythic: "Mitos", Ultimate: "Pamungkas" },
 };
-// 地域名は本来 universe-meeps API から取る予定だったが、Riot 側の S3 IAM 設定が
-// 壊れていて永続的に 403 を返す (2026-05 確認)。代わりに ROLE/RARITY 同様に
-// ハードコード。slug は generate_data.py の REGION_NAMES と必ず一致させること。
-// 検索キーワード専用 (表示には使わない)。地域名を実際に翻訳しているのを確認できた
-// locale だけ登録し、未登録 locale は default (ラテン/英語) にフォールバックする。
-// el_gr/th_th/id_id 等のクライアントは地域名をラテン文字のまま表示しているため
-// あえて登録しない (default フォールバックが実クライアント表記と一致する)。新しく
-// locale を足す時は公式クライアント表記を確認してから (推測の音訳は入れない)。
+// Region names were meant to come from the universe-meeps API, but Riot's S3 IAM
+// config is broken and returns a permanent 403 (confirmed 2026-05). So they are
+// hardcoded here like ROLE/RARITY. Slugs must match REGION_NAMES in generate_data.py.
+// Search-keyword only (never displayed). Only locales confirmed to actually translate
+// region names are registered; unregistered locales fall back to default (Latin/English).
+// Clients like el_gr/th_th/id_id show region names in Latin script, so they are
+// deliberately left out (the default fallback matches the real client text). When adding
+// a new locale, verify the official client text first (no guessed transliterations).
 export const REGION_LABELS = {
   default: {
     "demacia": "Demacia", "noxus": "Noxus", "ionia": "Ionia", "piltover": "Piltover",
@@ -1958,10 +1958,10 @@ export const REGION_LABELS = {
   },
 };
 
-// locale コード ("ja_jp", "default" 等) から国旗 SVG の URL を返す。
-// Unicode の国旗絵文字は Windows (Segoe UI Emoji) では 2文字の地域識別子に
-// 化けて幅が揃わないので、flagcdn.com の SVG を固定サイズで使う。
-// "default" は LoL クライアントの英語=en_US 相当なので us を返す。
+// Returns a flag SVG URL from a locale code ("ja_jp", "default", etc.).
+// Unicode flag emoji render as a 2-letter region indicator on Windows (Segoe UI
+// Emoji) and don't line up in width, so we use fixed-size SVGs from flagcdn.com.
+// "default" is the LoL client's English (≈ en_US), so it returns us.
 export const LOCALE_CC_OVERRIDES = { default: "us" };
 export function localeToCC(code) {
   if (LOCALE_CC_OVERRIDES[code]) return LOCALE_CC_OVERRIDES[code];
@@ -1971,21 +1971,21 @@ export function localeToCC(code) {
 }
 export function localeFlagURL(code) {
   const cc = localeToCC(code);
-  // 22x16 で表示するので w40 (40px幅 PNG) より SVG のほうが軽くて綺麗
+  // Displayed at 22x16, so an SVG is lighter and crisper than w40 (40px-wide PNG)
   return cc ? `https://flagcdn.com/${cc}.svg` : "";
 }
 
-// locale 文字列から短い言語コード表記を導く (旗だけだと英語=US 旗のように
-// 旗⇄言語の対応が直感的でないので PC では旗の隣に併記する)。i18n キーは増やさず
-// locale 文字列の先頭セグメントを使う: "default" は英語なので "EN"、それ以外は
-// 先頭セグメントを大文字化 (ja_jp→JA)。zh_cn/zh_tw はどちらも "ZH" になるが
-// 旗 (CN/TW) で判別できるので許容する。
+// Derives a short language-code label from a locale string (the flag alone is
+// unintuitive — e.g. English shows the US flag — so on desktop we show it next to
+// the flag). No new i18n keys: just use the first segment of the locale string —
+// "default" is English so "EN", otherwise uppercase the first segment (ja_jp→JA).
+// zh_cn/zh_tw both become "ZH", but the flag (CN/TW) disambiguates, so that's fine.
 function localeShortCode(code) {
   if (!code || code === "default") return "EN";
   return code.split("_")[0].toUpperCase();
 }
 
-// 言語ボタンの表示 (国旗 + 言語コード) と現在言語の aria-current を現在の locale に合わせる
+// Syncs the language button (flag + language code) and the aria-current of the active language to the current locale
 export function setLangButton(code) {
   const img = $("lang-flag");
   const url = localeFlagURL(code);
@@ -1996,8 +1996,8 @@ export function setLangButton(code) {
     img.removeAttribute("src");
     img.style.visibility = "hidden";
   }
-  // 言語コードラベルは index.html に常設せず、初回だけ旗の隣に生成して以後は
-  // textContent を書き換える (モバイルでは CSS で display:none にして旗のみに戻す)
+  // The language-code label isn't kept in index.html; created next to the flag on
+  // first run, then we just rewrite textContent (CSS hides it on mobile, flag only)
   const btn = $("lang-btn");
   if (btn) {
     let label = btn.querySelector(".lang-code");
@@ -2023,8 +2023,9 @@ export function closeLangMenu() {
   $("lang-btn").setAttribute("aria-expanded", "false");
 }
 
-// タブの幅をラベルが最も長いものに揃える。locale で「シリーズ」と「Líneas de aspectos」
-// くらい差が出るので CSS だけでは等幅にできず、ここで実測 → min-width で同期する。
+// Equalizes tab widths to the longest label. Locales differ a lot in length
+// (e.g. "Skin Lines" vs "Líneas de aspectos"), which CSS alone can't equalize, so
+// we measure here and sync via min-width.
 export function equalizeTabs() {
   const tabs = document.querySelectorAll(".view-tabs .tab");
   if (!tabs.length) return;
@@ -2034,33 +2035,33 @@ export function equalizeTabs() {
   tabs.forEach(el => { el.style.minWidth = max + "px"; });
 }
 
-// スライドショーの一時停止/再生ボタンを state.lb.paused に同期させる。ラベル
-// (Pause↔Resume) と見た目 (.active = 再生中はゴールド点灯) を必ず一致させ、
-// openLightbox / クリック / locale 再適用の 3 経路で取り違えが起きないようにする。
-// アクションラベル方式なので aria-pressed は付けない (可視テキストが状態を伝える)。
+// Syncs the slideshow pause/play button to state.lb.paused. The label
+// (Pause↔Resume) and look (.active = gold when playing) must always agree, so the
+// three paths (openLightbox / click / locale re-apply) can't get out of sync.
+// Action-label style, so no aria-pressed (the visible text conveys the state).
 export function syncPauseButton() {
   const btn = $("ss-pause");
   if (!btn) return;
   btn.textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
-  // ラベルは状態 (停止/再開) で変わるが、ホバー説明は「何のボタンか」を一定で伝える
+  // The label changes with state (Pause/Resume), but the hover tip constantly says what the button is
   btn.title = t("ss_pause_tip");
   btn.classList.toggle("active", !state.lb.paused);
 }
 
-// キャプション切替ボタンのラベルを state.lb.caption に同期させる
-// (full / name / none)。クリック / openLightbox / locale 再適用で共用する。
+// Syncs the caption-toggle button label to state.lb.caption
+// (full / name / none). Shared by click / openLightbox / locale re-apply.
 export function syncCaptionButton() {
   const btn = $("ss-caption");
   if (!btn) return;
   btn.textContent = t("ss_caption_" + state.lb.caption);
-  // ラベルは現在のモード (full/name/none) を表示するので、ホバー説明で役割を補う
+  // The label shows the current mode (full/name/none), so the hover tip supplies the button's purpose
   btn.title = t("ss_caption_tip");
 }
 
-// ライトボックスの画像フィット切替ボタンを state.lb.fit に同期させる。アイコン (⛶) は
-// 固定で、cover (画面いっぱい) の時だけゴールド点灯 (.active) で状態を示す
-// (syncPauseButton と同じ「状態反映だけ」の関数)。aria-label は contain/cover の状態では
-// 変えず一定の説明文 (locale には t() で追従する)。
+// Syncs the lightbox image-fit toggle to state.lb.fit. The icon (⛶) is fixed;
+// only cover (fill the screen) shows state via the gold .active glow
+// (a "reflect state only" function, like syncPauseButton). The aria-label stays
+// constant across contain/cover (it follows the locale via t()).
 export function syncFitButton() {
   const btn = $("lb-fit");
   if (!btn) return;
@@ -2069,17 +2070,17 @@ export function syncFitButton() {
   btn.classList.toggle("active", state.lb.fit === "cover");
 }
 
-// 静的 DOM 要素 (ボタン/プレースホルダ/aria) を現在の locale に合わせて再適用する。
-// 動的レンダリングされる文字列は render() 経由で都度 t() を通すので、ここでは
-// init で焼き付いた static element だけを再描画すれば十分。
+// Re-applies static DOM elements (buttons/placeholders/aria) to the current locale.
+// Dynamically rendered strings go through t() each time via render(), so here it's
+// enough to re-render just the static elements baked in at init.
 export function applyStaticUIStrings() {
-  // 中文だけは言語コード "zh" では簡体/繁体が区別できないので script subtag で分ける
+  // Chinese alone can't be distinguished as Simplified/Traditional by "zh", so split it with a script subtag
   const LANG_TAG_OVERRIDES = { zh_cn: "zh-Hans", zh_tw: "zh-Hant" };
   document.documentElement.lang = state.locale === "default"
     ? "en"
     : LANG_TAG_OVERRIDES[state.locale] || state.locale.split("_")[0];
-  // placeholder はアクセシブルネームにならないので、同じ翻訳済み文言を aria-label にも当てる
-  // (render() が view 別の placeholder/aria-label に上書きするが、初期/locale 切替時はこれで名前を確保)
+  // placeholder doesn't provide an accessible name, so put the same translated text on aria-label too
+  // (render() overwrites the per-view placeholder/aria-label, but this secures a name on init / locale switch)
   $("search").placeholder = t("search_placeholder");
   $("search").setAttribute("aria-label", t("search_placeholder"));
   const skip = $("skip-link");
@@ -2097,13 +2098,14 @@ export function applyStaticUIStrings() {
   $("back-btn").textContent = t("back");
   const sortSel = $("sort-select");
   if (sortSel) {
-    // 接頭ラベル (locale 追従)。可視 <label for="sort-select"> が SR のアクセシブル
-    // ネームを供給するので、select 側に aria-label は持たせない (二重命名回避)
+    // Prefix label (follows the locale). The visible <label for="sort-select"> supplies
+    // the SR accessible name, so the select gets no aria-label (avoid double-naming)
     const lbl = $("sort-label");
     if (lbl) lbl.textContent = t("sort_aria");
-    // option ラベルは静的・常に略称。name は先頭トークンを落として方向表記だけ残し
-    // ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ")、release は locale 別の短縮
-    // (無ければ当 locale のフル表記)。発見性は隣の接頭ラベルが担保するので開閉で切替えない
+    // option labels are static and always abbreviated. For name, drop the leading token
+    // and keep only the direction ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ");
+    // release uses the per-locale short form (or this locale's full text if none).
+    // Discoverability is covered by the adjacent prefix label, so it doesn't change on open/close
     const table = UI_STRINGS[state.locale] || UI_STRINGS.default;
     const labelFor = (val) => {
       if (val === "release") return table.sort_release_short || t("sort_release");
@@ -2126,19 +2128,19 @@ export function applyStaticUIStrings() {
   syncCaptionButton();
   syncFitButton();
   $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
-  // 間隔ボタンのラベルは現在値 (⏱ 7s) だけなので、ホバー説明で「クリックで変わる」ことを伝える。
-  // クリックで textContent は変わるが title は固定説明なのでここで一度入れれば足りる
+  // The interval button's label is just the current value (⏱ 7s), so the hover tip conveys "click to change".
+  // Click changes textContent, but title is a fixed description, so setting it once here is enough
   $("ss-interval").title = t("ss_interval_tip");
   const ssOptions = $("ss-options");
   if (ssOptions) {
-    // aria-label は簡潔な名前、title は中身 (間隔/キャプション) まで補う一段詳しい説明にして、
-    // 同一文字列の二重 (アクセシブルネーム + title) を避ける
+    // aria-label is a concise name, title is a one-step-more-detailed description covering
+    // the contents (interval/captions), avoiding the same string twice (accessible name + title)
     ssOptions.setAttribute("aria-label", t("ss_options_aria"));
     ssOptions.title = t("ss_options_tip");
   }
   const offText = $("offline-banner-text");
   if (offText) offText.textContent = t("offline_banner");
-  // 「トップへ戻る」FAB はグリフ (↑) なのでテキストは触らず aria-label だけ locale 追従
+  // The "back to top" FAB is a glyph (↑), so leave the text alone and only follow the locale on aria-label
   const toTop = $("to-top");
   if (toTop) toTop.setAttribute("aria-label", t("back_to_top"));
   const disclaimer = $("footer-disclaimer");
@@ -2150,27 +2152,27 @@ export function applyStaticUIStrings() {
   }
 }
 
-// 表示用ヘルパ: 翻訳マップが空 (default) なら data.json の英語名にフォールバック。
-// 翻訳が無いキーも英語名で出るので、locale が一部欠損していても UI は壊れない。
+// Display helpers: if the translation map is empty (default), fall back to the English name in data.json.
+// Untranslated keys also render in English, so a partially missing locale won't break the UI.
 export function champName(c) {
   return state.i18n.champions[c.alias] || c.name;
 }
 export function skinLabel(c, s) {
-  // Classic は英語側で `<alias>_Classic` という機械的な label。表示はチャンピオン名で代用する
+  // Classic has a mechanical English label `<alias>_Classic`; display the champion name instead
   if (s.label.endsWith("_Classic")) return champName(c);
   return state.i18n.skins[SELECT_KEY(c.alias, s.label)] || s.label;
 }
-// スキンの説明文 (lore/flavor)。大半のスキンには無いので空文字を返すケースが多い。
-// 翻訳が無い locale では英語 (data.json の s.desc) にフォールバック
+// Skin description (lore/flavor). Most skins have none, so this often returns an empty string.
+// Locales without a translation fall back to English (s.desc in data.json)
 export function skinDescription(c, s) {
   const own = state.i18n.skin_descriptions[SELECT_KEY(c.alias, s.label)] || s.desc;
   if (own) return own;
-  // Classic/base は skin 固有の説明文を持たないので champion 紹介文 (bio) で補完する。
-  // 非 base で desc 欠落のスキンは従来どおり空のまま (= ライトボックスで畳まれる)
+  // Classic/base has no skin-specific description, so fill in with the champion bio.
+  // Non-base skins missing a desc stay empty as before (= collapsed in the lightbox)
   if (s.label.endsWith("_Classic")) return championBio(c);
   return "";
 }
-// チャンピオン紹介文 (shortBio)。翻訳が無ければ data.json の英語 c.bio にフォールバック
+// Champion bio (shortBio). Falls back to the English c.bio in data.json if no translation
 export function championBio(c) {
   return state.i18n.champion_descriptions[c.alias] || c.bio || "";
 }
@@ -2178,14 +2180,14 @@ export function lineName(lid) {
   return state.i18n.lines[String(lid)] || (DATA && DATA.skin_lines || {})[String(lid)] || `Line ${lid}`;
 }
 
-// ライトボックス/スライドショーが受け取る 1 枚分のアイテム形 (localized 名前 + メディア URL)。
-// render.js と lightbox.js が同じ形を別々に組んでいたのを 1 箇所に集約する。
+// The per-item shape the lightbox/slideshow consumes (localized names + media URL).
+// Consolidates here what render.js and lightbox.js used to build separately in the same shape.
 export function toLightboxItem(c, s) {
   return { champ: champName(c), skin: skinLabel(c, s), src: s.splash, video: s.video, desc: skinDescription(c, s) };
 }
 
-// navigator.languages から、CDragon の locale コード (xx_xx) に最も近いものを 1 つ拾う。
-// 一致が無ければ "default" (= 英語) を返す
+// Picks the closest CDragon locale code (xx_xx) from navigator.languages.
+// Returns "default" (= English) if there's no match
 export function pickInitialLocale(available) {
   const saved = lsGet(LS_LOCALE_KEY);
   if (saved && (saved === "default" || available.has(saved))) return saved;
@@ -2195,8 +2197,8 @@ export function pickInitialLocale(available) {
     const norm = raw.toLowerCase().replace("-", "_");
     if (norm.startsWith("en")) return "default";
     if (available.has(norm)) return norm;
-    // ブラウザは "ja" や "zh-Hant-TW" のような形で来ることもあるので、
-    // 先頭の言語コード部分だけ取って prefix マッチを試す (zh → zh_cn/zh_tw のどれか)
+    // Browsers may send forms like "ja" or "zh-Hant-TW", so take only the leading
+    // language-code part and try a prefix match (zh → one of zh_cn/zh_tw)
     const short = norm.split("_")[0];
     for (const av of available) {
       if (av.startsWith(short + "_")) return av;
@@ -2212,9 +2214,10 @@ export async function loadLocale(code) {
     return;
   }
   try {
-    // data.json (no-cache) と鮮度を揃える。force-cache だと一度入った HTTP キャッシュが
-    // 無期限に使われ、週次更新後も新スキンの翻訳が当たらない (sw.js の network-first も
-    // Request の cache mode を引き継ぐため迂回できない)。ETag 再検証は 304 で軽い
+    // Match the freshness of data.json (no-cache). With force-cache, an HTTP cache
+    // entry, once stored, is used indefinitely, so new-skin translations never land
+    // after the weekly update (sw.js's network-first can't route around it either, as
+    // it inherits the Request's cache mode). ETag re-validation is cheap via 304
     const res = await fetch(`./i18n/${code}.json`, { cache: "no-cache" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const json = await res.json();
@@ -2223,13 +2226,13 @@ export async function loadLocale(code) {
       champions: json.champions || {},
       skins: json.skins || {},
       skin_descriptions: json.skin_descriptions || {},
-      // 旧 i18n ファイル (champion_descriptions 追加前) でも参照が壊れないよう || {}
+      // || {} so references don't break on old i18n files (before champion_descriptions was added)
       champion_descriptions: json.champion_descriptions || {},
       lines: json.lines || {},
     };
   } catch (e) {
-    // i18n ファイルが無い/壊れている時は静かに英語にフォールバック。UI は動く
-    console.warn(`i18n: ${code} の読み込み失敗、英語にフォールバック`, e);
+    // When the i18n file is missing/corrupt, silently fall back to English. The UI still works
+    console.warn(`i18n: failed to load ${code}, falling back to English`, e);
     state.locale = "default";
     state.i18n = { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} };
   }

@@ -2,13 +2,13 @@ name: Update splash data
 
 on:
   schedule:
-    # 毎週月曜の朝9時(JST) = 月曜の0時(UTC)
+    # Every Monday 09:00 JST = Monday 00:00 UTC
     - cron: '0 0 * * 1'
-  workflow_dispatch:   # 手動実行も可
+  workflow_dispatch:   # Manual runs allowed too
 
 permissions:
   contents: write
-  issues: write   # CHAMPION_REGIONS 未登録時に @claude 宛て issue を自動起票するため
+  issues: write   # To auto-file an @claude issue when a champion is missing from CHAMPION_REGIONS
 
 jobs:
   update:
@@ -21,17 +21,18 @@ jobs:
           python-version: '3.x'
 
       - name: Generate data.json + i18n
-        # 20 locale ぶんの per-champion JSON 取得が走るので 10〜30 分程度かかる。
-        # GitHub Actions の job timeout (デフォ6時間) には十分収まる
+        # Fetches per-champion JSON for 20 locales, so this takes ~10-30 min.
+        # Well within the GitHub Actions job timeout (6h default).
         run: python generate_data.py
 
       - name: File @claude issue for unmapped champions
-        # generate_data.py が unmapped_regions.json を書き出した場合のみ走る。
-        # ファイルが無ければ hashFiles が '' を返してこの step は skip される。
-        # github-token は PAT (secrets.GH_PAT) が設定されていればそれを使う = 起票した
-        # issue が claude.yml の issues.opened を発火させて自動 PR まで進む。PAT 未設定
-        # の場合は GITHUB_TOKEN にフォールバック → issue は立つが claude.yml は
-        # 発火しないので、メンテナが手動で "@claude proceed" コメントするまで待機する
+        # Runs only if generate_data.py wrote unmapped_regions.json.
+        # If the file is absent, hashFiles returns '' and this step is skipped.
+        # github-token uses the PAT (secrets.GH_PAT) when set, so the filed
+        # issue fires claude.yml's issues.opened and proceeds to an auto PR.
+        # Without a PAT it falls back to GITHUB_TOKEN: the issue is still
+        # created but claude.yml does not fire, so it waits for a maintainer
+        # to manually comment "@claude proceed".
         if: hashFiles('unmapped_regions.json') != ''
         uses: actions/github-script@v7
         with:
@@ -40,14 +41,14 @@ jobs:
             const fs = require('fs');
             const aliases = JSON.parse(fs.readFileSync('unmapped_regions.json', 'utf8'));
 
-            // 同名 issue が既に open なら重複起票しない (毎週 cron で走るので重要)
+            // Skip filing if a same-titled issue is already open (matters since cron runs weekly)
             const { data: openIssues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               per_page: 100,
             });
-            const titleOf = (a) => `CHAMPION_REGIONS: ${a} 未登録`;
+            const titleOf = (a) => `CHAMPION_REGIONS: ${a} not registered`;
             const openTitles = new Set(openIssues.map(i => i.title));
 
             for (const alias of aliases) {
@@ -55,19 +56,19 @@ jobs:
                 console.log(`Skip ${alias}: issue already open`);
                 continue;
               }
-              // CDragon alias は PascalCase。wiki URL は同形 (空白除去後の PascalCase)
+              // CDragon alias is PascalCase. The wiki URL has the same form (PascalCase after stripping spaces)
               const wikiName = alias.charAt(0).toUpperCase() + alias.slice(1);
               const body = [
-                `@claude 新チャンピオン \`${alias}\` が \`CHAMPION_REGIONS\` に未登録です。`,
+                `@claude New champion \`${alias}\` is not registered in \`CHAMPION_REGIONS\`.`,
                 ``,
-                `## やってほしいこと`,
+                `## What to do`,
                 ``,
-                `1. https://wiki.leagueoflegends.com/en-us/${wikiName} で「Region」を調べる`,
-                `2. \`generate_data.py\` の \`CHAMPION_REGIONS\` dict に \`"${alias}": ["<slug>"],\` を alphabet 順で挿入`,
-                `   - 使える slug は同ファイル冒頭の \`REGION_NAMES\` キー (demacia/noxus/ionia/piltover/zaun/bilgewater/bandle-city/freljord/shadow-isles/shurima/targon/ixtal/void/runeterra/camavor/icathia)`,
-                `   - 複数地域に深く関わるキャラは primary 先頭の配列で (例: \`["demacia", "shadow-isles"]\`)`,
-                `   - 該当 slug が無い完全新地域なら \`REGION_NAMES\` (generate_data.py) と \`REGION_LABELS\` (js/i18n.js) にも 1 行ずつ追加`,
-                `3. branch を作って PR を出す`,
+                `1. Look up the "Region" on https://wiki.leagueoflegends.com/en-us/${wikiName}`,
+                `2. Insert \`"${alias}": ["<slug>"],\` into the \`CHAMPION_REGIONS\` dict in \`generate_data.py\`, in alphabetical order`,
+                `   - Valid slugs are the \`REGION_NAMES\` keys at the top of the same file (demacia/noxus/ionia/piltover/zaun/bilgewater/bandle-city/freljord/shadow-isles/shurima/targon/ixtal/void/runeterra/camavor/icathia)`,
+                `   - For characters deeply tied to multiple regions, use an array with the primary one first (e.g. \`["demacia", "shadow-isles"]\`)`,
+                `   - For a brand-new region with no matching slug, also add one line each to \`REGION_NAMES\` (generate_data.py) and \`REGION_LABELS\` (js/i18n.js)`,
+                `3. Create a branch and open a PR`,
                 ``,
                 `_Auto-generated by \`Update splash data\` workflow_`,
               ].join('\n');

@@ -1,23 +1,23 @@
-// 壁紙の確認モーダル (ローカル実行モード専用)。
-// My Gallery で複数選択 → 「壁紙にする」→ このモーダルで内容を確認 → 一括設定。
-// 1枚なら静止壁紙、2枚以上なら OS 純正スライドショー (実体はサーバ local_app.py)。
+// Wallpaper confirmation modal (local run mode only).
+// My Gallery multi-select -> "Set as wallpaper" -> review here -> apply in one batch.
+// One image = static wallpaper, two or more = OS-native slideshow (server is local_app.py).
 //
-// モーダルの DOM は初回に遅延生成する (index.html を汚さない。toast と同じ手法)。
-// 配線も初回だけ行い、開くたびに対象 (_items) と表示だけ差し替える。
+// The modal DOM is lazily created on first use (keeps it out of index.html, same trick
+// as toast). Wiring also happens once; each open just swaps the target (_items) and display.
 
 import { state, $, esc, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
 import { t, champName, skinLabel } from "./i18n.js";
 import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
 
-// 切り替え間隔の選択肢 (分)。value はミリ秒。2枚以上のときだけ表示する。
+// Interval choices (minutes). value is milliseconds. Shown only for two or more images.
 const WP_INTERVALS = [1, 5, 15, 30, 60];
 
-let _items = [];     // 現在モーダルが対象にしている選択アイテム
-let _applying = false; // 適用中フラグ。POST 完了までモーダルを閉じさせない (Esc/背景クリック含む)
-let releaseTrap = null; // 確認モーダルのフォーカストラップ解除関数 (open で張り、close で解除)
-let releaseDoneTrap = null; // 完了モーダルのフォーカストラップ解除関数
-let _lastFocus = null;      // 確認モーダルを開く直前のフォーカス (閉じたら戻す)
-let _doneLastFocus = null;  // 完了モーダルを開く直前のフォーカス
+let _items = [];     // selected items the modal currently targets
+let _applying = false; // apply-in-progress flag. Blocks closing until POST finishes (incl. Esc/backdrop click)
+let releaseTrap = null; // focus-trap release fn for the confirm modal (set on open, called on close)
+let releaseDoneTrap = null; // focus-trap release fn for the done modal
+let _lastFocus = null;      // focus just before opening the confirm modal (restored on close)
+let _doneLastFocus = null;  // focus just before opening the done modal
 
 function intervalOptionsHTML() {
   const saved = parseInt(lsGet(LS_WP_INTERVAL_KEY, ""), 10);
@@ -58,7 +58,7 @@ function ensureModal() {
     </div>`;
   document.body.appendChild(el);
 
-  // 配線は1回だけ。閉じる手段は キャンセル / 背景クリック / Esc。
+  // Wire up once. Close paths: Cancel / backdrop click / Esc.
   $("wp-cancel").addEventListener("click", closeModal);
   $("wp-backdrop").addEventListener("click", closeModal);
   document.addEventListener("keydown", (e) => {
@@ -70,7 +70,7 @@ function ensureModal() {
 }
 
 function closeModal() {
-  // 適用中は閉じさせない (Cancel ボタンは disabled だが Esc / 背景クリックも同じ扱いにする)
+  // Don't close mid-apply (Cancel button is disabled, but treat Esc / backdrop click the same)
   if (_applying) return;
   const el = $("wp-modal");
   if (!el || el.hidden) return;
@@ -78,15 +78,15 @@ function closeModal() {
   unlockScroll();
   clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
-  // 開く前のフォーカス (ギャラリーの「壁紙にする」ボタン) へ戻す
+  // Restore focus to where it was before opening (the gallery's "Set as wallpaper" button)
   if (_lastFocus && typeof _lastFocus.focus === "function") {
     try { _lastFocus.focus(); } catch (_) {}
   }
   _lastFocus = null;
 }
 
-// 適用成功後の「完了！楽しんでね〜」モーダル。確認モーダルとは別物 (トーストの代わり)。
-// 確認モーダルのレイアウトを汚さないよう独立した小さなモーダルとして遅延生成する。
+// Post-success "Done! Enjoy~" modal. Separate from the confirm modal (used instead of a toast).
+// Lazily created as its own small modal so it doesn't muddy the confirm modal's layout.
 function ensureDoneModal() {
   let el = $("wp-done-modal");
   if (el) return el;
@@ -129,14 +129,14 @@ function closeDone() {
 
 function openDone(data) {
   ensureDoneModal();
-  // 枚数で振り分けた結果に応じた一言 (静止 / スライドショー枚数)。
+  // One-liner reflecting how the count was dispatched (static / slideshow image count).
   $("wp-done-detail").textContent =
     data.mode === "slideshow" ? t("wallpaper_slideshow_set", data.count) : t("wallpaper_set");
   _doneLastFocus = document.activeElement;
   $("wp-done-modal").hidden = false;
   lockScroll();
   setBackgroundInert();
-  // 他モーダルと同じ作法: 背景到達を inert で止め、Tab を閉じ込め、OK にフォーカス
+  // Same convention as other modals: inert blocks the background, trap Tab, focus OK
   if (releaseDoneTrap) releaseDoneTrap();
   releaseDoneTrap = trapFocus($("wp-done-modal"));
   const ok = $("wp-done-ok");
@@ -160,9 +160,9 @@ async function onApply() {
   const cancel = $("wp-cancel");
   const urls = _items.map((it) => it.skin.splash).filter(Boolean);
   if (!urls.length) return;
-  // 適用中はボタンを無効化し、進捗ゲージを出す。サーバの POST は全画像 DL 完了まで
-  // ブロックするので、別途 /api/wallpaper/progress をポーリングして done/total を反映する
-  // (枚数が多いと「固まった」ように見えるのを防ぐ)。
+  // While applying, disable buttons and show the progress gauge. The server POST blocks until
+  // all images are downloaded, so poll /api/wallpaper/progress separately to reflect done/total
+  // (prevents it looking "frozen" when there are many images).
   _applying = true;
   apply.disabled = true;
   cancel.disabled = true;
@@ -175,8 +175,8 @@ async function onApply() {
     const interval = parseInt($("wp-interval").value, 10) || WALLPAPER_INTERVAL_DEFAULT;
     const data = await applyWallpaper(urls, interval);
     showProgress(urls.length, urls.length);
-    // 成功時はトーストではなく「完了！楽しんでね〜」モーダルでお祝いする。
-    // closeModal は _applying 中ガードされるので先にフラグを下ろす
+    // On success, celebrate with the "Done! Enjoy~" modal instead of a toast.
+    // closeModal is guarded while _applying, so drop the flag first.
     _applying = false;
     closeModal();
     openDone(data);
@@ -191,7 +191,7 @@ async function onApply() {
   }
 }
 
-// 選択アイテム群を対象に確認モーダルを開く。render.js (ギャラリーの「壁紙にする」) から呼ぶ。
+// Open the confirm modal for a set of selected items. Called from render.js (gallery's "Set as wallpaper").
 export function openWallpaperConfirm(items) {
   _items = (items || []).filter((it) => it && it.skin && it.skin.splash);
   if (!_items.length) {
@@ -199,14 +199,14 @@ export function openWallpaperConfirm(items) {
     return;
   }
   ensureModal();
-  hideProgress();  // 前回適用の進捗表示が残っていれば消す
-  // サムネイル一覧 (CDragon から直接。壁紙設定はサーバ側で取得するのでここは表示専用)
+  hideProgress();  // clear any leftover progress display from a previous apply
+  // Thumbnail list (straight from CDragon. Wallpaper setting fetches server-side, so this is display-only)
   $("wp-grid").innerHTML = _items.map((it) => {
     const alt = `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`;
     return `<img class="wp-thumb" loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(alt)}">`;
   }).join("");
 
-  // 2枚以上のときだけ間隔ピッカーを出す (1枚は静止壁紙なので間隔は無意味)。
+  // Show the interval picker only for two or more (one image is a static wallpaper, so interval is meaningless).
   const multi = _items.length >= 2;
   $("wp-interval").innerHTML = intervalOptionsHTML();
   $("wp-interval-row").hidden = !multi;
@@ -217,8 +217,8 @@ export function openWallpaperConfirm(items) {
   _lastFocus = document.activeElement;
   $("wp-modal").hidden = false;
   lockScroll();
-  // 他モーダル (lightbox / tutorial / progress) と同じ隔離モデル: 背景を inert にして
-  // SR の browse カーソル巡回を止め、Tab を閉じ込め、主操作にフォーカスを移す。
+  // Same isolation model as other modals (lightbox / tutorial / progress): make the background
+  // inert to stop the SR browse cursor wandering, trap Tab, and move focus to the main action.
   setBackgroundInert();
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus($("wp-modal"));

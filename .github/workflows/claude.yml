@@ -1,23 +1,23 @@
 name: Claude
 
-# `@claude <task>` を issue 本文 / issue コメント / PR レビューコメントに含めると、
-# Anthropic 公式の Claude Code Action がリポジトリに対して動く。
-# 主な用途は CHAMPION_REGIONS 未登録 issue の自動 PR 化 (update.yml が起票したものを
-# Claude が拾って wiki を調べて PR を作る)。
+# Including `@claude <task>` in an issue body / issue comment / PR review comment
+# runs Anthropic's official Claude Code Action against the repo.
+# The main use is turning unmapped-CHAMPION_REGIONS issues into auto PRs (Claude
+# picks up the issue filed by update.yml, looks up the wiki, and opens a PR).
 #
-# === 重要: GITHUB_TOKEN による issue 作成は他ワークフローを起動しない ===
-# GitHub の仕様で「GITHUB_TOKEN が作った issue は他の workflow を発火しない」(無限
-# ループ防止のため)。update.yml が auto-file した issue でこの claude.yml を発火
-# させたい場合、update.yml 側の github-script で PAT を使う必要がある:
-#   secrets.GH_PAT に Personal Access Token (repo scope) を入れて
-#   update.yml の github-script step に github-token: ${{ secrets.GH_PAT }} を指定。
-# PAT 無しの場合は、メンテナが issue にコメントで "@claude proceed" と書いて
-# 手動キックする運用 (issue_comment 経由なら起動する)。
+# === Important: issues created by GITHUB_TOKEN don't trigger other workflows ===
+# Per GitHub's design, "an issue created by GITHUB_TOKEN does not fire other
+# workflows" (to prevent infinite loops). To fire this claude.yml from an issue
+# auto-filed by update.yml, update.yml's github-script must use a PAT:
+#   put a Personal Access Token (repo scope) in secrets.GH_PAT and pass
+#   github-token: ${{ secrets.GH_PAT }} to update.yml's github-script step.
+# Without a PAT, the workflow is kicked manually by a maintainer commenting
+# "@claude proceed" on the issue (via issue_comment it does fire).
 #
-# author_association ガードで OWNER/MEMBER/COLLABORATOR のみ通すため、外部の見ず知らず
-# のユーザが "@claude" と書いても API クレジットは消費されない。
-# issues.opened は github-actions[bot] / 自分自身でフィルタする (issue.user.login 一致 or
-# author_association)。
+# The author_association guard only lets OWNER/MEMBER/COLLABORATOR through, so an
+# unknown outside user writing "@claude" doesn't consume API credits.
+# issues.opened is filtered to github-actions[bot] / ourselves (issue.user.login
+# match or author_association).
 
 on:
   issues:
@@ -28,9 +28,9 @@ on:
     types: [created]
 
 permissions:
-  contents: write       # PR 作成用に branch を push する権限
-  issues: write         # issue にコメントを返す
-  pull-requests: write  # PR の作成・更新
+  contents: write       # Permission to push branches for PR creation
+  issues: write         # Reply with comments on issues
+  pull-requests: write  # Create/update PRs
 
 jobs:
   claude:

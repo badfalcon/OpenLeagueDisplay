@@ -1,6 +1,6 @@
-// エントリポイント: data.json ロード → 初期 locale 解決 → イベント配線 → 初回 render。
-// グリッド画像のロード/失敗は #root への capture 委譲リスナ (wireImgDelegation) で拾う。
-// 旧来のインライン <img onload=...> を撤廃して CSP の script-src 'unsafe-inline' を外した。
+// Entry point: load data.json -> resolve the initial locale -> wire events -> first render.
+// Grid image load/failure is caught by a capture-phase delegated listener on #root (wireImgDelegation).
+// We dropped the old inline <img onload=...> and removed CSP's script-src 'unsafe-inline'.
 
 import {
   state, DATA, $, esc, setData,
@@ -32,10 +32,10 @@ import {
 import { shareSite } from "./share.js";
 import { probeLocal, toast } from "./local.js";
 
-// グリッド画像 (champ/skin/line カード内 <img>) のロード完了/失敗を #root への
-// capture フェーズ委譲で処理する。load/error はバブルしないので capture で拾う。
-// olSettled フラグで再処理を防ぐ (imgErr の src 除去が再 error を誘発しても二重実行しない)。
-// カードは innerHTML で都度作り直されるので、新しい <img> には毎回フラグが付いていない。
+// Handle grid image (the <img> inside champ/skin/line cards) load completion/failure via capture-phase
+// delegation on #root. load/error don't bubble, so we catch them in the capture phase.
+// The olSettled flag prevents reprocessing (so imgErr's src removal re-triggering error doesn't run twice).
+// Cards are rebuilt via innerHTML each time, so a fresh <img> never carries the flag.
 function wireImgDelegation() {
   const root = $("root");
   if (!root) return;
@@ -51,34 +51,34 @@ function wireImgDelegation() {
 }
 
 async function init() {
-  // data.json 取得前でも localStorage の保存 locale で UI を仮表示しておく。
-  // pickInitialLocale は data.json の locales を使うのでロード後に再呼び出しするが、
-  // localStorage に保存があればそれを先に当てて初回フラッシュを減らす。
+  // Even before data.json is fetched, tentatively show the UI in the saved locale from localStorage.
+  // pickInitialLocale uses data.json's locales so it's re-invoked after load, but if there's a saved
+  // value in localStorage we apply it first to reduce the initial flash.
   const savedLoc = lsGet(LS_LOCALE_KEY);
   if (savedLoc && UI_STRINGS[savedLoc]) state.locale = savedLoc;
-  // 並び順も再訪時に復元。未知の値が来てたら無視して既定 (name_asc) のまま。
-  // 旧バージョンの "default" (= リリース順) は新しい "release" にマップして挙動を保つ
+  // Restore the sort order on return visits too. If an unknown value comes in, ignore it and keep the default (name_asc).
+  // Map the old version's "default" (= release order) to the new "release" to preserve behavior.
   const savedSort = lsGet(LS_SORT_KEY);
   if (savedSort === "default") {
     state.sortOrder = "release";
   } else if (savedSort === "release" || savedSort === "name_asc" || savedSort === "name_desc") {
     state.sortOrder = savedSort;
   }
-  // ライトボックスの画像フィットも復元 ("contain" / "cover" のみ受理)
+  // Restore the lightbox image fit too (accept only "contain" / "cover")
   const savedFit = lsGet(LS_LB_FIT_KEY);
   if (savedFit === "contain" || savedFit === "cover") {
     state.lb.fit = savedFit;
   }
   applyStaticUIStrings();
-  // ローカル実行 (local_app.py) かを検知。data.json fetch と並行で走らせ、初回 render の
-  // 前に await する (失敗/Pages では静かに false に倒れ、ビューア本体には影響しない)。
+  // Detect whether this is a local run (local_app.py). Runs in parallel with the data.json fetch and
+  // is awaited before the first render (on failure/Pages it quietly falls to false and doesn't affect the viewer).
   const localProbe = probeLocal();
-  // localized テキストが当たったので、index.html で立てた i18n-loading を外して
-  // 隠していたタブ/ボタン/ローディング文言を見せる。これ以降の locale 切替は
-  // 同期的に DOM を書き換えるためフラッシュは発生しない
+  // Now that localized text is applied, remove the i18n-loading set in index.html to reveal the
+  // tabs/buttons/loading text that were hidden. Locale switches from here on rewrite the DOM
+  // synchronously, so there's no flash.
   document.documentElement.classList.remove("i18n-loading");
-  // Cinzel フォントは defer 読込なので、初回の equalizeTabs() はフォールバック
-  // フォントで測ってしまう。ready 後にもう一度合わせて崩れを防ぐ。
+  // The Cinzel font is deferred, so the first equalizeTabs() measures with the fallback font.
+  // Re-equalize after ready to prevent layout breakage.
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(equalizeTabs);
   }
@@ -87,7 +87,7 @@ async function init() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     setData(await res.json());
   } catch (e) {
-    // data.json 未生成 (初回ローカル起動の典型エラー) は手順を案内する
+    // data.json not generated (the typical first-local-run error): guide the user through the steps
     const is404 = /HTTP 404/.test(e.message);
     const hint = is404
       ? `<p style="margin-top:18px;font-size:13px;color:var(--ink-soft);line-height:1.7">${t("hint_no_data")}</p>`
@@ -96,11 +96,11 @@ async function init() {
     return;
   }
 
-  // setData 後は state.js 内の DATA バインディングが更新されている (live binding 経由で
-  // 各モジュールが参照する)。ここからは DATA.* を直接参照しても良い
+  // After setData, the DATA binding inside state.js is updated (each module references it via the live
+  // binding). From here on it's fine to reference DATA.* directly.
 
-  // 言語ピッカーを構築 (data.json に同梱されている locales を使う)。古い data.json
-  // (locales 未定義) でも壊れないよう、空の場合は "default" だけ表示する
+  // Build the language picker (using the locales bundled in data.json). To stay robust even with an
+  // old data.json (locales undefined), show only "default" when it's empty.
   const localesMeta = Array.isArray(DATA.locales) && DATA.locales.length
     ? DATA.locales
     : [{ code: "default", label: "English" }];
@@ -121,39 +121,39 @@ async function init() {
   setLangButton(initial);
   if (initial !== "default") {
     await loadLocale(initial);
-    // ロード失敗時は loadLocale 内で "default" に戻されているので、UI も合わせる
+    // On load failure loadLocale reverts to "default" internally, so align the UI too
     if (state.locale === "default") setLangButton("default");
   } else if (state.locale !== "default") {
-    // 保存 locale が UI_STRINGS には在るが data.json の locales から外れている
-    // (per-locale 生成失敗 / CDragon 側の locale 削除など) と pickInitialLocale が
-    // default に倒れる。その時 state.locale を放置すると「ボタン=EN / UI chrome=旧言語 /
-    // 名前=英語 (i18n 空) / <html lang> 不整合」の三重ズレになる。default に揃え直す。
+    // If the saved locale exists in UI_STRINGS but is dropped from data.json's locales
+    // (per-locale generation failure / CDragon removing the locale, etc.), pickInitialLocale falls
+    // to default. Leaving state.locale as-is then would cause a triple mismatch: button=EN /
+    // UI chrome=old language / names=English (i18n empty) / inconsistent <html lang>. Realign to default.
     await loadLocale("default");
   }
-  // data.json 取得後に最終的な locale が確定したので、改めて static UI を反映
-  // (stats/last_updated を含むため、必ず DATA セット後に呼ぶこと)
+  // The final locale is settled now that data.json is fetched, so reflect the static UI again
+  // (it includes stats/last_updated, so this must be called after DATA is set).
   applyStaticUIStrings();
 
   buildIndexes();
 
-  // 前回セッションで選択していたスキンを復元する。data.json から消えた
-  // (リネーム/削除された) キーは静かにフィルタしてストレージも上書き保存する
+  // Restore the skins selected in the previous session. Keys that disappeared from data.json
+  // (renamed/removed) are silently filtered out and the storage is overwritten too.
   const saved = loadSelectedFromStorage();
   if (saved.length) {
     for (const k of saved) {
       if (SKIN_BY_KEY.has(k)) state.selected.add(k);
     }
     if (state.selected.size !== saved.length) saveSelected();
-    // ヘッダーのギャラリーボタン件数は applyStaticUIStrings / render() が反映する
+    // The header gallery button count is reflected by applyStaticUIStrings / render()
   }
 
-  // ローカルモード検知の確定を待ってから初回 render (壁紙 UI の表示状態を反映するため)
+  // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility)
   await localProbe;
 
-  // ディープリンク: 初期 hash があれば state に反映してから 1 度だけ render する
-  // (applyRoute だと render を二重に呼ぶので、ここでは state 設定のみ行い render は下に任せる)。
-  // hash が空 (または不正) なら home に倒れ、不正な場合は #/ に正規化しておく
-  // (アドレスバーに壊れた hash を残さない)。
+  // Deep link: if there's an initial hash, reflect it into state and render once
+  // (applyRoute would call render twice, so here we only set state and leave render to below).
+  // If the hash is empty (or invalid), fall to home, and normalize an invalid one to #/
+  // (don't leave a broken hash in the address bar).
   const initialHash = location.hash;
   setStateFromRoute(initialHash);
   if (routeFromState() !== (initialHash || "#/")) {
@@ -162,23 +162,23 @@ async function init() {
 
   render();
 
-  // 初回訪問なら少し遅らせてチュートリアルを自動表示 (UI フェードイン後)
+  // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
 }
 
-// ===== hash ルーティング (#/...) =====
-// GitHub Pages 配信なので hash 方式にする (サーバ側の rewrite 設定が不要)。
-// ルート⇄state の変換と popstate 配線は app.js が持ち、render.js は setRouteListener
-// フックで「render 後に URL を同期して」と通知を受けるだけ (history API は触らない)。
-// ルート定義:
-//   #/                  home (チャンピオン一覧)
-//   #/lines             スキンライン一覧
-//   #/champion/<alias>  チャンピオン詳細
-//   #/line/<id>         スキンライン詳細
+// ===== hash routing (#/...) =====
+// Served on GitHub Pages, so we use the hash approach (no server-side rewrite config needed).
+// route<->state conversion and popstate wiring live in app.js; render.js only receives the
+// setRouteListener hook notification "sync the URL after render" (it never touches the history API).
+// Route definitions:
+//   #/                  home (champion list)
+//   #/lines             skin line list
+//   #/champion/<alias>  champion detail
+//   #/line/<id>         skin line detail
 //   #/gallery           My Gallery (state.view === "selected")
-// 検索クエリ/ソート順は URL に載せない (state/localStorage のみ。スコープを絞る)。
+// Search query / sort order are not put in the URL (state/localStorage only; we keep scope narrow).
 
-// 現在 state からルート文字列を作る。詳細 view で対象が未設定なら home 扱い。
+// Build the route string from the current state. In a detail view with no target set, treat as home.
 function routeFromState() {
   switch (state.view) {
     case "lines": return "#/lines";
@@ -191,21 +191,20 @@ function routeFromState() {
   }
 }
 
-// hash をパースして state.view/currentChamp/currentLine を決める。検索クエリは
-// URL に乗せない方針なので、戻る時は素の view に戻すため常にクリアする。
-// 不正・未知のルート (存在しない alias 等) は home にフォールバックする。
-// render はここで呼ばず呼び出し側に委ねる (初回ディープリンクで二重 render しないため)。
-// decodeURIComponent は不正な %-エンコーディング (#/champion/% 等) で URIError を
-// throw する。改ざん URL でページごと落とさないよう、デコード失敗はそのまま
-// 「未知のルート」として既存の home フォールバックに流す (null を返して実在
-// チェックを不成立にする)。
+// Parse the hash to decide state.view/currentChamp/currentLine. Since the search query is not put in
+// the URL, always clear it so going back returns to the bare view.
+// Invalid/unknown routes (a nonexistent alias etc.) fall back to home.
+// render is not called here, leaving it to the caller (to avoid a double render on the initial deep link).
+// decodeURIComponent throws a URIError on invalid %-encoding (#/champion/% etc.). To avoid crashing the
+// whole page on a tampered URL, route a decode failure straight to the existing home fallback as an
+// "unknown route" (return null so the existence check fails).
 const safeDecode = (str) => { try { return decodeURIComponent(str); } catch (_) { return null; } };
 
 function setStateFromRoute(hash) {
   state.searchQuery = "";
   const s = $("search");
   if (s) s.value = "";
-  // 先頭の "#" と "/" を剥がして "/" 区切りにする ("#/champion/Ahri" → ["champion","Ahri"])
+  // Strip the leading "#" and "/" and split on "/" ("#/champion/Ahri" -> ["champion","Ahri"])
   const path = (hash || "").replace(/^#\/?/, "");
   const parts = path.split("/").filter(Boolean);
   const head = parts[0] || "";
@@ -215,14 +214,14 @@ function setStateFromRoute(hash) {
     state.view = "selected"; state.currentChamp = null; state.currentLine = null;
   } else if (head === "champion" && parts[1]) {
     const alias = safeDecode(parts[1]);
-    // 実在する alias だけ受理。未知 (デコード失敗の null 含む) なら home に倒す
-    // (ディープリンクの URL 改ざん耐性)
+    // Accept only an existing alias. Unknown (including null from a decode failure) falls to home
+    // (deep-link URL tamper resistance).
     const ok = alias !== null && DATA && DATA.champions.some(c => c.alias === alias);
     if (ok) { state.view = "champion"; state.currentChamp = alias; state.currentLine = null; }
     else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
   } else if (head === "line" && parts[1]) {
     const id = safeDecode(parts[1]);
-    // LINE_INDEX に存在する (= メンバを持つ) line だけ受理。デコード失敗の null は弾く
+    // Accept only a line that exists in LINE_INDEX (= has members). Reject null from a decode failure.
     const ok = id !== null && LINE_INDEX.has(String(id));
     if (ok) { state.view = "line"; state.currentLine = id; state.currentChamp = null; }
     else { state.view = "home"; state.currentChamp = null; state.currentLine = null; }
@@ -231,18 +230,18 @@ function setStateFromRoute(hash) {
   }
 }
 
-// hash を state に反映して再描画する (popstate / 戻る時の経路)。render() 末尾の
-// ルートリスナーも走るが、hash は既に一致しているので pushState されない
-// (= 無限ループしない)。スクロールは先頭へ戻す。
+// Reflect the hash into state and re-render (the popstate / back path). render()'s trailing route
+// listener runs too, but since the hash already matches it won't pushState (= no infinite loop).
+// Scroll back to the top.
 function applyRoute(hash) {
   setStateFromRoute(hash);
   render();
   window.scrollTo(0, 0);
 }
 
-// render() 末尾から呼ばれる: 現在 state のルートが location.hash と違えば push する。
-// location.hash 直代入だと hashchange/popstate が再発火して二重 render になるため
-// pushState を使う。これで既存ナビゲーション関数・検索・タブを書き換えずに URL が追従。
+// Called at the end of render(): push if the current state's route differs from location.hash.
+// Direct assignment to location.hash would re-fire hashchange/popstate and cause a double render, so
+// we use pushState. This lets the URL follow along without rewriting the navigation functions, search, or tabs.
 function syncRouteFromState() {
   const want = routeFromState();
   const cur = location.hash || "#/";
@@ -251,21 +250,20 @@ function syncRouteFromState() {
 
 function wirePopstate() {
   window.addEventListener("popstate", () => {
-    // (1) ライトボックスが開いていれば、戻るは「閉じる」に充てる。この時点で history は
-    // 既に巻き戻り済み (state.lb は消えている) なので、closeLightbox 内の history.back()
-    // は発火せず二重戻りにならない。判定は DOM の .open クラスで行う。
+    // (1) If the lightbox is open, Back is spent on "close". By this point history has already
+    // unwound (state.lb is gone), so closeLightbox's history.back() doesn't fire and there's no
+    // double back. The check uses the DOM's .open class.
     if ($("lightbox").classList.contains("open")) {
       closeLightbox();
       return;
     }
-    // (2) それ以外は現在の hash を state に反映する。ただし UI からのライトボックス
-    // 閉じ (closeLightbox 内の history.back) で発火したケースは、URL が view と既に
-    // 一致しているので再 render・スクロールリセットは無駄 (= ちらつき/位置飛び)。
-    // 一致なら何もしない。
+    // (2) Otherwise, reflect the current hash into state. But for the case fired by a UI-driven
+    // lightbox close (history.back inside closeLightbox), the URL already matches the view, so
+    // re-render and scroll reset are wasted (= flicker / position jump). If they match, do nothing.
     if ((location.hash || "#/") === routeFromState()) return;
     applyRoute(location.hash);
   });
-  // render() 後の URL 同期フックを登録する。
+  // Register the URL sync hook that runs after render().
   setRouteListener(syncRouteFromState);
 }
 
@@ -274,10 +272,10 @@ function wireEvents() {
   $("back-btn").addEventListener("click", goBack);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
-  // Slideshow ボタン: 開始できれば全局スライドショーへ。空 (ギャラリーに splash 付き
-  // 選択が無い) なら OS ダイアログを出さず、My Gallery ビューを開いて理由を toast で示す
-  // (空ビューの gallery_empty / _hint が追加導線になる)。startGlobalSlideshow が
-  // 戻り値で開始可否を返すので、ナビゲーションはここ (= 呼び出し側) で行う。
+  // Slideshow button: if it can start, go to the global slideshow. If empty (no splash-bearing
+  // selection in the gallery), don't pop an OS dialog; open the My Gallery view and toast the reason
+  // (the empty view's gallery_empty / _hint act as the next step). startGlobalSlideshow returns
+  // whether it could start, so navigation is done here (= the caller).
   $("slideshow-btn").addEventListener("click", () => {
     if (!startGlobalSlideshow()) {
       openSelected();
@@ -306,20 +304,20 @@ function wireEvents() {
     const code = btn.dataset.code;
     closeLangMenu();
     lsSet(LS_LOCALE_KEY, code);
-    // ロード中はボタンを無効化して連打を防ぐ。ファイルは static で軽いので
-    // 進捗 UI 等は出さず、blocking なロードで十分 (default→non-default で 100KB 程度)
+    // Disable the button while loading to prevent rapid re-clicks. The files are static and small, so
+    // we skip progress UI etc.; a blocking load is enough (~100KB for default->non-default).
     $("lang-btn").disabled = true;
     await loadLocale(code);
     $("lang-btn").disabled = false;
-    // ロード失敗時 loadLocale が default に戻すので、UI もそれに合わせる
+    // On load failure loadLocale reverts to default, so align the UI to it
     setLangButton(state.locale);
-    // UI chrome (ボタン/プレースホルダ/aria) も locale 切替に追従させる
+    // Make the UI chrome (buttons/placeholder/aria) follow the locale switch too
     applyStaticUIStrings();
-    // チュートリアルが開きっぱなしの時は本文も新 locale で塗り直す
+    // If the tutorial is still open, repaint its body in the new locale too
     if (isTutorialOpen()) renderTutorial();
     render();
   });
-  // メニュー外クリック / Escape で閉じる
+  // Close on outside click / Escape
   document.addEventListener("click", (e) => {
     if (!$("lang-picker").contains(e.target)) closeLangMenu();
   });
@@ -327,8 +325,8 @@ function wireEvents() {
     if (e.key === "Escape" && !$("lang-menu").hidden) {
       closeLangMenu();
       $("lang-btn").focus();
-      // この Escape は「メニューを閉じる」で消費済み。後続の document keydown
-      // (goBack / ライトボックス) まで同時に発火させない
+      // This Escape is already consumed by "close the menu". Don't let it also fire the later
+      // document keydown (goBack / lightbox).
       e.stopImmediatePropagation();
     }
   });
@@ -336,18 +334,18 @@ function wireEvents() {
     state.packAbort = true;
     hideProgress();
   });
-  // 入力中に毎キーストロークで render() を回すと、Lines タブ (~2000 スキン分の
-  // 選択集計を含む) で体感がもたつくので 90ms debounce
+  // Running render() on every keystroke while typing feels sluggish on the Lines tab (which tallies
+  // selections across ~2000 skins), so debounce by 90ms.
   let searchTimer = null;
   $("search").addEventListener("input", () => {
     if (searchTimer) clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
-      // 入力イベント時点の値ではなく発火時点の値を読む。タイマー保留中に
-      // goHome 等が input をクリアした場合に古いクエリを書き戻さないため
+      // Read the value at fire time, not at input-event time, so a stale query isn't written back if
+      // goHome etc. cleared the input while the timer was pending.
       const value = $("search").value.trim();
       if (value === state.searchQuery) return;
       state.searchQuery = value;
-      // home/lines のフィルタとして動く。詳細画面で検索したら一覧に戻す
+      // Acts as a filter for home/lines. Searching from a detail view returns to the list.
       if (state.view === "champion") state.view = "home";
       if (state.view === "line") state.view = "lines";
       render();
@@ -364,7 +362,7 @@ function wireEvents() {
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
     syncPauseButton();
-    // setTimeout 連鎖モデルなので、再開時にタイマーを再点火する必要がある
+    // It's a chained-setTimeout model, so the timer must be re-ignited on resume
     if (state.lb.paused) stopSlideshow();
     else if (state.lb.mode === "slideshow") scheduleNext();
   });
@@ -375,14 +373,14 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
-  // ⚙ メニューの開閉。間隔・キャプションを 1 つに集約してツールバーのボタン数を抑える。
-  // 開いたまま両方いじれるよう、メニュー内クリックでは閉じない (外側クリック / Esc で閉じる)
+  // Open/close the ⚙ menu. Interval and caption are grouped into one to limit the number of toolbar buttons.
+  // So both can be adjusted while it stays open, a click inside the menu doesn't close it (outside click / Esc closes it).
   const closeSsMenu = () => {
     $("ss-menu").hidden = true;
     $("ss-options").setAttribute("aria-expanded", "false");
   };
   $("ss-options").addEventListener("click", (e) => {
-    // 親の lightbox click (外側クリック判定) に拾われて即閉じしないよう止める
+    // Stop it from being caught by the parent lightbox click (outside-click detection) and closing immediately
     e.stopPropagation();
     const willOpen = $("ss-menu").hidden;
     $("ss-menu").hidden = !willOpen;
@@ -395,29 +393,29 @@ function wireEvents() {
     syncCaptionButton();
     applyCaption();
   });
-  // メニュー外をクリックしたら畳む (lightbox 全体で拾い、⚙ メニュー内は除外)
+  // Collapse on a click outside the menu (caught across the whole lightbox, excluding inside the ⚙ menu)
   $("lightbox").addEventListener("click", (e) => {
     if (!$("ss-menu").hidden && !$("ss-options-wrap").contains(e.target)) closeSsMenu();
   });
-  // 画像フィット切替 (contain ↔ cover)。縦長スマホの黒帯を潰す。
-  // .fill クラスで CSS の object-fit を切替え、設定は localStorage に永続化する
+  // Image fit toggle (contain ↔ cover). Kills the black bars on tall phones.
+  // The .fill class switches CSS object-fit, and the setting is persisted to localStorage.
   $("lb-fit").addEventListener("click", () => {
     state.lb.fit = state.lb.fit === "cover" ? "contain" : "cover";
     $("lightbox").classList.toggle("fill", state.lb.fit === "cover");
     lsSet(LS_LB_FIT_KEY, state.lb.fit);
     syncFitButton();
   });
-  // オフライン検知: CDragon のスプラッシュ画像はキャッシュ対象外なので、
-  // オフラインだと画像が一斉に出ない。「壊れている」誤解を避けるため理由を告知する
+  // Offline detection: CDragon splash images aren't cached, so offline they all fail to appear.
+  // Announce the reason to avoid the "it's broken" misunderstanding.
   const offlineBanner = $("offline-banner");
   const syncOnlineState = () => { offlineBanner.hidden = navigator.onLine; };
   window.addEventListener("online", syncOnlineState);
   window.addEventListener("offline", syncOnlineState);
   syncOnlineState();
 
-  // 「トップへ戻る」FAB: 一定量スクロールしたら出す。passive リスナーで scroll を
-  // 妨げず、表示状態はフラグでキャッシュして毎 scroll で classList を触らない
-  // (閾値をまたいだ時だけ DOM を更新する)。
+  // "Back to top" FAB: show it after scrolling a certain amount. A passive listener avoids blocking
+  // scroll, and the visibility is cached in a flag so classList isn't touched on every scroll
+  // (the DOM updates only when crossing the threshold).
   const toTopBtn = $("to-top");
   if (toTopBtn) {
     let toTopShown = false;
@@ -430,17 +428,17 @@ function wireEvents() {
     window.addEventListener("scroll", syncToTop, { passive: true });
     syncToTop();
     toTopBtn.addEventListener("click", () => {
-      // reduce-motion を尊重: アニメ無効化希望なら即時ジャンプにする
+      // Respect reduce-motion: jump instantly if the user wants animations disabled
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
     });
   }
 
-  // タッチスワイプ (モバイル): 横方向の動きが縦より明確に大きい時だけ反応させる
+  // Touch swipe (mobile): react only when horizontal movement is clearly larger than vertical
   let tStartX = 0, tStartY = 0;
-  // スワイプ成立直後に発火しうる click を 1 回だけ無視するフラグ。スワイプが成立
-  // するとブラウザは通常 click を発火しないが、機種差で漏れることがあるため、
-  // 確実性優先で「スワイプした直後の stage クリックは chrome トグルに使わない」
+  // A flag to ignore exactly one click that may fire right after a swipe completes. A completed swipe
+  // normally suppresses the browser's click, but some devices leak it, so for reliability we decide
+  // "a stage click right after a swipe is not used for the chrome toggle".
   let swipeConsumedClick = false;
   const lbEl = $("lightbox");
   lbEl.addEventListener("touchstart", (e) => {
@@ -457,13 +455,13 @@ function wireEvents() {
       if (dx > 0) prevSlide(); else nextSlide();
     }
   }, { passive: true });
-  // ステージ (画像領域) タップで操作系 UI を一括トグルする画像ビューア定番のジェスチャ。
-  // ・⚙ メニューが開いている時は既存の「外側クリックで閉じる」(lightbox 全体で拾う
-  //   ハンドラ) を優先し、ここでは何もしない (= タップは閉じる動作に充てる)
-  // ・直前のスワイプで成立した click は 1 回だけ無視する (next/prev と二重発火しない)
-  // ・ハンドラは .lb-stage 直付けなので、ツールバー/矢印/overlay 上のクリックは
-  //   DOM 構造上ここに届かない。lb-overlay は pointer-events:none なので素通しして
-  //   stage に届くが、overlay 領域のタップもトグル対象でよい
+  // Tapping the stage (image area) bulk-toggles the control UI, the standard image-viewer gesture.
+  // - When the ⚙ menu is open, defer to the existing "close on outside click" (the handler caught
+  //   across the whole lightbox) and do nothing here (= the tap is spent on the close action)
+  // - Ignore exactly one click completed by the preceding swipe (no double-fire with next/prev)
+  // - The handler is attached directly to .lb-stage, so by DOM structure clicks on the toolbar/arrows/
+  //   overlay don't reach here. lb-overlay is pointer-events:none so taps pass through to the stage,
+  //   but a tap in the overlay area is fine to toggle too.
   document.querySelector(".lb-stage").addEventListener("click", () => {
     if (swipeConsumedClick) { swipeConsumedClick = false; return; }
     if (!$("ss-menu").hidden) return;
@@ -471,35 +469,35 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    // ローカルの壁紙モーダル (確認 / 完了) が開いている間は、モーダル自身の Esc 処理に
-    // 委ね、app 側のキー処理 (Esc=goBack / ? / 等) を一切走らせない。これがないと
-    // gallery view (view!=="home") で Esc を押すとモーダルを閉じつつ goBack も発火して
-    // 裏で画面遷移してしまう。Tab の閉じ込めは各モーダルの trapFocus が担う。
+    // While a local wallpaper modal (confirm / done) is open, defer to the modal's own Esc handling
+    // and don't run any of the app's key handling (Esc=goBack / ? / etc.). Without this, pressing Esc
+    // in the gallery view (view!=="home") would close the modal and also fire goBack, navigating away
+    // underneath. Tab containment is handled by each modal's trapFocus.
     const wp = $("wp-modal"), wpDone = $("wp-done-modal");
     if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden)) return;
-    // チュートリアル表示中は最優先で吸う (Esc/矢印/Enter のみ)
+    // While the tutorial is shown, absorb keys with top priority (Esc/arrows/Enter only)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();
       else if (e.key === "ArrowRight" || e.key === "Enter") tutNext();
       else if (e.key === "ArrowLeft") tutPrev();
       return;
     }
-    // 進捗オーバーレイ表示中はEsc=中止のみ受け付ける
+    // While the progress overlay is shown, accept only Esc=abort
     if ($("progress-overlay").classList.contains("open")) {
       if (e.key === "Escape") { state.packAbort = true; hideProgress(); }
       return;
     }
     if (!$("lightbox").classList.contains("open")) {
       if (e.key === "Escape" && state.view !== "home") goBack();
-      // ? (Shift+/) でいつでもチュートリアル再表示。検索 input にフォーカス中は
-      // 文字入力として ? を打ちたいケースが想定されるので無効化
+      // ? (Shift+/) reopens the tutorial anytime. Disabled while the search input is focused, since
+      // the user may want to type ? as a character there.
       else if (e.key === "?" && document.activeElement !== $("search")) {
         e.preventDefault();
         openTutorial();
       }
-      // / で検索へジャンプ (PC 向けの定番ショートカット)。入力系にフォーカス中は
-      // 文字として打ちたいので無効化。検索 input は dom-stash から transplant されて
-      // 常に DOM に居るので、見えるよう先頭までスクロールしてからフォーカスする
+      // / jumps to search (the standard desktop shortcut). Disabled while an input is focused, since
+      // the user may want to type it as a character. The search input is transplanted from dom-stash
+      // and always lives in the DOM, so scroll to the top first to make it visible, then focus it.
       else if (e.key === "/") {
         const ae = document.activeElement;
         const tag = ae && ae.tagName;
@@ -510,7 +508,7 @@ function wireEvents() {
       }
       return;
     }
-    // ⚙ メニューが開いていれば Esc はまずメニューを畳む (lightbox は閉じない)
+    // If the ⚙ menu is open, Esc first collapses the menu (doesn't close the lightbox)
     if (e.key === "Escape" && !$("ss-menu").hidden) { closeSsMenu(); return; }
     if (e.key === "Escape") closeLightbox();
     else if (e.key === "ArrowRight") nextSlide();
@@ -519,10 +517,10 @@ function wireEvents() {
   });
 }
 
-// sticky な topbar の実高さを CSS 変数 --topbar-h に書き出す。ギャラリーの
-// sticky ツールバーが topbar 直下に正しく貼り付くための基準値。topbar は
-// 2 段構成 + locale 差 + モバイルでの行2 下部固定化で高さが変わるため、CSS の
-// 固定値ではなく ResizeObserver で実測して追従させる。
+// Write the sticky topbar's actual height to the CSS variable --topbar-h. It's the reference value so
+// the gallery's sticky toolbar pins correctly just below the topbar. The topbar's height varies due to
+// its two-row structure + locale differences + the mobile row-2 bottom-fixing, so we measure with a
+// ResizeObserver and follow along rather than using a fixed CSS value.
 function trackTopbarHeight() {
   const topbar = document.querySelector(".topbar");
   if (!topbar) return;
@@ -537,9 +535,9 @@ function trackTopbarHeight() {
   setVar();
 }
 
-// Service Worker 登録: アプリシェルをキャッシュして再訪を高速化し、インストール可能
-// 要件を満たす。初回ロードの帯域と競合させないよう load 後に登録する。
-// 失敗 (file:// 直開き / 非対応ブラウザ) してもビューア本体の動作には影響しない
+// Service Worker registration: cache the app shell to speed up return visits and satisfy the
+// installability requirement. Register after load so it doesn't contend with the initial load's bandwidth.
+// Failure (opening file:// directly / unsupported browser) doesn't affect the viewer itself.
 function registerSW() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
@@ -549,19 +547,19 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
-  // グリッド画像の load/error 委譲リスナを初回 render より前に張る (#root は初期 HTML に在る)
+  // Attach the grid image load/error delegated listener before the first render (#root is in the initial HTML)
   wireImgDelegation();
-  // hash ルーティングの popstate 配線 + render 後の URL 同期フックを先に張る。
-  // init() の初回 render でフックが呼ばれても、ディープリンク解決で hash は既に
-  // 正規化済みなので余計な pushState は出ない。
+  // Attach the hash-routing popstate wiring + the post-render URL sync hook first.
+  // Even if the hook is called by init()'s first render, the hash is already normalized by deep-link
+  // resolution, so no spurious pushState is emitted.
   wirePopstate();
   trackTopbarHeight();
   init();
   registerSW();
 }
 
-// type="module" は defer 相当なので通常は DOMContentLoaded 後に評価されるが、
-// 何らかの理由で先に読まれた場合に備えて両分岐を用意する
+// type="module" is defer-equivalent, so it's normally evaluated after DOMContentLoaded, but provide
+// both branches in case it's read earlier for some reason.
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", bootstrap);
 } else {

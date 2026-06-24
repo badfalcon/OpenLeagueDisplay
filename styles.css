@@ -6,9 +6,9 @@
     --bg-3:      #221d36;
     --ink:       #ede5d3;
     --ink-soft:  #a89c80;
-    /* #6b6451 は --bg に対して ~3.4:1 で WCAG AA (4.5:1) 未達だった。#stats / footer /
-       検索プレースホルダ / filter-chips-label など小サイズ本文に使うため、ムード
-       (くすんだ金茶) を保ったまま ~4.7:1 まで明度を上げて可読性を確保する */
+    /* #6b6451 was only ~3.4:1 against --bg, below WCAG AA (4.5:1). Used for small
+       body text (#stats / footer / search placeholder / filter-chips-label), so
+       lighten to ~4.7:1 for readability while keeping the muddy gold-brown mood */
     --ink-mute:  #847b62;
     --gold:      #d4a857;
     --gold-hi:   #f4dfa6;
@@ -24,10 +24,10 @@
     --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
     --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
-    /* カード枠 (champ / skin / line で共通)。default / hover / selected の3段で、
-       それぞれ「vignette + 内枠1px (default は控えめ金、hover/selected は明るい金)」
-       の構成。skin/line の splash art を潰しすぎないよう vignette は champ 当時の
-       0.55 から 0.45 に抑えてある */
+    /* Card frames (shared by champ / skin / line), in three tiers
+       default / hover / selected: each is "vignette + 1px inner border" (subdued
+       gold for default, bright gold for hover/selected). The vignette is held at
+       0.45 (down from champ's original 0.55) so it doesn't flatten skin/line splash art */
     --card-frame-shadow:
       inset 0 0 60px rgba(7, 6, 11, 0.45),
       inset 0 0 0 1px rgba(212, 168, 87, 0.18);
@@ -39,38 +39,38 @@
       inset 0 0 60px rgba(7, 6, 11, 0.45),
       inset 0 0 0 3px var(--gold),
       inset 0 0 50px rgba(212, 168, 87, 0.22);
-    --ctrl-h: 40px;     /* 全コントロール (btn/search/lang/tab) 共通の高さ */
-    /* サイト全体の中身幅。topbar の sticky 背景や footer の罫線は全幅のまま、
-       header / main / footer の「中身」をこの幅で中央寄せする */
+    --ctrl-h: 40px;     /* shared height for all controls (btn/search/lang/tab) */
+    /* Site content width. The topbar's sticky background and footer rule stay
+       full-bleed; the "content" of header / main / footer is centered at this width */
     --container-max: 1760px;
-    /* 上記 4 要素の左右パディング。これを共通化することで画面端の縦線が揃う。
-       breakpoint ごとに :root で上書きする */
+    /* Left/right padding for those elements. Sharing it keeps the screen-edge
+       vertical lines aligned. Overridden per breakpoint in :root */
     --container-pad: 56px;
   }
   * { box-sizing: border-box; }
-  /* 初回ロード時の英語ラベルちらつき抑止。<html class="i18n-loading"> は
-     index.html 側で付与され、init() で applyStaticUIStrings() 完了後に外す。
-     visibility:hidden なのでレイアウトは確保したままテキストだけ消える */
+  /* Suppress the flash of English labels on first load. <html class="i18n-loading">
+     is set in index.html and removed by init() once applyStaticUIStrings() finishes.
+     visibility:hidden keeps the layout reserved while hiding just the text */
   html.i18n-loading .view-tabs .tab,
   html.i18n-loading .header-actions .btn,
   html.i18n-loading #loading-msg { visibility: hidden; }
   html, body {
     margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font-body);
-    min-height: 100vh; overflow-x: clip;  /* hidden だと祖先がスクロールコンテナになって header の position:sticky が効かない。clip は新しい containing block を作らないので sticky が生きる */
-    /* WCAG 2.4.11: Tab で本文 (グリッド/フッター) へフォーカス移動した時、ブラウザの
-       「フォーカスを可視領域へスクロール」が sticky topbar の裏にカードを送り込まない
-       よう、スクロールポートの上端に topbar 高さ分の余白を確保する (--topbar-h は
-       trackTopbarHeight が実測してライブ更新)。下端の fixed 下部ナビ分はモバイルブロックで加算 */
+    min-height: 100vh; overflow-x: clip;  /* hidden makes an ancestor the scroll container, breaking the header's position:sticky. clip doesn't create a new containing block, so sticky still works */
+    /* WCAG 2.4.11: when Tab moves focus into the body (grid/footer), reserve top
+       padding equal to the topbar height so the browser's "scroll focus into view"
+       doesn't tuck cards behind the sticky topbar (--topbar-h is measured and
+       live-updated by trackTopbarHeight). The fixed bottom nav clearance is added in the mobile block */
     scroll-padding-top: var(--topbar-h, 80px);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* ピンチズームは viewport で許可している (WCAG 1.4.4)。誤爆しやすいダブルタップ
-       ズームだけはここで抑える (通常のスクロール/タップ/ピンチズームは維持) */
+    /* Pinch zoom is allowed via the viewport (WCAG 1.4.4). Suppress only the
+       easily-misfired double-tap zoom here (normal scroll/tap/pinch-zoom stay) */
     touch-action: manipulation;
   }
-  /* 背景: 二段の放射状ヴィネット + SVGノイズ。ベタ塗りだと「とりあえずダーク」感が強いので
-     雰囲気のレイヤーを足す。z-index -1 で固定、ポインタイベント貫通 */
+  /* Background: two radial vignettes + SVG noise. A flat fill reads as "generic
+     dark", so add atmosphere layers. Fixed at z-index -1, pointer-events pass through */
   body::before {
     content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
     background:
@@ -90,9 +90,9 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
   body { scrollbar-color: var(--bg-3) var(--bg); }
 
-  /* スキップリンク: 普段は画面外、フォーカス時だけ左上に滑り出す。z-index は topbar(30)
-     より上、各オーバーレイ (offline 90 / lightbox 100) が出るのはページ上部を抜けた後
-     なので 60 で十分。世界観に合わせて黒紫地 + 金枠 */
+  /* Skip link: off-screen normally, slides into the top-left only on focus. z-index
+     sits above the topbar (30); overlays (offline 90 / lightbox 100) only appear
+     after leaving the top of the page, so 60 is enough. Dark-purple ground + gold border to match the theme */
   .skip-link {
     position: fixed; top: 8px; left: 8px; z-index: 60;
     transform: translateY(-150%);
@@ -107,33 +107,33 @@
     transition: transform 0.2s ease;
   }
   .skip-link:focus { transform: translateY(0); outline: none; box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.25); }
-  /* スキップリンクの着地先。プログラム的フォーカス (tabindex:-1) なので枠は出さない */
+  /* Skip-link landing target. Programmatic focus (tabindex:-1), so show no ring */
   #root:focus { outline: none; }
 
   /* === HEADER ====================================================== */
-  /* topbar = 2 段構成の header (行1: brand + ?/lang / 行2: view-tabs + 操作
-     ボタン) を包む sticky バー。背景・blur はラッパーが持ち、内側は構造のみ。
-     検索バー/戻る/ソートは dom-stash から render() で
-     .champ-header-controls に transplant される */
+  /* topbar = sticky bar wrapping the two-row header (row 1: brand + ?/lang /
+     row 2: view-tabs + action buttons). The wrapper owns background and blur;
+     the inner part is structure only. The search bar / back / sort are
+     transplanted from the dom-stash into .champ-header-controls by render() */
   .topbar {
     position: sticky; top: 0; z-index: 30;
     background: linear-gradient(180deg, rgba(7, 6, 11, 0.96), rgba(7, 6, 11, 0.85));
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
   }
-  /* topbar 下端の金線: 中央が明るく両端が消えるフェード。古地図の罫線っぽさを出す */
+  /* Gold line at the topbar's bottom edge: bright center fading at both ends, evoking an old-map rule */
   .topbar::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
     background: linear-gradient(90deg, transparent, var(--gold-deep) 18%, var(--gold) 50%, var(--gold-deep) 82%, transparent);
     opacity: 0.55; pointer-events: none;
   }
 
-  /* 2 段構成。header は縦並びの flex で 2 行を積む:
-       行1 (.header-primary):   [brand] (auto-spacer) [.header-utils = ? + lang]
-       行2 (.header-secondary): [view-tabs] [.header-actions = gallery + slideshow]
-     行1 を識別情報 + 常設ユーティリティ、行2 を閲覧操作、と役割で段分けする。
-     gallery-btn と slideshow-btn は .header-actions で 1 つの flex 群に
-     まとめ、狭幅で折返す時もセットで動く */
+  /* Two-row layout. The header is a vertical flex stacking two rows:
+       row 1 (.header-primary):   [brand] (auto-spacer) [.header-utils = ? + lang]
+       row 2 (.header-secondary): [view-tabs] [.header-actions = gallery + slideshow]
+     Row 1 holds identity + persistent utilities, row 2 holds browsing controls.
+     gallery-btn and slideshow-btn are grouped into one flex set (.header-actions)
+     so they wrap together at narrow widths */
   header {
     display: flex; flex-direction: column;
     gap: 10px;
@@ -147,9 +147,9 @@
     display: flex; align-items: center;
     gap: 12px;
   }
-  /* 行2 は狭幅で view-tabs と操作ボタンが入りきらない時だけ折返す */
+  /* Row 2 wraps only when view-tabs and action buttons can't fit at narrow widths */
   .header-secondary { flex-wrap: wrap; }
-  /* ? と言語ピッカーを行1の右端へ寄せるユーティリティ群 */
+  /* Utility group pushing ? and the language picker to row 1's right edge */
   .header-utils {
     display: flex; align-items: center; gap: 12px;
     margin-left: auto;
@@ -157,7 +157,7 @@
   .header-actions {
     display: flex; align-items: center; gap: 12px;
   }
-  /* header-brand は info (h1+stats 縦積み) を包む薄いラッパ。行1 の左端に置く */
+  /* header-brand is a thin wrapper around info (h1+stats stacked). Sits at row 1's left edge */
   .header-brand {
     display: flex; align-items: center;
     gap: 18px;
@@ -181,8 +181,9 @@
     display: flex; align-items: baseline; gap: 10px;
     white-space: nowrap;
   }
-  /* ロゴ内のクリック対象。見た目はワードマークそのまま (font/字間/色を継承) にし、
-     ネイティブ button の外観だけ消す。キーボードフォーカス時のみ金リングを出す */
+  /* Click target inside the logo. Looks exactly like the wordmark (inherits
+     font/spacing/color) with only the native button chrome removed. Gold ring
+     only on keyboard focus */
   header h1 button {
     font: inherit;
     font-variation-settings: inherit;
@@ -204,9 +205,9 @@
     font-variation-settings: normal;
     transform: translateY(-2px);
   }
-  /* stats を h1 の真下に小さく置く。雑誌の「kicker」役で、画面右側の行動ボタン列を圧迫しない */
+  /* Place stats small, directly under h1. Acts as a magazine "kicker" and doesn't crowd the action buttons on the right */
   .header-brand #stats {
-    padding-left: 24px;  /* ✦ + gap と揃える */
+    padding-left: 24px;  /* align with ✦ + gap */
     font-size: 9.5px;
     letter-spacing: 0.22em;
   }
@@ -238,18 +239,18 @@
     box-shadow: 0 0 0 4px rgba(212, 168, 87, 0.08);
   }
 
-  /* 言語ピッカー: 国旗絵文字を出すアイコンボタン + 下に展開する独自メニュー。
-     ネイティブ <select> をやめた理由は (1) アイコン1個だけ出したい (2) option 内に
-     絵文字を入れても OS によって白黒レンダリングされるブラウザがある、の2点 */
+  /* Language picker: an icon button showing a flag + a custom menu that drops below.
+     We dropped the native <select> because (1) we want a single icon and (2) some
+     browsers render emoji inside <option> in black-and-white depending on the OS */
   .lang-picker { position: relative; }
   #lang-btn {
-    /* .btn の継承で height: var(--ctrl-h) は効くが、padding と min-width を旗向けに上書き */
+    /* height: var(--ctrl-h) carries over from .btn; override padding and min-width for the flag */
     padding: 0 12px;
     min-width: 48px;
   }
-  /* 国旗は OS フォント (Segoe UI Emoji 等) に任せると Windows で「2文字の
-     地域識別子」になって幅が揃わないので、SVG 画像を固定サイズで使う。
-     画像は flagcdn.com (ISO 3166-1 alpha-2 で配信されている静的 SVG) */
+  /* Left to OS fonts (e.g. Segoe UI Emoji), flags render as a "two-letter region
+     identifier" on Windows with uneven widths, so use fixed-size SVG images.
+     Images come from flagcdn.com (static SVGs served by ISO 3166-1 alpha-2) */
   .lang-flag {
     display: inline-block;
     width: 22px; height: 16px;
@@ -259,8 +260,9 @@
     background: rgba(255, 255, 255, 0.04);
     flex-shrink: 0;
   }
-  /* 旗の隣に出す言語コード (EN/JA/...): 旗だけだと旗⇄言語が直感的でないので併記。
-     PC のみ表示で、モバイルは幅が貴重なため下の @media で display:none に戻す */
+  /* Language code shown next to the flag (EN/JA/...): a flag alone doesn't make
+     flag→language obvious, so show both. Desktop only; on mobile, width is
+     precious so the @media below sets display:none */
   .lang-code {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -324,19 +326,19 @@
     outline: none;
     line-height: 1;
     white-space: nowrap;
-    /* 入りきらない時は "..." に倒す。Latin (デフォルト) は普段は問題無いが、
-       長ラベル locale (es_es "⬇ Selección en ZIP" 18 字 / pt_br / ru_ru "По умолчанию"
-       12 字 / ja_jp "⬇ 全スキンをZIP" 等) で隣の要素を押し出すのを防ぐ。
-       white-space:nowrap と組み合わせて常に 1 行ボタン形状を維持 */
+    /* Fall back to "..." when it can't fit. Latin (default) is usually fine, but
+       this prevents long-label locales (es_es "⬇ Selección en ZIP" 18 chars /
+       pt_br / ru_ru "По умолчанию" 12 chars / ja_jp "⬇ 全スキンをZIP" etc.) from
+       pushing out neighbors. Combined with white-space:nowrap, keeps a single-line button shape */
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
   }
   .btn:hover { background: rgba(212, 168, 87, 0.10); border-color: var(--gold); color: var(--gold-hi); }
   .btn:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
-  /* アイコン専用の正方形ボタン (現状はヘッダの ? のみ)。長ラベル locale でも
-     場所を取らないよう正方形に固定し、文字は Cinzel ではなく Fraunces で
-     「?」のグリフを大きく出す */
+  /* Square icon-only button (currently just the header's ?). Fixed square so it
+     doesn't take extra space in long-label locales; the glyph uses Fraunces
+     instead of Cinzel to render a larger "?" */
   .btn-icon {
     width: var(--ctrl-h);
     min-width: var(--ctrl-h);
@@ -347,22 +349,23 @@
     font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
     letter-spacing: 0;
   }
-  /* 共有ボタンのコピー完了状態。チェックアイコンへ切り替わる短時間だけ
-     枠と色を強調し、コピー成功を視覚的に伝える */
+  /* Share button's copy-done state. Emphasizes border and color for the brief
+     moment it switches to the check icon, signaling a successful copy */
   .btn-icon.copied {
     color: var(--gold);
     border-color: var(--gold);
     background: rgba(212, 168, 87, 0.12);
   }
 
-  /* .btn の `display: inline-flex` が UA の [hidden] と同 specificity (0,1,0) で
-     author 勝ちするため、hidden 属性が効かなくなる。明示的に殺す
-     (#primary-action を home/lines で消すのに必要) */
+  /* .btn's `display: inline-flex` ties the UA [hidden] rule at specificity (0,1,0)
+     and wins as author CSS, breaking the hidden attribute. Kill it explicitly
+     (needed to hide #primary-action on home/lines) */
   .btn[hidden] { display: none; }
 
-  /* マイギャラリーボタンの選択件数バッジ。テキスト連結 "(19)" の代わり (refreshGalleryBtn)。
-     デスクトップはラベル右に小さなゴールドの角バッジとして並べる。モバイルの下部ナビでは
-     下の @media で角バッジ (absolute) に切替えて横幅を食わないようにする */
+  /* Selection-count badge on the My Gallery button. Replaces the concatenated
+     "(19)" text (refreshGalleryBtn). On desktop it sits as a small gold square
+     badge to the right of the label; on the mobile bottom nav the @media below
+     switches it to an absolute corner badge so it doesn't eat width */
   .gallery-count {
     display: inline-flex; align-items: center; justify-content: center;
     margin-left: 7px;
@@ -373,11 +376,11 @@
     font-size: 9.5px; font-weight: 500; line-height: 1;
     letter-spacing: 0;
   }
-  /* ギャラリービュー中 (.primary = ゴールド地) はバッジを反転して埋もれさせない */
+  /* In gallery view (.primary = gold ground), invert the badge so it doesn't get buried */
   .btn.primary .gallery-count { background: #1a1208; color: var(--gold-hi); }
 
-  /* スクリーンリーダー専用。視覚的には隠すがアクセシビリティツリーには残す。
-     共有リンクのコピー完了通知 (#sr-status の aria-live) などに使う */
+  /* Screen-reader only: visually hidden but kept in the accessibility tree.
+     Used for things like the share-link copy-done notice (#sr-status aria-live) */
   .sr-only {
     position: absolute;
     width: 1px; height: 1px;
@@ -389,10 +392,9 @@
     border: 0;
   }
 
-  /* ツールバー用ネイティブ <select>。ボタンと同じ高さ・配色で並べる。
-     ネイティブ要素のままにしたのは、アクセシビリティ (キーボード/SR) と
-     OS のドロップダウン挙動を引き継げるため。矢印は ::after が使えないので
-     background-image (SVG inline) でゴールド色の▼を右端に置く */
+  /* Native <select> for the toolbar, matching button height and palette. Kept
+     native to inherit accessibility (keyboard/SR) and the OS dropdown behavior.
+     ::after can't be used on it, so an inline-SVG background-image places a gold ▼ at the right edge */
   .ctrl-select {
     height: var(--ctrl-h);
     padding: 0 32px 0 14px;
@@ -415,13 +417,13 @@
   }
   .ctrl-select:hover { background-color: rgba(212, 168, 87, 0.10); border-color: var(--gold); }
   .ctrl-select:focus-visible { box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18); }
-  /* option はネイティブ実装に任せる: 背景だけ揃えてダーク UI で読めるようにする。
-     OS によっては無視される (Win Chromium 系) が問題なし */
+  /* Leave option to the native implementation: just match the background so it's
+     readable in the dark UI. Some OSes ignore it (Win Chromium), which is fine */
   .ctrl-select option { background: var(--bg-1); color: var(--ink); }
   .ctrl-select[hidden] { display: none; }
-  /* ソートの接頭ラベル: select の左に出す静的な eyebrow ラベル。可視 <label for> が
-     SR のアクセシブルネームも兼ねる (select 側に aria-label は持たせない)。値 (ゴールド)
-     を引き立てるよう本文はミュート色。クリックで select にフォーカス/展開できる */
+  /* Sort prefix label: a static eyebrow label to the left of the select. The
+     visible <label for> doubles as the SR accessible name (no aria-label on the
+     select). Muted text so it sets off the gold value. Clicking it focuses/opens the select */
   .sort-label {
     font-family: var(--font-eyebrow);
     font-size: 10.5px; font-weight: 500;
@@ -432,12 +434,12 @@
     cursor: pointer; user-select: none;
   }
   .sort-label[hidden] { display: none; }
-  /* 選択値で幅が暴れないよう控えめな min-width で footprint を安定させる
-     (モバイルでは search との折返し競合を避けるため後段の媒体クエリで 0 に戻す) */
+  /* A modest min-width stabilizes the footprint so the chosen value doesn't make
+     it jump around (reset to 0 in a later media query on mobile to avoid wrap conflicts with search) */
   #sort-select { min-width: 7em; }
 
-  /* セグメントタブ: Champions / Skin Lines。アクティブはゴールド地、非アクティブは
-     ゴーストの色を踏襲。.btn と高さ揃え (--ctrl-h) */
+  /* Segmented tabs: Champions / Skin Lines. Active is gold ground; inactive keeps
+     the ghost coloring. Height matched to .btn (--ctrl-h) */
   .view-tabs {
     display: inline-flex;
     height: var(--ctrl-h);
@@ -478,8 +480,8 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
-  /* カウントアップ中に桁数が増えても周辺テキストが揺れないよう、
-     最終桁数 (data-target の桁) を min-width として ch で確保する */
+  /* Reserve the final digit count (data-target's digits) as a min-width in ch so
+     surrounding text doesn't shift while the count-up adds digits */
   #stats .stat-num {
     display: inline-block;
     color: var(--gold);
@@ -489,8 +491,8 @@
 
   /* === MAIN ======================================================== */
   main {
-    /* topbar (sticky) の下に来るので上に少し余白を取り、コンテンツが
-       バーの真下にぴったり張り付かないようにする */
+    /* Sits below the sticky topbar, so add a little top padding to keep content
+       from butting right up against the bar */
     padding: 28px var(--container-pad) 100px;
     max-width: var(--container-max); margin: 0 auto;
     animation: fadeIn 0.5s ease;
@@ -526,9 +528,9 @@
   }
 
   /* === CHAMPION GRID =============================================== */
-  /* auto-fill + 固定トラック幅。1fr でストレッチさせるとウィンドウ幅に応じて
-     サムネが連続的に伸縮してしまうため、トラックは常にこの幅で、余りは
-     左右均等に逃がす */
+  /* auto-fill + fixed track width. Stretching with 1fr makes thumbnails grow and
+     shrink continuously with window width, so tracks stay at this fixed width and
+     the leftover is split evenly left and right */
   .champ-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, 168px);
@@ -544,8 +546,8 @@
     background: var(--bg-1);
     border: 1px solid transparent;
     transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-    /* コーデックス的な切り欠きフレーム。clip-path だと縁の box-shadow が消えるので
-       内側の発光は ::after の inset shadow で表現する */
+    /* Codex-style notched frame. clip-path drops the edge box-shadow, so the inner
+       glow is done with an inset shadow on ::after */
     clip-path: polygon(
       var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
       100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
@@ -554,12 +556,12 @@
     );
     counter-increment: champ;
   }
-  /* カードの枠 (::after) は 3 種 (champ / skin / line) で同じスタイルに統一する。
-     - inset vignette で「フレームに収まった絵」感を出す
-     - 1px のゴールド内枠で全カードに最低限の縁取りを担保する
-     champ-card 以前は 0.55/0.12 で「厚いがほぼ見えない金線」、skin-card は 0.10
-     のみ、line-card は枠無しでバラついていた。共通変数 (--card-frame-shadow /
-     -hover/-selected) にまとめて、好みのトーンを 1 箇所で触れるようにする */
+  /* Unify the card frame (::after) to one style across all three (champ / skin / line):
+     - inset vignette for a "picture set in a frame" feel
+     - 1px gold inner border guaranteeing a minimal edge on every card
+     Previously champ-card was 0.55/0.12 ("thick but nearly invisible gold line"),
+     skin-card was 0.10 only, and line-card had no border. Consolidated into shared
+     variables (--card-frame-shadow / -hover / -selected) so the tone can be tuned in one place */
   .champ-card::after,
   .skin-card::after,
   .line-card::after {
@@ -574,9 +576,9 @@
     position: relative; z-index: 1;
     filter: saturate(0.92) contrast(1.05);
   }
-  /* 画像ロード完了までシマーで「読み込み中」を示す。CDragon は CDN なので普通は
-     一瞬で終わるが、初回訪問や回線が細い時にカードが真っ黒だと「壊れた？」感が出る。
-     img-loaded クラスは img の onload/onerror で付ける */
+  /* Show a shimmer "loading" state until the image finishes. CDragon is a CDN so
+     it's usually instant, but on first visit or a thin connection a pure-black
+     card reads as "broken". The img-loaded class is set on the img's onload/onerror */
   .champ-card:not(.img-loaded) img,
   .skin-card:not(.img-loaded) img,
   .line-card:not(.img-loaded) img { opacity: 0; }
@@ -617,8 +619,8 @@
     z-index: 2;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   }
-  /* カード番号 (01, 02, ...) — 雑誌のページ番号風に各カードの上に出す。
-     CSS counters で純粋にスタイル側で番号を打つので JS は弄らない */
+  /* Card numbers (01, 02, ...) — printed on each card like magazine page numbers.
+     CSS counters do the numbering purely in CSS, so JS isn't touched */
   .champ-card .label::before {
     content: counter(champ, decimal-leading-zero);
     display: block;
@@ -633,9 +635,9 @@
   }
 
   /* === CHAMP / LINE HEADER ========================================= */
-  /* author の .champ-header { display: grid } が UA の [hidden] { display: none } を
-     同 specificity (0,1,0) で覆って勝つ仕様。永続 #primary-header に setPrimaryHeader
-     前の hidden 状態が残ると空 header がレイアウトを占有するので、明示的に殺す */
+  /* author .champ-header { display: grid } ties UA [hidden] { display: none } at
+     specificity (0,1,0) and wins. If the persistent #primary-header keeps its
+     hidden state before setPrimaryHeader, an empty header would occupy layout, so kill it explicitly */
   .champ-header[hidden] { display: none; }
   .champ-header {
     display: grid;
@@ -647,7 +649,7 @@
     position: relative;
     border-bottom: 1px solid var(--rule);
   }
-  /* 左半分の金線 (グラデでフェード) + 中央のひし形装飾 — 編集デザインの常套手段 */
+  /* Gold line on the left half (gradient fade) + center diamond ornament — a staple of editorial design */
   .champ-header::before {
     content: ""; position: absolute; left: 0; right: 50%; bottom: -1px; height: 1px;
     background: linear-gradient(90deg, var(--gold) 0%, var(--gold-deep) 60%, transparent 100%);
@@ -661,18 +663,18 @@
   }
   .champ-header h2 {
     margin: 0;
-    grid-column: 1;   /* 常に col 1 に縛る。col 2 は controls スロット用 */
+    grid-column: 1;   /* always pin to col 1; col 2 is for the controls slot */
     font-family: var(--font-display);
     font-size: clamp(48px, 7vw, 96px);
     font-weight: 400; font-style: italic;
     font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 400;
     color: var(--gold-hi);
     letter-spacing: -0.02em; line-height: 0.92;
-    overflow-wrap: anywhere;  /* 長い名前で controls 列を圧迫した時の折返し */
+    overflow-wrap: anywhere;  /* wrap when a long name crowds the controls column */
   }
-  /* 詳細 (champion / line) ヘッダーのタイトル行: ‹ [タイトル] › を横並びにする。
-     h2 自身に付くので巨大イタリック書体の指定 (.champ-header h2) はそのまま継承される。
-     内側 span は min-width:0 で flex 縮小を許し、長い名前は折り返す */
+  /* Detail (champion / line) header title row: lays out ‹ [title] › horizontally.
+     Applied to the h2 itself, so the huge italic typeface (.champ-header h2) is
+     inherited. The inner span uses min-width:0 to allow flex shrink, so long names wrap */
   .primary-title-row {
     display: flex;
     align-items: center;
@@ -682,9 +684,9 @@
     min-width: 0;
     overflow-wrap: anywhere;
   }
-  /* 前後ナビの小ゴーストボタン (lb-nav と同系の世界観: 透明地 + 金枠 + 金字、
-     hover でゴールド反転)。h2 の巨大フォント (clamp 96px / italic) を継承しないよう
-     font 系を明示リセットする。角丸なし = 鋭角の世界観 */
+  /* Small prev/next ghost buttons (same world as lb-nav: transparent ground + gold
+     border + gold glyph, inverting to gold on hover). Explicitly reset the font
+     so they don't inherit h2's huge type (clamp 96px / italic). No rounding = the sharp-angle theme */
   .detail-nav-btn {
     flex-shrink: 0;
     width: 40px; height: 40px;
@@ -701,18 +703,18 @@
   .detail-nav-btn:hover {
     background: var(--gold); color: #1a1208; border-color: var(--gold);
   }
-  /* author の display:flex が UA の [hidden]{display:none} に勝つ既知問題を明示的に殺す */
+  /* Kill the known issue where author display:flex beats UA [hidden]{display:none} */
   .detail-nav-btn[hidden] { display: none; }
-  /* 一覧画面 (チャンピオン一覧 / シリーズ一覧) のヘッダーは、固有名詞ではなく
-     セクションラベル ("CHAMPIONS" / "SKIN LINES") を出すだけなので、個別画面の
-     ような巨大表示は不要。フォントだけ抑える */
+  /* List-view headers (champion list / skin-line list) show only a section label
+     ("CHAMPIONS" / "SKIN LINES"), not a proper noun, so they don't need the huge
+     display size of a detail view. Just dial the font down */
   .champ-header.is-list h2 {
     font-size: clamp(26px, 3.4vw, 44px);
     font-variation-settings: "opsz" 72, "SOFT" 100, "wght" 400;
   }
-  /* h2 と同じ row 1 の右端に並ぶ controls スロット。dom-stash から transplant
-     された [back?][search][sort?] が flex で横並びに入る。align-self: end で
-     巨大 h2 (96px) の下辺と揃える */
+  /* Controls slot at row 1's right edge, alongside the h2. The transplanted
+     [back?][search][sort?] from the dom-stash lay out horizontally with flex.
+     align-self: end aligns them to the bottom edge of the huge h2 (96px) */
   .champ-header-controls {
     grid-column: 2; grid-row: 1;
     justify-self: end; align-self: end;
@@ -734,9 +736,9 @@
     letter-spacing: 0.32em;
     text-transform: uppercase;
   }
-  /* primary download ボタンは .champ-header の直接子 (renderChampion /
-     renderLine のテンプレで生成)。子セレクタに絞ることで、controls スロット内の
-     #back-btn (.btn 持ち) には適用されない */
+  /* The primary download button is a direct child of .champ-header (generated by
+     the renderChampion / renderLine templates). Scoping to the child selector
+     keeps this from applying to #back-btn (which carries .btn) inside the controls slot */
   .champ-header > .btn,
   .champ-header > .btn.primary {
     grid-column: 2; grid-row: 2;
@@ -768,8 +770,8 @@
     );
     counter-increment: skin;
   }
-  /* skin-card / line-card の ::after フレームは champ-card と共有
-     (上の `.champ-card::after, .skin-card::after, .line-card::after` で定義) */
+  /* skin-card / line-card share the ::after frame with champ-card
+     (defined above in `.champ-card::after, .skin-card::after, .line-card::after`) */
   .skin-card img {
     width: 100%; height: 100%; object-fit: cover;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s;
@@ -777,9 +779,9 @@
   }
   .skin-card:hover { transform: translateY(-3px); }
   .skin-card:hover img { transform: scale(1.06); }
-  /* アニメーションスプラッシュ (splashVideoPath あり) を持つスキンの右上に出す
-     再生グリフ。ライトボックスで動画再生されることを一覧段階で示す。
-     sel-checkbox は左上なので選択モード中でも競合しない */
+  /* Play glyph at the top-right of skins with an animated splash (splashVideoPath).
+     Signals at the grid stage that the lightbox will play video. The sel-checkbox
+     is top-left, so it doesn't conflict during selection */
   .anim-badge {
     position: absolute; top: 12px; right: 12px; z-index: 5;
     width: 26px; height: 26px;
@@ -790,7 +792,7 @@
     border: 1px solid var(--gold);
     color: var(--gold-hi);
     font-size: 10px;
-    padding-left: 2px; /* ▶ グリフの光学中心を箱の中央へ寄せる */
+    padding-left: 2px; /* nudge the ▶ glyph's optical center toward the box center */
     pointer-events: none;
   }
   .skin-card .label {
@@ -807,7 +809,7 @@
     z-index: 2;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   }
-  /* スキンの通し番号。「· 」を入れて区切る (ピリオドだとデジタル臭くなる) */
+  /* Skin running number. Separated with "· " (a period reads too digital) */
   .skin-card .label::before {
     content: counter(skin, decimal-leading-zero) "  ·";
     display: inline-block;
@@ -829,12 +831,12 @@
     opacity: 0; pointer-events: none; transition: opacity 0.25s;
   }
   .lightbox.open { opacity: 1; pointer-events: auto; }
-  /* ライトボックス/チュートリアル中は背景スクロールを止める。position:fixed の
-     オーバーレイだけだと、ホイールやスペース/矢印が body に届いてしまう。さらに
-     iOS Safari は overflow:hidden だけだとタッチスクロールが残り、html/body の
-     overflow-x:clip で実スクロールコンテナが <html> 側になる構成でも止まらない。
-     JS (lockScroll/state.js) が body を position:fixed にして現在位置を退避することで、
-     <html> をフローから切り離して確実に固定する。top はインラインで負オフセットが入る */
+  /* Stop background scroll during the lightbox/tutorial. A position:fixed overlay
+     alone still lets wheel/space/arrows reach the body. iOS Safari, moreover, keeps
+     touch-scrolling with overflow:hidden alone, and doesn't stop even when our
+     html/body overflow-x:clip makes <html> the real scroll container. JS
+     (lockScroll/state.js) sets body to position:fixed and stashes the current
+     position, detaching <html> from flow to lock it reliably. top gets an inline negative offset */
   body.scroll-locked {
     position: fixed;
     left: 0; width: 100%;
@@ -847,20 +849,20 @@
     opacity: 0; transition: opacity 0.8s ease;
   }
   .lb-img.show { opacity: 1; }
-  /* アニメーションスプラッシュの動画レイヤ。.lb-img と同じ配置・フェードで、
-     動画を持つスキンの時だけ .show が付いて画像レイヤの上に重なる。
-     z-index は付けない: .lb-stage 内で lb-img-a/b より後ろの DOM 順なので
-     自然に画像の上、かつ stage の外にある .lb-overlay/ボタン類の下に収まる。
-     Ken Burns は静止画専用なので動画には掛けない (動画自体が動くため) */
+  /* Video layer for animated splashes. Same placement/fade as .lb-img; .show is
+     added only for skins that have video, overlapping above the image layer.
+     No z-index: it's after lb-img-a/b in DOM order within .lb-stage, so it
+     naturally sits above the image yet below .lb-overlay/buttons outside the stage.
+     Ken Burns is for still images only and isn't applied to video (the video already moves) */
   .lb-video {
     position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: contain;
     opacity: 0; transition: opacity 0.8s ease;
   }
   .lb-video.show { opacity: 1; }
-  /* .fill = 画面いっぱい (一部クロップ)。縦長スマホで 16:9 スプラッシュの黒帯を潰す。
-     既定は上の contain (全体表示)。トグルは lb-fit ボタン (app.js)。
-     Ken Burns は transform ベースなので cover と併存できる */
+  /* .fill = fill the screen (some crop). Kills the letterbox bars of a 16:9 splash
+     on tall phones. Default is contain above (show everything). Toggled by the
+     lb-fit button (app.js). Ken Burns is transform-based, so it coexists with cover */
   .lightbox.fill .lb-img,
   .lightbox.fill .lb-video { object-fit: cover; }
   .lightbox.slideshow .lb-img.show {
@@ -870,16 +872,17 @@
     from { transform: scale(1.0) translate(0, 0); }
     to   { transform: scale(1.08) translate(-1.5%, -1%); }
   }
-  /* スマホ拡大時スライドショー用 (適用は @media (max-width:600px) 側)。
-     cover のクロップ窓を画像左端→右端へ動かし、ズームせず横幅全体を順に見せる */
+  /* For the slideshow when expanded on phones (applied in @media (max-width:600px)).
+     Moves the cover crop window from the image's left edge to its right edge,
+     panning the full width in sequence without zooming */
   @keyframes lb-panx {
     from { object-position: 0% center; }
     to   { object-position: 100% center; }
   }
   .lb-overlay {
     position: absolute; left: 0; right: 0; bottom: 0;
-    /* 明るいスプラッシュ (例: Star Guardian 系) でも文字が読めるよう、
-       グラデーションを高め＆濃いめにし、テキスト側にもシャドウを掛ける */
+    /* Keep text legible even over bright splash art (e.g. Star Guardian): make the
+       gradient taller and darker, and shadow the text itself too */
     padding: 80px 56px 44px;
     background: linear-gradient(to top,
                   rgba(0, 0, 0, 0.94) 0%,
@@ -898,10 +901,11 @@
     letter-spacing: -0.015em; line-height: 1.0;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
   }
-  /* description を持つスキンはごく少数 (Legendary/Ultimate や questSkinInfo の
-     一部のみ)。本文サイズで読みやすい幅にクランプ。無い時の領域確保 (min-height) は
-     縦に余裕がある画面だけ効かせたいので base には置かず、下の高さ門番付き @media で
-     与える (横向きスマホ等の短い画面で空予約が名前を押し上げないように) */
+  /* Very few skins have a description (only some Legendary/Ultimate or questSkinInfo).
+     Clamp to a readable width at body size. The empty-state reservation (min-height)
+     should only apply on screens with vertical headroom, so it isn't on the base
+     rule but given in the height-gated @media below (so the blank reservation
+     doesn't push the name up on short screens like landscape phones) */
   .lb-desc {
     margin-top: 14px;
     max-width: min(720px, 70vw);
@@ -911,25 +915,27 @@
     color: var(--ink);
     line-height: 1.55;
     text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.75);
-    /* Classic スキンは champion 紹介文 (bio) を出すが ~300-600 字と長いので、
-       lb-overlay が splash を覆って上に伸びないよう行数で上限を切る (溢れ分は ...)。
-       予約用の min-height (下の @media) と対になり、説明枠は実質「固定 N 行」になる */
+    /* Classic skins show the champion bio, which is long (~300-600 chars), so cap
+       the line count to keep lb-overlay from growing upward over the splash
+       (overflow → ...). Paired with the reservation min-height (@media below), the
+       description box becomes effectively a "fixed N lines" */
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
   }
-  /* スライドショーのキャプション表示量 (⚙ メニューで切替)。
-     .caption-name = 説明文だけ畳む / .caption-none = オーバーレイごと隠す。
-     full のときは class が付かず通常表示 (lb-desc は desc 無しなら [hidden] で畳む) */
+  /* Slideshow caption verbosity (toggled in the ⚙ menu).
+     .caption-name = collapse just the description / .caption-none = hide the whole overlay.
+     full has no class and shows normally (lb-desc collapses via [hidden] when there's no desc) */
   .lightbox.caption-name .lb-desc { display: none; }
   .lightbox.caption-none .lb-overlay { display: none; }
-  /* ステージタップで操作系 UI (chrome) を一括トグルする「純粋に絵を見る」モード。
-     display:none ではなく opacity + pointer-events で隠すのは、フォーカス中の
-     lb-close が消えてフォーカスが body に落ちる (= キーボード操作の起点を失う) のを
-     避けるため。要素は DOM に残るので矢印/Esc/Space は従来どおり効く。
-     フェードは各要素のベース transition が担う (クラス除去時にも対称に効かせるため。
-     ここに transition を置くとクラスが外れた瞬間に宣言ごと消えて再表示が瞬時になり非対称) */
+  /* "Just look at the art" mode: a stage tap toggles all the control UI (chrome) at
+     once. Hidden via opacity + pointer-events rather than display:none so the
+     focused lb-close doesn't vanish and drop focus to body (= losing the keyboard
+     anchor). Elements stay in the DOM, so arrows/Esc/Space keep working. The fade
+     is handled by each element's base transition (so it's symmetric on class
+     removal too — putting transition here would vanish with the class on removal,
+     making re-show instant and asymmetric) */
   .lightbox.chrome-hidden .lb-toolbar,
   .lightbox.chrome-hidden .lb-nav,
   .lightbox.chrome-hidden .lb-overlay {
@@ -943,8 +949,9 @@
     margin-bottom: 12px;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   }
-  /* ナビ矢印 (‹ ›) はタップしやすさ優先で左右中央に大きく残す。閉じる (✕) は
-     上ツールバーの 1 列に集約したので、この大きな丸ボタンは矢印専用になった */
+  /* Nav arrows (‹ ›) stay large and vertically centered on the sides for easy
+     tapping. Close (✕) was consolidated into the top toolbar's single row, so these
+     big round buttons are now arrows-only */
   .lb-nav {
     position: absolute;
     background: rgba(12, 11, 20, 0.65);
@@ -954,17 +961,17 @@
     width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-display);
-    /* line-height を詰める: 既定 (normal≈1.2) のままだと flex の行ボックスがグリフより
-       縦に大きくなり、ベースライン基準で描かれる ‹ › が行ボックス中央=ボタン中央より
-       上にずれて「上下中央でない」ように見える。1 にして行ボックスを字面に揃えると
-       align-items:center がそのままグリフの縦中央寄せになる (.detail-nav-btn と同処理) */
+    /* Tighten line-height: at the default (normal≈1.2) the flex line box is taller
+       than the glyph, so the baseline-drawn ‹ › sit above the line-box center =
+       button center and look "not vertically centered". Setting it to 1 matches the
+       line box to the glyph, so align-items:center vertically centers the glyph (same trick as .detail-nav-btn) */
     font-size: 22px; font-style: normal; line-height: 1;
     transition: all 0.18s;
   }
-  /* hover 点灯はマウス端末だけに限定する。タッチ端末は tap 後に :hover が
-     「貼り付く」(別の場所を tap するまで解除されない) ので、トグルを off に
-     しても点灯が残り「active のまま終わる」ように見える。実 active は .active
-     クラス (JS) が担うので、hover 演出は hover 可能端末に閉じる */
+  /* Limit hover lighting to mouse devices. On touch devices :hover "sticks" after a
+     tap (not cleared until you tap elsewhere), so the lit state lingers even after
+     toggling off and looks "stuck active". Real active is handled by the .active
+     class (JS), so confine the hover effect to hover-capable devices */
   @media (hover: hover) {
     .lb-nav:hover {
       background: var(--gold); color: #1a1208; border-color: var(--gold);
@@ -972,8 +979,9 @@
   }
   .lb-prev { top: 50%; left: 28px; transform: translateY(-50%); }
   .lb-next { top: 50%; right: 28px; transform: translateY(-50%); }
-  /* 操作系を 1 本のバーに集約: counter は左、操作ボタン (一時停止/fit/⚙/閉じる) は
-     右に寄せて閉じるを右端に。左右いっぱいに伸ばして spacer で押し分ける */
+  /* Consolidate controls into one bar: counter on the left, control buttons
+     (pause/fit/⚙/close) pushed right with close at the far right. Stretch full
+     width and split the two sides with a spacer */
   .lb-toolbar {
     position: absolute; top: 28px; left: 28px; right: 28px;
     display: flex; gap: 8px; align-items: center; font-size: 11px;
@@ -982,8 +990,8 @@
   .lb-toolbar-spacer { flex: 1 1 auto; }
   .lb-toolbar .badge {
     padding: 9px 14px;
-    /* counter も操作ボタンと同じ高さに揃える。span なので min-height を効かせるには
-       inline-flex + 中央寄せが要る (ボタンは UA が中央寄せするので不要) */
+    /* Match the counter's height to the control buttons. It's a span, so making
+       min-height take effect needs inline-flex + centering (buttons get centered by the UA, so they don't) */
     display: inline-flex; align-items: center; min-height: 32px;
     background: rgba(12, 11, 20, 0.65);
     border: 1px solid var(--rule-bold);
@@ -993,22 +1001,22 @@
     font-family: var(--font-eyebrow);
     font-size: 10px; font-weight: 500;
   }
-  /* 上ツールバーに置く ss-btn (⚙ とメニュー内ボタン) は隣の静的バッジと
-     高さ/濃さを揃える。下の「操作」群より控えめにしたいので padding と
-     background を上書き */
+  /* The ss-btn in the top toolbar (⚙ and the menu buttons) matches the height and
+     density of the adjacent static badge. We want it subtler than the lower
+     "control" group, so override padding and background */
   .lb-toolbar .ss-btn {
     padding: 9px 14px; font-size: 10px; min-height: 32px;
     background: rgba(12, 11, 20, 0.65);
   }
-  /* アイコンのみのボタン (⛶ / ⚙ / ✕) は字面が小さいので少しグリフを大きく、
-     正方形寄りの padding にして 1 列の中で粒を揃える */
+  /* Icon-only buttons (⛶ / ⚙ / ✕) have small glyphs, so enlarge them a bit and use
+     squarer padding to keep them uniform within the row */
   .lb-toolbar .lb-icon {
     padding: 9px 11px; font-size: 14px; line-height: 1;
   }
-  /* ⚙ ボタンと、その下にドロップする設定メニュー (間隔 / キャプション) を
-     束ねる相対配置のラッパ。メニューはこの基準で絶対配置する */
+  /* Relatively-positioned wrapper binding the ⚙ button and the settings menu that
+     drops below it (interval / caption). The menu is absolutely positioned against this */
   .ss-options-wrap { position: relative; }
-  /* ⚙ はバー右側にあるので、メニューはギア右端に揃えて左へ広げる (画面外に出さない) */
+  /* ⚙ is on the bar's right side, so align the menu to the gear's right edge and expand leftward (keeps it on-screen) */
   .ss-menu {
     position: absolute; top: calc(100% + 8px); right: 0; z-index: 2;
     display: flex; flex-direction: column; gap: 6px;
@@ -1017,16 +1025,16 @@
     border: 1px solid var(--rule-bold);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
-  /* [hidden] (display:none) を .ss-menu の display:flex より優先させる */
+  /* Make [hidden] (display:none) win over .ss-menu's display:flex */
   .ss-menu[hidden] { display: none; }
-  /* メニュー内のボタンは横幅を揃えて左寄せ。値が変わっても折り返さない */
+  /* Menu buttons are equal-width and left-aligned, and don't wrap when the value changes */
   .ss-menu .ss-btn { width: 100%; text-align: left; white-space: nowrap; }
 
-  /* 一時停止 (#ss-pause) は上ツールバーの 1 列に移したので、独立配置の
-     .slideshow-controls とフェード/ホバー制御は廃止。表示/非表示は JS の
-     display 切替 (スライドショー時のみ) で担保する */
+  /* Pause (#ss-pause) moved into the top toolbar's single row, so the separately
+     positioned .slideshow-controls and its fade/hover logic are gone. Show/hide is
+     handled by a JS display toggle (only during slideshow) */
   @media (hover: none) {
-    /* タッチ端末は hover で前に出せないので ＋ を常時不透明にする */
+    /* Touch devices can't bring it forward on hover, so keep ＋ always opaque */
     .sel-checkbox { opacity: 1; }
   }
   .ss-btn {
@@ -1039,21 +1047,21 @@
     font-size: 10.5px; font-weight: 500;
     letter-spacing: 0.22em; text-transform: uppercase;
   }
-  /* hover 点灯はマウス端末だけ (タッチは tap 後に :hover が貼り付き、トグル off
-     後も点灯が残って「active のまま終わる」ように見えるため)。実 active は下の
-     .active クラスが担当する */
+  /* Hover lighting on mouse devices only (on touch, :hover sticks after a tap and
+     the lit state lingers after toggling off, looking "stuck active"). Real active
+     is handled by the .active class below */
   @media (hover: hover) {
     .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   }
-  /* ゴールド点灯 = アクティブ (app 共通の active 表現 = .tab.active 等と揃える)。
-     ss-pause は「再生中」、lb-fit は「cover (画面いっぱい) 中」を示す。
-     消灯はゴーストのまま。間隔ボタン #ss-interval には効かせない (状態を持たないため) */
+  /* Gold lit = active (matches the app-wide active treatment = .tab.active etc.).
+     ss-pause means "playing", lb-fit means "cover (full-screen) on". Unlit stays
+     ghost. Not applied to the interval button #ss-interval (it has no state) */
   #ss-pause.active,
   #lb-fit.active { background: var(--gold); color: #1a1208; border-color: var(--gold); }
 
   /* === FOOTER ======================================================
-     border-top と ::before の ✦ は全幅基準で出したいので footer 自体は全幅のまま、
-     テキストは .footer-inner で --container-max に絞って中央寄せ */
+     border-top and the ::before ✦ should span full width, so footer itself stays
+     full-bleed; the text is centered at --container-max via .footer-inner */
   footer {
     padding: 56px var(--container-pad) 40px;
     text-align: center;
@@ -1071,21 +1079,21 @@
     margin: 0 auto;
     display: flex; flex-direction: column; gap: 10px;
   }
-  /* footer-attribution は CDragon/Riot の出典 (主) で、footer-credits はプロジェクト
-     作者表記 (従)。意図的に作者表記を下段かつ一段薄くしてある。
-     `@badfalcon` 等の固有表記が footer 全体の uppercase / letter-spacing で
-     崩れないよう、credits 内のリンクだけ通常字形に戻す */
+  /* footer-attribution is the CDragon/Riot source (primary); footer-credits is the
+     project author credit (secondary). The author credit is deliberately lower and
+     a shade dimmer. So fixed names like `@badfalcon` aren't mangled by the footer's
+     overall uppercase / letter-spacing, reset just the credits links to normal casing */
   .footer-credits { opacity: 0.75; }
   .footer-credits a { text-transform: none; letter-spacing: 0.04em; }
-  /* 免責文は長い散文なので footer 全体の uppercase / 広い字間を解除し、
-     一段薄く小さくして出典・作者表記より目立たせない */
+  /* The disclaimer is long prose, so drop the footer's uppercase / wide spacing and
+     make it a shade dimmer and smaller so it's less prominent than the source/author credits */
   .footer-disclaimer {
     text-transform: none;
     letter-spacing: 0.01em;
     font-size: 9.5px;
     line-height: 1.6;
-    /* 免責は法的に明示が要る本文なので、薄めつつも読める範囲に留める
-       (0.55 だと実効コントラストが AA を割っていた) */
+    /* The disclaimer is legally-required text, so keep it dim but within readable
+       range (0.55 dropped the effective contrast below AA) */
     opacity: 0.72;
     max-width: 60ch;
     margin: 4px auto 0;
@@ -1116,9 +1124,9 @@
     background: transparent; color: var(--ink-soft);
     border-color: var(--rule);
   }
-  /* ギャラリーが空のときの Slideshow ボタン。disabled 属性は付けない (クリックで
-     My Gallery へ誘導する動線を生かすため) ので、見た目だけ disabled 風に淡色化する。
-     cursor はクリック可能なので pointer のまま残す。同期は refreshGalleryBtn() */
+  /* Slideshow button when the gallery is empty. We don't set the disabled attribute
+     (to keep the click path that routes to My Gallery), so just fade it to look
+     disabled. Cursor stays pointer since it's clickable. Synced by refreshGalleryBtn() */
   #slideshow-btn.is-empty {
     opacity: 0.4;
     color: var(--ink-soft);
@@ -1127,22 +1135,23 @@
   .btn.danger { border-color: rgba(183, 58, 58, 0.55); color: #e8a8a8; }
   .btn.danger:hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
 
-  /* 各カードに「ギャラリーに追加」の ＋ ボタンを常時乗せる (選択モード概念は廃止)。
-     選択の実体 (state.selected) は常に「1スキン単位」のキー。スキンカードの ＋ は
-     そのスキン1枚、チャンプ/ラインカードの ＋ は「配下の全スキンを一括 add/remove」。
-     カード本体クリックは拡大表示 (スキン) / 詳細遷移 (チャンプ/ライン) で、選択とは混ざらない */
+  /* Every card always carries an "add to gallery" ＋ button (the selection-mode
+     concept is gone). The selection itself (state.selected) is always keyed per
+     single skin. A skin card's ＋ is that one skin; a champ/line card's ＋ adds/
+     removes all its skins at once. Clicking the card body opens the lightbox (skin)
+     or navigates to detail (champ/line), and doesn't mix with selection */
   .skin-card, .champ-card, .line-card { cursor: pointer; }
   .sel-checkbox {
     position: absolute; top: 12px; left: 12px; z-index: 5;
     width: 28px; height: 28px; padding: 0;
-    /* グリフ (::before) は font-size を大きめにするので line-height 1 でも上下に
-       染み出して箱を長方形化する。min/max で寸法を完全固定し overflow:hidden で
-       滲み出しを切る。partial 状態は max-width を解除して横に伸ばす */
+    /* The glyph (::before) uses a larger font-size, so even at line-height 1 it
+       bleeds vertically and turns the box rectangular. Pin dimensions fully with
+       min/max and clip the bleed with overflow:hidden. The partial state releases max-width to stretch horizontally */
     min-width: 28px; max-width: 28px;
     min-height: 28px; max-height: 28px;
     box-sizing: border-box;
     overflow: hidden;
-    /* <button> 化したのでネイティブ外観をリセット (背景/枠は下で指定) */
+    /* Now a <button>, so reset native chrome (background/border set below) */
     appearance: none; -webkit-appearance: none;
     background: rgba(7, 6, 11, 0.7);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
@@ -1153,7 +1162,7 @@
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.04em;
     line-height: 1;
-    /* ~170 枚のグリッドに常時乗るので普段は控えめ、hover/focus で前に出す */
+    /* Always present on a grid of ~170 cards, so keep it subdued normally and bring it forward on hover/focus */
     opacity: 0.55;
     pointer-events: auto; cursor: pointer;
     transition: all 0.18s;
@@ -1162,18 +1171,18 @@
   .champ-card:hover .sel-checkbox,
   .line-card:hover .sel-checkbox,
   .sel-checkbox:focus-visible { opacity: 1; border-color: var(--gold); }
-  /* キーボードフォーカスは画像の上でも視認できるよう二重リング (暗ギャップ + 金) で示す。
-     outset box-shadow は overflow:hidden に切られない */
+  /* Show keyboard focus with a double ring (dark gap + gold) so it's visible even
+     over the image. An outset box-shadow isn't clipped by overflow:hidden */
   .sel-checkbox:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
   }
 
-  /* Windows High Contrast / forced-colors では box-shadow が一切描画されない。
-     フォーカスインジケータを box-shadow に寄せている要素 (カード被せ/＋/各種ボタン/
-     タブ/チップ/ロゴ/言語項目/検索/スキップ) が HC で完全に見えなくなるため、
-     outline でフォールバックを与える (システムカラーで描かれる)。カード被せボタンは
-     親の clip-path で切られるので offset を負にして内側に出す */
+  /* Windows High Contrast / forced-colors draws no box-shadow at all. Elements
+     whose focus indicator relies on box-shadow (card overlay / ＋ / various buttons /
+     tabs / chips / logo / language items / search / skip) become completely
+     invisible in HC, so provide an outline fallback (drawn in system colors). The
+     card overlay button is clipped by the parent clip-path, so use a negative offset to bring it inside */
   @media (forced-colors: active) {
     .card-open:focus-visible { outline: 2px solid; outline-offset: -3px; }
     .sel-checkbox:focus-visible,
@@ -1186,57 +1195,57 @@
     #search:focus,
     .skip-link:focus { outline: 2px solid; outline-offset: 2px; }
   }
-  /* 追加可能を示す ＋ (未選択時)。selected は ✓、partial は数字テキスト優先で空 */
+  /* ＋ indicating "can add" (when not selected). selected shows ✓; partial is empty (the number text takes priority) */
   .sel-checkbox::before {
     content: "+"; font-size: 18px; font-weight: 600; line-height: 1;
   }
   .sel-checkbox:hover { background: var(--gold); color: #1a1208; opacity: 1; }
-  /* selected は常に主張させたいので opacity 上書き (hover 待ちにしない) */
+  /* selected should always assert itself, so override opacity (don't wait for hover) */
   .skin-card.selected .sel-checkbox,
   .champ-card.selected .sel-checkbox,
   .line-card.selected .sel-checkbox,
   .champ-card.partial .sel-checkbox,
   .line-card.partial .sel-checkbox { opacity: 1; border-color: var(--gold); }
   .skin-card.selected, .champ-card.selected, .line-card.selected { border-color: var(--gold); }
-  /* selected も 3 種共通: ベースの vignette を残しつつ内枠を 3px ゴールド + 光彩に
-     強める。ベース ::after (var(--card-frame-shadow)) より specificity が高いので
-     クラスが付いた瞬間に上書きされる */
+  /* selected is also shared across all three: keep the base vignette while
+     strengthening the inner border to 3px gold + glow. Higher specificity than the
+     base ::after (var(--card-frame-shadow)), so it overrides the moment the class is added */
   .skin-card.selected::after,
   .champ-card.selected::after,
   .line-card.selected::after {
     box-shadow: var(--card-frame-shadow-selected);
   }
-  /* カードを開く被せボタン。カード全面を覆う透明ボタンで、入れ子インタラクティブ
-     (role=button の中に ＋ ボタン) を避けつつネイティブの Enter/Space を効かせる。
-     z-index は ＋ (z5) / anim-badge (z5) より下、::after フレーム (z3) / label (z2) /
-     img (z1) より上に置いて、＋ 以外のクリック/フォーカスを受ける */
+  /* Card-open overlay button. A transparent button covering the whole card,
+     avoiding nested interactives (a ＋ button inside role=button) while still
+     getting native Enter/Space. z-index below ＋ (z5) / anim-badge (z5) and above
+     the ::after frame (z3) / label (z2) / img (z1), so it receives clicks/focus everywhere except ＋ */
   .card-open {
     position: absolute; inset: 0; z-index: 4;
     appearance: none; -webkit-appearance: none;
     background: transparent; border: 0; margin: 0; padding: 0;
     cursor: pointer;
   }
-  /* キーボードフォーカスリング。被せボタンは親カードの clip-path で切り抜かれるので、
-     inset box-shadow が切り欠きフレーム形状に沿った金リングになる。selected (実線 3px
-     gold) と区別できるよう明るい gold-hi の 2px + 光彩にする */
+  /* Keyboard focus ring. The overlay button is clipped by the parent card's
+     clip-path, so an inset box-shadow becomes a gold ring following the notched
+     frame shape. Use a bright gold-hi 2px + glow to distinguish it from selected (solid 3px gold) */
   .card-open:focus-visible {
     outline: none;
     box-shadow:
       inset 0 0 0 2px var(--gold-hi),
       inset 0 0 30px rgba(212, 168, 87, 0.3);
   }
-  /* 部分選択 (一部スキンのみ選択済み) は薄めのゴールド枠 + □に件数 "3/14" 表示。
-     チャンプ/ラインが「per-skin の集合」であることを UI 上でも明示する */
+  /* Partial selection (only some skins selected): a dimmer gold border + count
+     "3/14" in the box. Makes it explicit in the UI that a champ/line is a set of per-skin items */
   .champ-card.partial, .line-card.partial { border-color: var(--gold-deep); }
-  /* "3/14" など数字を入れる時だけ横方向に伸ばす。デフォルトは正方形固定で、
-     ✓ (::before) が padding と相互作用して箱を太らせるのを防ぐ */
+  /* Stretch horizontally only when inserting a number like "3/14". Default is a
+     fixed square, preventing ✓ (::before) from interacting with padding and fattening the box */
   .champ-card.partial .sel-checkbox,
   .line-card.partial .sel-checkbox { width: auto; min-width: 28px; max-width: none; padding: 0 7px; }
-  /* partial は div の text content "3/14" を表示するので ＋ グリフは消す */
+  /* partial shows the element's "3/14" text content, so hide the ＋ glyph */
   .champ-card.partial .sel-checkbox::before,
   .line-card.partial .sel-checkbox::before { content: ""; }
-  /* ✓ は ::before の font-size を親 (11px) より大きくして視認性を上げる。
-     親側を上げると部分選択カウンタ "3/14" まで巨大化するので必ず ::before 限定 */
+  /* Make ✓ more visible by setting ::before's font-size larger than the parent
+     (11px). Raising the parent would also enlarge the partial counter "3/14", so keep it ::before-only */
   .skin-card.selected .sel-checkbox::before,
   .champ-card.selected .sel-checkbox::before,
   .line-card.selected .sel-checkbox::before {
@@ -1244,16 +1253,16 @@
     font-size: 20px; font-weight: 700; line-height: 1;
   }
 
-  /* ギャラリーで ✓ を外したカードは即削除せずその場に残す (やり直し可能にするため)。
-     淡色 + ＋ 表示で「外した / もう一度押せば戻せる」を視覚化。実際にグリッドから
-     消えるのは次にギャラリーを開き直した時。.gallery-grid 限定で他ビューには波及しない */
+  /* In the gallery, a card whose ✓ is removed stays in place rather than vanishing
+     immediately (so it's undoable). Faded + ＋ visualizes "removed / press again to
+     restore". It actually leaves the grid the next time the gallery is reopened. Scoped to .gallery-grid so it doesn't affect other views */
   .gallery-grid .skin-card:not(.selected) { opacity: 0.4; }
   .gallery-grid .skin-card:not(.selected):hover { opacity: 0.72; }
 
-  /* === GALLERY TOOLBAR === マイギャラリービュー上部のアクション列 ============ */
-  /* 旧 pack-bar の DL / スライドショー / クリアをここに集約。長いギャラリーを
-     下スクロールしても操作できるよう topbar (z:30) 直下に sticky で貼り付ける。
-     top は trackTopbarHeight() が実測する --topbar-h (可変な topbar 高さ) を基準に。 */
+  /* === GALLERY TOOLBAR === action row at the top of the My Gallery view ============ */
+  /* Consolidates the old pack-bar's DL / slideshow / clear here. Sticky just below
+     the topbar (z:30) so it stays usable when scrolling down a long gallery. top is
+     based on --topbar-h (the variable topbar height) measured by trackTopbarHeight(). */
   .gallery-toolbar {
     display: flex; gap: 10px; flex-wrap: wrap;
     align-items: center;
@@ -1263,34 +1272,34 @@
     background: linear-gradient(180deg, rgba(7, 6, 11, 0.96) 70%, rgba(7, 6, 11, 0));
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   }
-  /* 空状態の追加方法ヒント (gallery_empty の下に小さく) */
+  /* Empty-state hint on how to add (small, under gallery_empty) */
   .gallery-hint {
     margin-top: 8px;
     font-size: 13px;
     opacity: 0.7;
   }
-  /* 空状態のヒント文の下に出す「チャンピオンを見る」CTA (.loading 内に置くので margin だけ面倒を見る) */
+  /* "Browse champions" CTA shown below the empty-state hint (lives inside .loading, so only margin is handled here) */
   .gallery-browse-cta {
     margin-top: 16px;
   }
 
-  /* === FILTER CHIPS === home view 先頭の role/rarity/region ワンタップ絞り込み ===
-     既存の検索パイプライン (renderHome のマルチ軸マッチ) に語を投入するだけの導線。
-     横スクロール 1 行で全チップを並べ、スクロールバーは隠す。見た目は .btn/.tab と
-     同系 (ghost → active でゴールド点灯)、ただし角丸せず鋭角の世界観に合わせる */
+  /* === FILTER CHIPS === one-tap role/rarity/region filter at the top of the home view ===
+     A shortcut that just feeds a term into the existing search pipeline (renderHome's
+     multi-axis match). All chips sit in one horizontal-scroll row with the scrollbar
+     hidden. Looks like .btn/.tab (ghost → gold-lit when active), but unrounded to match the sharp-angle theme */
   .filter-chips {
     display: flex; align-items: center; gap: 8px;
     margin: 0 0 24px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    /* overflow-x:auto は overflow-y も clip 化する。チップの focus リング (3px の
-       outset box-shadow) が上下で切れないよう縦パディングで逃がす。右端は下の
-       scroll-padding-right で focus 時にマスクのフェード帯へ入らないようにする */
+    /* overflow-x:auto also clips overflow-y. Use vertical padding so a chip's focus
+       ring (3px outset box-shadow) isn't cut off top/bottom. On the right, the
+       scroll-padding-right below keeps a focused chip out of the mask's fade band */
     padding: 4px 0;
     scroll-padding-right: 32px;
-    /* スクロールバーを隠しているので、はみ出して続きがあることを右端のフェードで示す
-       (収まっている時は右端が空白なのでフェードは見えない) */
+    /* Since the scrollbar is hidden, a right-edge fade signals there's more content
+       overflowing (when everything fits, the right edge is blank so the fade isn't visible) */
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
@@ -1324,7 +1333,7 @@
   }
 
   /* === SKIN LINES GRID ============================================ */
-  /* 各ラインから代表スキンのスプラッシュをサムネとして表示 */
+  /* Show each line's representative skin splash as the thumbnail */
   .line-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, 300px);
@@ -1356,9 +1365,9 @@
   }
   .line-card:hover { transform: translateY(-3px); }
   .line-card:hover img { transform: scale(1.06); filter: saturate(1) contrast(1.06); }
-  /* テキスト可読性のグラデは .meta の背景に持たせる (skin-card .label と同じパターン)。
-     ::after は他のカードと同じ枠用に解放。.meta は名前+件数の2行で skin-card より
-     縦に長いので、padding-top を 60px まで広げてグラデの「フェード上端」を上に伸ばす */
+  /* Put the text-legibility gradient on .meta's background (same pattern as
+     skin-card .label), freeing ::after for the shared card frame. .meta is two rows
+     (name + count) and taller than skin-card, so widen padding-top to 60px to raise the gradient's fade top */
   .line-card .meta {
     position: absolute; left: 0; right: 0; bottom: 0;
     padding: 60px 18px 18px;
@@ -1462,10 +1471,10 @@
   .progress-actions { margin-top: 22px; }
 
   /* === TUTORIAL OVERLAY ===========================================
-     初回訪問時の 3 ステップ onboarding モーダル。progress-overlay と同じ
-     clip-path フレームを踏襲し、世界観 (黒紫 × ゴールド) を保つ。
-     z-index は lightbox (100) より上、progress-overlay (200) より下。
-     チュートリアル中にユーザーが DL を開始することは想定しないので競合は無い */
+     First-visit 3-step onboarding modal. Reuses the same clip-path frame as
+     progress-overlay and keeps the theme (dark purple x gold). z-index above the
+     lightbox (100) and below progress-overlay (200). We don't expect the user to
+     start a download during the tutorial, so there's no conflict */
   .tutorial-overlay {
     position: fixed; inset: 0; z-index: 150;
     background: rgba(7, 6, 11, 0.88);
@@ -1484,10 +1493,10 @@
     background: var(--bg-1);
     border: 1px solid var(--gold);
     position: relative;
-    /* .tut-body の min-height 予約 (ステップ間の高さ揺れ防止) は背の低い画面
-       (横向きスマホ) でボックスを溢れさせるため、はみ出す時だけ内部スクロールに
-       逃がして操作ボタン (Done/Next) へ届かなくなるのを防ぐ。100dvh が使える環境では
-       overlay padding を引いた値が正確なので二段書きでフォールバックさせる */
+    /* .tut-body's min-height reservation (preventing height jitter between steps)
+       overflows the box on short screens (landscape phones), so allow internal
+       scroll only when it overflows, keeping the action buttons (Done/Next)
+       reachable. Where 100dvh is available it's exact after subtracting overlay padding, so fall back with a two-line declaration */
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
@@ -1524,8 +1533,8 @@
     line-height: 1.7;
     letter-spacing: 0.01em;
     margin-bottom: 26px;
-    /* ステップ間で高さが揺れるのを抑える。最も行数が多いのは s4 (ショートカット
-       一覧、箇条書き 6 行 + 空行 + 補足 1 行 ≒ 8 行) なので 13em で固定 */
+    /* Suppress height jitter between steps. The tallest is s4 (shortcut list:
+       6 bullet lines + a blank line + 1 note line ≈ 8 lines), so fix it at 13em */
     min-height: 13em;
   }
   .tut-body strong { color: var(--gold-hi); font-weight: 600; }
@@ -1560,14 +1569,14 @@
   }
   .tut-nav { display: flex; gap: 10px; }
   .tutorial-box .btn:disabled {
-    /* 最初のステップで Back を出しっぱなしにしつつ無効化。グレーで存在感を残す */
+    /* Keep Back shown but disabled on the first step. Gray it to leave a faint presence */
     opacity: 0.35;
   }
 
   /* === OFFLINE BANNER ==============================================
-     オフライン時に画面下部へ出す告知バー。app.js が online/offline
-     イベントで hidden 属性をトグルする。半透明 + blur / ゴールド枠 / packIn 登場アニメ。
-     z-index は topbar (30) より上、lightbox (100) より下 */
+     Notice bar shown at the bottom of the screen when offline. app.js toggles the
+     hidden attribute on online/offline events. Translucent + blur / gold border /
+     packIn entrance animation. z-index above the topbar (30) and below the lightbox (100) */
   @keyframes packIn {
     from { opacity: 0; transform: translate(-50%, 24px); }
     to   { opacity: 1; transform: translate(-50%, 0); }
@@ -1595,10 +1604,10 @@
     .offline-banner { bottom: 18px; padding: 12px 18px; }
   }
 
-  /* 「トップへ戻る」FAB。世界観に合わせて半透明ダーク地 + blur + ゴールド枠
-     (offline-banner / .ss-btn と同系)。z-index は offline-banner(90) より下、
-     gallery-toolbar(20) / topbar(30) より上の 40。author の display が UA の
-     [hidden] に勝つので非表示を明示する (既存の .offline-banner[hidden] と同手法) */
+  /* "Back to top" FAB. Translucent dark ground + blur + gold border to match the
+     theme (same family as offline-banner / .ss-btn). z-index 40: below
+     offline-banner (90) and above gallery-toolbar (20) / topbar (30). author display
+     beats UA [hidden], so hide it explicitly (same trick as .offline-banner[hidden]) */
   .to-top {
     position: fixed; right: 24px; bottom: 24px; z-index: 40;
     width: 46px; height: 46px;
@@ -1607,9 +1616,9 @@
     backdrop-filter: blur(12px) saturate(140%);
     -webkit-backdrop-filter: blur(12px) saturate(140%);
     border: 1px solid var(--gold);
-    /* 正方形 (鋭角の世界観に合わせ角丸にしない)。clip-path のコーナーカットは
-       外側の box-shadow が消える既知の問題があるので使わず、直角スクエア
-       (.ss-btn / offline-banner と同系) にする */
+    /* Square (no rounding, to match the sharp-angle theme). Avoid clip-path corner
+       cuts (the known issue where the outer box-shadow disappears) and use a
+       right-angle square (same family as .ss-btn / offline-banner) */
     color: var(--gold-hi); cursor: pointer;
     font-size: 20px; line-height: 1;
     box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
@@ -1619,9 +1628,9 @@
   .to-top[hidden] { display: none; }
 
   /* === RESPONSIVE ================================================= */
-  /* 中型ノート PC まで desktop の 1 行 topbar を維持できる上限 (1100px) で
-     champ-header の controls スロットを row 2 に落とす。h2 と controls が
-     横並びだと窮屈になるサイズ */
+  /* At 1100px (the upper bound where mid-size laptops can keep the desktop one-row
+     topbar), drop champ-header's controls slot to row 2. This is the size where
+     h2 and controls side by side get cramped */
   @media (max-width: 1100px) {
     .champ-header-controls {
       grid-column: 1 / -1; grid-row: 2;
@@ -1636,8 +1645,8 @@
       max-width: none;
     }
   }
-  /* 900px 以下: タブレット帯域。header の 2 段構成は維持したまま
-     padding と font-size を詰める (--container-pad で間隔調整) */
+  /* <= 900px: tablet band. Keep the header's two-row layout while tightening
+     padding and font-size (spacing tuned via --container-pad) */
   @media (max-width: 900px) {
     :root { --container-pad: 20px; }
     header h1 { font-size: 20px; }
@@ -1648,7 +1657,7 @@
     .champ-header { padding: 24px 0 22px; margin-bottom: 32px; }
     .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
     .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
-    /* タップ最小 (44px 角) に上げる */
+    /* Raise to the minimum tap target (44px square) */
     .detail-nav-btn { width: 44px; height: 44px; }
     .lb-overlay { padding: 48px 24px 24px; }
     .lb-nav { width: 44px; height: 44px; }
@@ -1658,36 +1667,37 @@
     .progress-box { min-width: auto; padding: 28px 24px; }
     .progress-box h3 { font-size: 22px; }
   }
-  /* 600px 以下: スマホ全帯域 (320-430px) を一気に最適化。
-     - グリッドは fluid (auto-fill + minmax) でカードはみ出しを解消
-     - --ctrl-h を 44px に上げて iOS HIG / Material のタップ最小に揃える
-     - header は 2 段固定 (行1: brand + ?/lang / 行2: tabs + 操作ボタン)。
-       行2 は入りきらない時だけ flex-wrap で折返す
-     - lightbox の操作系は上ツールバーの 1 列に集約し、中央サイドナビは
-       タッチで操作しやすい下隅へ作り直す */
+  /* <= 600px: optimize the whole phone band (320-430px) at once.
+     - Grids go fluid (auto-fill + minmax) to fix card overflow
+     - Raise --ctrl-h to 44px to match the iOS HIG / Material minimum tap target
+     - Header stays two-row (row 1: brand + ?/lang / row 2: tabs + action buttons).
+       Row 2 wraps via flex-wrap only when it can't fit
+     - Consolidate the lightbox controls into the top toolbar's single row, and
+       rebuild the centered side nav into the bottom corners for easier touch */
   @media (max-width: 600px) {
-    /* --safe-top はノッチ回避用: topbar の padding と lightbox 上端コントロールで共有。
-       --bottom-nav-h は下部固定ナビ (header-secondary) の本体高さ (safe-area は別途加算) */
+    /* --safe-top is for notch avoidance: shared by the topbar padding and the
+       lightbox top controls. --bottom-nav-h is the body height of the fixed bottom
+       nav (header-secondary) (safe-area added separately) */
     :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; --bottom-nav-h: 56px; }
 
-    /* WCAG 2.4.11 (下端): 行2 が画面下部の fixed ナビになるので、Tab で最下部付近の
-       カード/フッターリンクへフォーカスが移った時にナビの裏へ送られないよう、
-       スクロールポート下端にナビ高さ + safe-area 分の余白を確保する */
+    /* WCAG 2.4.11 (bottom edge): row 2 becomes a fixed bottom nav, so when Tab moves
+       focus to near-bottom cards / footer links they aren't tucked behind the nav.
+       Reserve bottom padding equal to the nav height + safe-area */
     html { scroll-padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 12px); }
 
-    /* topbar の backdrop-filter は CSS 仕様上「fixed 子孫の containing block」を作るため、
-       これを残すと下で fixed 化する header-secondary が viewport ではなく topbar 基準に
-       なってしまう。モバイルでは blur をほぼ不透明な背景で代替して containing block を
-       消す (sticky 自体は影響を受けない) */
+    /* Per spec, the topbar's backdrop-filter creates a "containing block for fixed
+       descendants", so keeping it makes the header-secondary (fixed below) relative
+       to the topbar instead of the viewport. On mobile, replace the blur with a
+       nearly-opaque background to remove the containing block (sticky itself is unaffected) */
     .topbar {
       padding-top: env(safe-area-inset-top);
       background: rgba(7, 6, 11, 0.97);
       backdrop-filter: none; -webkit-backdrop-filter: none;
     }
 
-    /* === 下部固定ナビ === 行2 (チャンピオン/シリーズ/マイギャラリー/スライドショー) を
-       上の窮屈な横一列から画面下端のアプリ風ナビに移し、画面幅いっぱいを 4 ボタンで
-       使えるようにして可読サイズへ戻す。マークアップ・JS の active/primary ロジックは不変 */
+    /* === Fixed bottom nav === Move row 2 (Champions/Skin Lines/My Gallery/Slideshow)
+       from the cramped top row to an app-like nav at the bottom of the screen, using
+       the full width across 4 buttons to restore a readable size. Markup and JS active/primary logic unchanged */
     .header-secondary {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
       margin: 0;
@@ -1699,29 +1709,30 @@
       -webkit-backdrop-filter: blur(20px) saturate(140%);
       border-top: 1px solid var(--rule-bold);
     }
-    /* 2 グループとも内容幅基準 (flex-basis:auto) で、余白は均等配分。厳密な等幅
-       (flex-basis:0) だと最長ラベル "MY GALLERY" だけが 25% に押し込められて省略
-       されるため、短いラベル (SKIN LINES 等) の余りを長いラベルに回せるようにする */
+    /* Both groups size by content (flex-basis:auto) and split the leftover evenly.
+       Strict equal width (flex-basis:0) would cram the longest label "MY GALLERY"
+       into 25% and ellipsize it, so let shorter labels' (e.g. SKIN LINES) leftover go to the longer ones */
     .header-secondary .view-tabs,
     .header-secondary .header-actions { flex: 1 1 auto; display: flex; gap: 6px; }
     .header-secondary .view-tabs .tab,
     .header-secondary .header-actions .btn {
       flex: 1 1 auto;
-      /* equalizeTabs() が .view-tabs .tab にインライン min-width(px) を焼くので
-         !important で打ち消して flex に委ねる */
+      /* equalizeTabs() bakes an inline min-width(px) onto .view-tabs .tab, so
+         override it with !important and defer to flex */
       min-width: 0 !important;
       max-width: none;
       height: 44px;
-      /* Cinzel 大文字は幅広なので字間 0・余白薄め・10px に詰めて収める。
-         320px 級は下の 400px ブロックで更に縮める */
+      /* Cinzel uppercase is wide, so fit it with 0 letter-spacing, thin padding, and
+         10px. The 320px class shrinks further in the 400px block below */
       padding: 0 4px;
       font-size: 10px;
       letter-spacing: 0;
     }
-    /* 下部ナビの「マイギャラリー」だけ件数バッジをボタン上辺の外へ浮かせる。
-       ボタン内の角に置くとラベル (中央寄せで幅いっぱい) と重なって読みづらいため、
-       テキストの真上の空きへ逃がす。#gallery-btn 限定で overflow:visible にし
-       (slideshow など他ボタンの ellipsis は維持)、ラベルは span 側で ellipsis を保つ */
+    /* On the bottom nav, float the count badge above the "My Gallery" button's top
+       edge only. Placing it in a button corner overlaps the label (centered,
+       full-width) and is hard to read, so move it to the gap directly above the
+       text. Set overflow:visible for #gallery-btn only (other buttons like slideshow
+       keep their ellipsis), and keep the label's ellipsis on the span */
     .header-secondary #gallery-btn { overflow: visible; }
     .header-secondary #gallery-btn .btn-label {
       display: block; min-width: 0; max-width: 100%;
@@ -1734,9 +1745,9 @@
       font-size: 8.5px;
       border: 1px solid var(--bg);
     }
-    /* モバイルではスライドショー導線を My Gallery ビューのツールバー (#gallery-ss) に
-       集約し、下部固定ナビは 3 ボタン (Champions / Skin Lines / My Gallery) に戻す。
-       4 等分だと長 locale で窮屈だったのを解消して可読性を回復する */
+    /* On mobile, consolidate the slideshow path into the My Gallery view's toolbar
+       (#gallery-ss) and reduce the fixed bottom nav back to 3 buttons (Champions /
+       Skin Lines / My Gallery). This relieves the cramping of a 4-way split in long locales and restores readability */
     .header-secondary #slideshow-btn { display: none; }
 
     header {
@@ -1747,8 +1758,8 @@
     .header-secondary { gap: 8px; }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
-    /* stats は h1 直下に小さく出ているだけだが 320px だと収まりにくい。
-       inline-block + ellipsis で逃がし、lang-btn 幅 (約 52px) を残す */
+    /* stats is just a small line under h1, but it's hard to fit at 320px. Escape it
+       with inline-block + ellipsis, leaving room for the lang-btn width (~52px) */
     .header-brand #stats {
       display: inline-block;
       padding-left: 18px;
@@ -1760,7 +1771,7 @@
       max-width: calc(100vw - 100px);
     }
 
-    /* topbar 内ボタン/タブの省幅化: CJK / 長 locale 対応 */
+    /* Narrow the topbar buttons/tabs: handles CJK / long locales */
     header .btn,
     header .view-tabs .tab {
       padding-left: 8px; padding-right: 8px;
@@ -1772,10 +1783,10 @@
     }
     header .view-tabs .tab { max-width: 40vw; }
 
-    /* controls スロットは横一列 (検索が伸びる + 並び替えはコンパクト) にして縦の
-       占有を半減させる。home (back 非表示) は search+sort が常に 1 行。検索中は
-       back+search+sort で、狭い端末 (~330px 未満) だけ flex-wrap で sort が次行へ
-       逃げる (破綻せずグレースフルに折返す) */
+    /* Lay out the controls slot as one horizontal row (search grows + sort compact)
+       to halve the vertical footprint. On home (back hidden) search+sort is always
+       one row. While searching it's back+search+sort, and only on narrow devices
+       (~under 330px) does flex-wrap push sort to the next line (graceful wrap, no breakage) */
     .champ-header-controls {
       flex-direction: row;
       flex-wrap: wrap;
@@ -1787,48 +1798,48 @@
     }
     .champ-header-controls > .ctrl-select {
       flex: 0 0 auto;
-      min-width: 0; /* search との折返し競合を避ける (デスクトップの 7em min-width を解除) */
+      min-width: 0; /* avoid wrap conflicts with search (release the desktop 7em min-width) */
     }
-    /* 戻るボタンは内容幅に収めて場所を空ける (左寄せの小さな矢印ボタン) */
+    /* Fit the back button to its content width to free up space (a small left-aligned arrow button) */
     .champ-header-controls > #back-btn {
       flex: 0 0 auto;
       padding-left: 14px; padding-right: 14px;
     }
 
-    /* 一覧ヘッダーを高密度化: 見出し右の空きスペースに件数を昇格させて専用行を畳み、
-       padding/margin/gap/フォントを詰めてグリッドを上へ引き上げる。すべて is-list
-       (home / 検索 / skin lines) 限定で、共用の詳細 view ヘッダー (巨大タイトル +
-       DL ボタン + ‹›、is-list 無し) には一切触れない */
+    /* Densify the list header: promote the count into the empty space right of the
+       heading to collapse its dedicated row, and tighten padding/margin/gap/font to
+       pull the grid upward. All scoped to is-list (home / search / skin lines) and
+       never touches the shared detail-view header (huge title + DL button + ‹›, no is-list) */
     .champ-header.is-list {
       gap: 6px 14px;
-      padding: 14px 0 16px;     /* 900px の 24px 0 22px から圧縮 */
-      margin-bottom: 20px;      /* 900px の 32px から圧縮 */
+      padding: 14px 0 16px;     /* compressed from 900px's 24px 0 22px */
+      margin-bottom: 20px;      /* compressed from 900px's 32px */
     }
     .champ-header.is-list h2 {
-      font-size: clamp(21px, 5vw, 26px);  /* floor 21px で "CHAMPIONS" が痩せすぎない */
+      font-size: clamp(21px, 5vw, 26px);  /* a 21px floor keeps "CHAMPIONS" from getting too thin */
     }
-    /* 件数を col2/row1 (見出しの肩口) へ。grid の align-items:end と揃える。
-       padding-bottom は小さな mono 件数を巨大イタリック見出しの下辺へ光学的に合わせる
-       微調整 (baseline 揃えは x-height 付近で浮くので end + nudge を採用) */
+    /* Move the count to col2/row1 (the heading's shoulder), aligned with the grid's
+       align-items:end. padding-bottom is a tweak to optically align the small mono
+       count to the bottom of the huge italic heading (baseline align floats around the x-height, so use end + nudge) */
     .champ-header.is-list .count {
       grid-column: 2; grid-row: 1;
       justify-self: end; align-self: end;
       padding-bottom: 0.28em;
-      /* no-results 時は count に生の検索語が入る。長文が見出しへ食い込まないよう
-         #stats と同じ ellipsis 防御。col1 は base の minmax(0,1fr) のままで見出し優先 */
+      /* On no-results, count holds the raw search term. Use the same ellipsis guard
+         as #stats so long text doesn't bite into the heading. col1 stays the base minmax(0,1fr), prioritizing the heading */
       max-width: 45vw;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      letter-spacing: 0.24em;   /* 320px で 0.32em は詰まりすぎるので気持ち締める */
+      letter-spacing: 0.24em;   /* 0.32em is too cramped at 320px, so tighten it slightly */
     }
-    /* ◆ divider は残す (ヘッダー最大のブランド記号)。畳んだ padding に合わせて
-       diamond の落とし幅だけ詰めて金線の中央に保つ */
+    /* Keep the ◆ divider (the header's biggest brand mark). Tighten just the
+       diamond's drop to match the collapsed padding, keeping it centered on the gold line */
     .champ-header.is-list::after { bottom: -7px; }
 
-    /* 下端は固定ナビ (--bottom-nav-h + safe-area) の分だけ余白を足して隠れないように */
+    /* Add bottom padding equal to the fixed nav (--bottom-nav-h + safe-area) so content isn't hidden */
     main { padding: 24px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 28px); }
-    /* footer も最後の行がナビに食われないようクリアランスを足す */
+    /* Add clearance to the footer too so its last line isn't eaten by the nav */
     footer { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 16px); }
     .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
@@ -1837,9 +1848,9 @@
     .skin-card .label { font-size: 13.5px; }
     .line-card .name  { font-size: 16px; }
 
-    /* ＋ ボタン: 96px グリッドに対して 44px は視覚的に過大。本体タップは拡大/詳細遷移、
-       追加は ＋ タップなので Material/Apple のタッチ最小ガイドラインを厳守する必要は
-       無い。32px に圧縮 (タッチ端末では hover が無いので ＋ は常時不透明のまま) */
+    /* ＋ button: 44px is visually oversized against a 96px grid. The card body tap is
+       expand/detail and adding is the ＋ tap, so we don't need to strictly follow the
+       Material/Apple minimum tap guidelines. Compress to 32px (touch devices have no hover, so ＋ stays always opaque) */
     .sel-checkbox {
       width: 32px; height: 32px; padding: 0;
       min-width: 32px; max-width: 32px;
@@ -1852,8 +1863,8 @@
     .champ-card.selected .sel-checkbox::before,
     .line-card.selected .sel-checkbox::before { font-size: 22px; }
 
-    /* lightbox: 画像領域を優先、ナビ矢印は 48px に拡大して下端へ寄せ片手親指で
-       届く位置に。閉じる/一時停止/fit/⚙ は上ツールバーの 1 列に集約済み */
+    /* lightbox: prioritize the image area; enlarge nav arrows to 48px and move them
+       toward the bottom within one-thumb reach. Close/pause/fit/⚙ are already consolidated into the top toolbar's row */
     .lb-overlay { padding: 56px 16px 18px; }
     .lb-champ   { font-size: 10px; letter-spacing: 0.32em; margin-bottom: 8px; }
     .lb-skin    { font-size: clamp(20px, 6vw, 28px); }
@@ -1861,42 +1872,44 @@
     .lb-nav { width: 48px; height: 48px; font-size: 24px; }
     .lb-toolbar { top: var(--safe-top); left: 12px; right: 12px; gap: 6px; }
     .lb-toolbar .badge, .lb-toolbar .ss-btn { padding: 8px 10px; font-size: 9.5px; letter-spacing: 0.16em; }
-    /* 上の一括縮小 (9.5px) はテキスト系 (counter / interval / caption) 向け。
-       操作ボタンは指で押すので、タップ域 (min-height 44px ≒ --ctrl-h) を確保し、
-       アイコン (✕/⛶/⚙) は字面が小さいのでグリフを大きく戻す (上書きより後・同特定度)。
-       特に閉じる ✕ が縮みすぎて押しづらくならないようにする */
+    /* The bulk shrink above (9.5px) is for text items (counter / interval / caption).
+       Control buttons are pressed with a finger, so reserve a tap area (min-height
+       44px ≈ --ctrl-h), and restore larger glyphs for the icons (✕/⛶/⚙) since their
+       glyphs are small (placed after the override, same specificity). In particular, keep close ✕ from shrinking too small to press */
     .lb-toolbar .badge, .lb-toolbar .ss-btn { min-height: 44px; }
     .lb-toolbar .lb-icon { font-size: 16px; padding: 8px 12px; }
-    /* ナビ矢印は下隅へ (上ツールバーの操作列・最下部キャプションと縦に分離。
-       片手の親指で届きやすい)。閉じる/一時停止は上ツールバーの 1 列に集約済み */
+    /* Move nav arrows to the bottom corners (vertically separated from the top
+       toolbar's control row and the bottom caption; easy for a one-handed thumb).
+       Close/pause are already consolidated into the top toolbar's row */
     .lb-prev, .lb-next { top: auto; bottom: 16px; transform: none; }
     .lb-prev { left: 12px; }
     .lb-next { right: 12px; }
-    /* スマホ + 拡大 (.fill=cover) のスライドショーは kenburns ズームを止め、
-       object-position の左右パンで切れた左右まで全体を見せる (cover は画像をボックスに
-       クリップするので transform 移動では黒帯が出るだけ)。resting を終点 100% に固定して
-       .show 解除時 (退場フェード) の中央スナップを防ぐ。パン長は 1 スライド表示時間
-       (= --lb-pan-dur ← state.lb.interval) に合わせ左→右を 1 回通す。.fill 追加で
-       kenburns (.lightbox.slideshow .lb-img.show) より詳細度が高く animation を上書き */
+    /* On phone + expanded (.fill=cover) slideshows, stop the kenburns zoom and use an
+       object-position left/right pan to show the full width including the cropped
+       edges (cover clips the image to the box, so a transform move only produces
+       black bars). Pin the resting state to the 100% end to prevent a center snap
+       when .show is removed (exit fade). The pan length matches one slide's display
+       time (= --lb-pan-dur ← state.lb.interval), passing left→right once. Adding .fill
+       gives higher specificity than kenburns (.lightbox.slideshow .lb-img.show) to override the animation */
     .lightbox.slideshow.fill .lb-img { object-position: 100% center; }
     .lightbox.slideshow.fill .lb-img.show {
       animation: lb-panx var(--lb-pan-dur, 7000ms) ease-in-out both;
-      transform: none;  /* 念のため kenburns 由来の transform を打ち消す */
+      transform: none;  /* cancel any leftover kenburns transform, just in case */
     }
 
-    /* ギャラリーツールバー: 狭幅ではボタンを詰めて折り返す */
+    /* Gallery toolbar: at narrow widths, tighten the buttons and let them wrap */
     .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
 
-    /* 下部固定の通知 (toast / offline-banner) はナビバーの上に逃がす */
+    /* Push the bottom-fixed notices (toast / offline-banner) above the nav bar */
     .toast { bottom: calc(36px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     .offline-banner { bottom: calc(18px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
-    /* 下部固定ナビと重ならないよう .toast と同じ式で底上げする */
+    /* Raise it with the same formula as .toast so it doesn't overlap the fixed bottom nav */
     .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
 
-    /* モバイルは幅が貴重なので言語コード併記は隠して旗のみに戻す */
+    /* Width is precious on mobile, so hide the language code and go flag-only */
     .lang-code { display: none; }
 
-    /* lang menu: 画面右端からはみ出さない max-width 制約 */
+    /* lang menu: max-width constraint so it doesn't overflow the screen's right edge */
     .lang-menu {
       min-width: 200px;
       max-width: calc(100vw - 16px);
@@ -1905,7 +1918,7 @@
     }
     .lang-menu button { padding: 12px 16px; font-size: 11px; }
 
-    /* 進捗ダイアログ: 320px でも h3/Cancel が収まる幅へ */
+    /* Progress dialog: narrow it to a width where h3/Cancel still fit at 320px */
     .progress-box {
       padding: 22px 18px 18px;
       width: calc(100vw - 24px);
@@ -1915,7 +1928,7 @@
     .progress-box .desc { font-size: 11.5px; }
     .progress-stats     { font-size: 10px; letter-spacing: 0.12em; }
 
-    /* チュートリアル: 320-430px でも本文と操作行が収まる詰めへ */
+    /* Tutorial: tighten so the body and action row still fit at 320-430px */
     .tutorial-overlay { padding: 12px; }
     .tutorial-box { padding: 26px 22px 20px; }
     .tut-title { font-size: 26px; margin-bottom: 14px; }
@@ -1924,17 +1937,17 @@
     .tut-nav { gap: 6px; }
   }
 
-  /* モーション控えめ設定では kenburns ズームも lb-panx パンも止めて静止表示にする
-     (fill のクロップは中央へ)。既存 kenburns も未対応だったので併せて対応。
-     上のモバイルブロックより後ろに置くことで、等詳細度の object-position:center が
-     resting 100% に後勝ちする */
+  /* With reduced-motion, stop both the kenburns zoom and the lb-panx pan for a still
+     display (fill crop centered). kenburns wasn't handled before either, so cover it
+     here too. Placed after the mobile block above so the equal-specificity
+     object-position:center wins over resting 100% by source order */
   @media (prefers-reduced-motion: reduce) {
     .lightbox.slideshow .lb-img.show,
     .lightbox.slideshow.fill .lb-img.show { animation: none; }
     .lightbox.slideshow.fill .lb-img { object-position: center; }
-    /* 装飾・無限ループ系のモーションも抑制する。読み込みシマー / 進捗バーのシマー /
-       main のフェードイン / カード hover のリフト & ズームを止める (機能上の
-       transition = 進捗バーの width 等は残す)。前庭障害への配慮 */
+    /* Also suppress decorative / infinite-loop motion. Stop the loading shimmer /
+       progress-bar shimmer / main fade-in / card hover lift & zoom (keep functional
+       transitions like the progress bar's width). For vestibular-disorder accommodation */
     .champ-card:not(.img-loaded)::before,
     .skin-card:not(.img-loaded)::before,
     .line-card:not(.img-loaded)::before,
@@ -1944,37 +1957,38 @@
     .champ-card:hover img, .skin-card:hover img, .line-card:hover img { transform: none; }
   }
 
-  /* 説明枠の領域確保 (説明の有無でスキン名がズレないように) は「縦に余裕がある時だけ」
-     効かせる。短い画面 (横向きスマホ ≤430px 高さ等) で予約すると、空の予約分だけ
-     スキン名が上に押し上がって中央サイドナビ等に近づくため、min-height:500px で門番する
-     (縦スマホは ~568px+ なので常に通過、横向きスマホ ~320-430px は通過しない)。
-     - 縦に余裕あり (デスクトップ/タブレット/縦スマホ): ~3 行 (4.6em)
-     - 縦スマホ (レターボックスで下に余白大): 6 行 (9em) */
+  /* The description-box reservation (so the skin name doesn't shift with/without a
+     description) applies "only when there's vertical headroom". On short screens
+     (landscape phone ≤430px height etc.) the reservation pushes the skin name up
+     toward the centered side nav, so gate it with min-height:500px (portrait phones
+     are ~568px+ and always pass; landscape phones ~320-430px don't).
+     - Vertical headroom (desktop/tablet/portrait phone): ~3 lines (4.6em)
+     - Portrait phone (large bottom letterbox margin): 6 lines (9em) */
   @media (min-height: 500px) {
     .lb-desc { min-height: 4.6em; }
   }
   @media (max-width: 600px) and (orientation: portrait) and (min-height: 500px) {
-    /* 縦スマホは下のレターボックス余白が大きいので予約 6 行・clamp も 6 行に揃える */
+    /* Portrait phones have a large bottom letterbox margin, so reserve 6 lines and match the clamp to 6 lines too */
     .lb-desc { min-height: 9em; -webkit-line-clamp: 6; }
   }
-  /* 予約を効かせない短い画面 (高さ <500px) では、説明なしスキンの .lb-desc は常時 DOM に
-     残るので margin-top だけが残り名前を ~10-14px 押し上げる。:empty の時だけ margin も
-     消して旧 hidden 相当に畳む (高さ余裕のある画面は予約のため margin を残す = 一貫性維持) */
+  /* On short screens (height <500px) where the reservation is off, the .lb-desc of a
+     description-less skin stays in the DOM, so only its margin-top remains and pushes
+     the name up by ~10-14px. Drop the margin too only when :empty, collapsing it like
+     the old hidden behavior (screens with headroom keep the margin for the reservation = consistency) */
   @media (max-height: 499px) {
     .lb-desc:empty { margin-top: 0; }
   }
 
-  /* 400px 以下 (iPhone SE 1st gen 320px クラス): カードを更に大きく見せるため
-     skin/line は 1 列、champ は 3 列固定にする */
+  /* <= 400px (iPhone SE 1st gen, 320px class): to show cards larger, fix skin/line to 1 column and champ to 3 columns */
   @media (max-width: 400px) {
     :root { --frame-cut: 8px; --container-pad: 10px; }
     main { padding: 16px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 24px); }
     .skin-grid, .line-grid { grid-template-columns: 1fr; }
     .champ-grid { grid-template-columns: repeat(3, 1fr); }
 
-    /* 320px 級では es_es / fr_fr / pt_br の長ラベルが 600px 設定でもキツいので
-       letter-spacing を切って 9.5px に落とす。ellipsis は親側で既に効くので
-       入りきらない分は "..." に倒れる */
+    /* At the 320px class, long labels in es_es / fr_fr / pt_br are tight even with the
+       600px settings, so kill letter-spacing and drop to 9.5px. Ellipsis already
+       works on the parent, so the overflow falls back to "..." */
     .header-primary,
     .header-secondary { gap: 4px; }
     header .btn,
@@ -1984,8 +1998,8 @@
       letter-spacing: 0;
       font-size: 9.5px;
     }
-    /* 下部ナビは別ルール (0,3,0) で上書きされるので、320px 級向けに明示的に更に縮める。
-       "MY GALLERY" 等の最長ラベルを 320px でも省略させず収めるため 9px / 余白薄め */
+    /* The bottom nav is overridden by a separate rule (0,3,0), so shrink it further
+       explicitly for the 320px class. 9px / thin padding to fit the longest labels (e.g. "MY GALLERY") without ellipsis even at 320px */
     .header-secondary .view-tabs .tab,
     .header-secondary .header-actions .btn {
       font-size: 9px;
@@ -1996,12 +2010,12 @@
     header .view-tabs .tab { max-width: 36vw; }
   }
 
-  /* === TOAST (ローカル実行モードの壁紙操作フィードバック) ===============
-     トーストは全オーバーレイの最前面に出す必要がある。最も高いのは壁紙モーダル
-     (.wp-modal, z-index:1000) で、しかも不透明 backdrop を持つ。壁紙適用失敗時の
-     エラートーストはこのモーダルが開いたまま出る (onApply は失敗時に閉じない) ため、
-     1000 より上 (1100) に置かないとモーダルの裏に隠れて視覚的に見えなくなる。
-     視覚通知は #toast、スクリーンリーダー向けは既存の #sr-status (aria-live) を併用 */
+  /* === TOAST (wallpaper-action feedback in local mode) ===============
+     Toasts must appear in front of all overlays. The highest is the wallpaper modal
+     (.wp-modal, z-index:1000), which also has an opaque backdrop. The error toast on
+     a failed wallpaper apply shows while that modal is still open (onApply doesn't
+     close on failure), so unless it's above 1000 (1100) it hides behind the modal and
+     becomes invisible. Visual notice is #toast; for screen readers, the existing #sr-status (aria-live) is used alongside */
   .toast {
     position: fixed;
     left: 50%; bottom: 36px;
@@ -2022,8 +2036,8 @@
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast[data-kind="err"] { border-color: #d46a6a; color: #f4c0c0; }
 
-  /* 壁紙の確認モーダル (ローカル実行モードのみ。js/wallpaper.js が遅延生成する)。
-     選択 → 確認 → 一括設定の "確認" 画面。色/グラスは既存のライトボックス・トーストに揃える */
+  /* Wallpaper confirmation modal (local mode only; lazily created by js/wallpaper.js).
+     The "confirm" screen of select → confirm → batch-set. Colors/glass match the existing lightbox and toasts */
   .wp-modal {
     position: fixed; inset: 0; z-index: 1000;
     display: flex; align-items: center; justify-content: center;
@@ -2037,8 +2051,8 @@
   .wp-dialog {
     position: relative;
     width: min(680px, 92vw);
-    /* flex 縦並びにして「サムネ一覧 (.wp-grid) だけスクロール / フッター (間隔・注記・
-       ボタン) は常に見える」を実現する。ダイアログ自体はスクロールさせない。 */
+    /* Vertical flex so "only the thumbnail list (.wp-grid) scrolls / the footer
+       (interval, note, buttons) stays visible". The dialog itself doesn't scroll. */
     display: flex; flex-direction: column;
     max-height: 88vh; overflow: hidden;
     padding: 28px;
@@ -2054,15 +2068,15 @@
     letter-spacing: 0.06em;
   }
   .wp-grid {
-    /* 唯一スクロールする領域。選択枚数が多くてもボタンは下に固定されたまま。
-       min-height: 0 で flex の縮小を許可しないと overflow が効かない。 */
+    /* The only scrolling region. Buttons stay pinned at the bottom no matter how
+       many are selected. overflow only works if min-height: 0 allows flex to shrink. */
     flex: 0 1 auto;
     min-height: 0; overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
   }
-  /* スクロールするサムネ一覧と、固定フッター (間隔・注記・ボタン) を罫線で切り分ける。 */
+  /* Separate the scrolling thumbnail list from the fixed footer (interval, note, buttons) with a rule. */
   .wp-footer {
     flex: 0 0 auto;
     margin-top: 18px; padding-top: 18px;
@@ -2101,7 +2115,7 @@
   .wp-actions {
     display: flex; gap: 10px; justify-content: flex-end;
   }
-  /* 適用中の進捗ゲージ (サーバの DL 進捗を /api/wallpaper/progress でポーリングして反映)。 */
+  /* Progress gauge while applying (reflects the server's DL progress polled via /api/wallpaper/progress). */
   .wp-progress {
     display: flex; align-items: center; gap: 12px;
     margin-bottom: 14px;
@@ -2123,8 +2137,8 @@
     font-size: 10.5px; letter-spacing: 0.14em;
     color: var(--gold-hi); white-space: nowrap;
   }
-  /* 適用成功後の「完了！楽しんでね〜」モーダル。確認用 .wp-dialog の flex/スクロールは
-     不要なので上書きし、中央寄せの小さなカードにする (.wp-done-dialog を後勝ちさせる)。 */
+  /* Post-success "Done! Enjoy~" modal. The confirm .wp-dialog's flex/scroll aren't
+     needed here, so override them into a small centered card (let .wp-done-dialog win by source order). */
   .wp-done-dialog {
     display: block; overflow: visible;
     max-height: none;

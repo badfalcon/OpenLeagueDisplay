@@ -1,6 +1,6 @@
-// view レンダラ。state.view (home/champion/lines/line) と検索/選択状態から DOM を組み立てる。
-// 永続レイアウト (champ-header + view-content) は ensureLayout で 1 回だけ作り、
-// 以降は setPrimaryHeader / view-content.innerHTML 差し替えで更新する。
+// View renderers. Builds the DOM from state.view (home/champion/lines/line) and the search/selection state.
+// The persistent layout (champ-header + view-content) is created once by ensureLayout;
+// afterwards updates go through setPrimaryHeader / swapping view-content.innerHTML.
 
 import {
   state, DATA, $, esc, announce,
@@ -16,13 +16,13 @@ import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
 
-// localeCompare に渡す BCP-47 タグ。"default" は英語、それ以外は CDragon の
-// "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
+// BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
+// CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
-// 全チャンピオンを state.sortOrder に従って並べた新規配列を返す。renderHome (一覧) と
-// renderChampion (前後ナビの順序) で同じ並びを共有するために抽出した。"name_asc"/"name_desc"
-// は localized name で localeCompare、"release" は data.json 順 (= 何もしない)。
+// Returns a new array of all champions ordered by state.sortOrder. Extracted so renderHome (the list)
+// and renderChampion (prev/next nav order) share the same ordering. "name_asc"/"name_desc" use
+// localeCompare on the localized name; "release" keeps data.json order (no-op).
 function sortedChampions() {
   const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const arr = DATA.champions.slice();
@@ -33,8 +33,8 @@ function sortedChampions() {
   return arr;
 }
 
-// count>0 のスキンラインを「件数 desc → 名前 locale 順」で並べた配列を返す (フィルタ前の全件)。
-// renderLines (一覧。検索フィルタは呼び出し側で別途かける) と renderLine (前後ナビの順序) で共有。
+// Returns skin lines with count>0 ordered by "count desc, then name in locale order" (all entries, unfiltered).
+// Shared by renderLines (the list; search filtering is applied separately by the caller) and renderLine (prev/next nav order).
 function sortedLineEntries() {
   const lines = DATA.skin_lines || {};
   return Object.entries(lines)
@@ -46,9 +46,9 @@ function sortedLineEntries() {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, cmpTag()));
 }
 
-// stats_format テンプレ ("{0} CHAMPIONS · {1} SKINS" 等) の {n} 部分だけ
-// <span> 化して保持する。初回呼び出しでは 0 から目標値へカウントアップさせ、
-// 以降の呼び出し (locale 切替時など) は即時表示にしてチラつかせない
+// Wraps just the {n} placeholders of the stats_format template ("{0} CHAMPIONS · {1} SKINS" etc.)
+// in <span>s. The first call counts up from 0 to the target value; later calls
+// (e.g. on locale switch) render instantly to avoid flicker.
 let _statsAnimated = false;
 export function renderStats(champCount, skinCount) {
   const tmpl = (UI_STRINGS[state.locale] || UI_STRINGS.default).stats_format
@@ -87,11 +87,11 @@ export function renderStats(champCount, skinCount) {
   requestAnimationFrame(frame);
 }
 
-// view-content の上に居る永続的な champ-header。h2 / count / primary は
-// renderXxx 側から setPrimaryHeader() で書き換える。.champ-header-controls
-// (back-btn / search / sort-label / sort-select) は一度ここに住んだら二度と動かさない。
-// これで search input の親が render() ごとに壊されることが無くなり、入力中の
-// フォーカスやカーソル位置・IME composition が保たれる
+// The persistent champ-header that sits above view-content. h2 / count / primary are
+// rewritten by renderXxx via setPrimaryHeader(). .champ-header-controls
+// (back-btn / search / sort-label / sort-select) live here once and never move again.
+// This keeps the search input's parent from being torn down on every render(), so
+// focus, cursor position, and IME composition survive mid-typing.
 export function ensureLayout(root) {
   if ($("view-content")) return;
   root.innerHTML = `
@@ -113,8 +113,8 @@ export function ensureLayout(root) {
   slot.appendChild($("sort-select"));
 }
 
-// 永続 champ-header の中身を更新する唯一の窓口。renderXxx は innerHTML を
-// 触らず、ここに値を渡すだけにする
+// The single entry point for updating the contents of the persistent champ-header. renderXxx
+// never touches its innerHTML, it just passes values here.
 function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null }) {
   const ph = $("primary-header");
   ph.hidden = false;
@@ -125,15 +125,16 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
   if (primaryLabel) {
     btn.hidden = false;
     btn.textContent = primaryLabel;
-    // onclick への代入で前回の handler は自動破棄される (addEventListener と違って重複しない)
+    // Assigning onclick discards the previous handler automatically (unlike addEventListener, no duplicates)
     btn.onclick = primaryClick;
   } else {
     btn.hidden = true;
     btn.onclick = null;
   }
-  // 詳細 view (champion / line) の前後ナビ。nav が無い view (home/lines/gallery/検索) では
-  // 両ボタンを hidden に戻し onclick も null に。表示時は隣の名前を title/aria-label に入れて
-  // PC ホバーと SR で行き先が分かるようにする (ボタン表示は ‹ › グリフのみなので i18n 不要)。
+  // Prev/next nav for detail views (champion / line). For views without nav (home/lines/gallery/search)
+  // both buttons go back to hidden and onclick to null. When shown, the neighbor's name goes in
+  // title/aria-label so the destination is clear on desktop hover and to screen readers (the button
+  // itself only shows the ‹ › glyph, so no i18n needed).
   const prevBtn = $("detail-prev");
   const nextBtn = $("detail-next");
   if (nav) {
@@ -155,26 +156,26 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
   }
 }
 
-// hash ルーティングのフック。app.js が setRouteListener で「現在 state に対応する
-// hash を location.hash に同期する」コールバックを登録する。render.js 自身は
-// history API を一切触らない (ルート⇄state 変換と pushState/popstate の責務は
-// app.js に集約する)。これにより既存のナビゲーション関数群 (openChampion 等) を
-// 書き換えずに、render() が走るたび URL が追従する。
+// Hash-routing hook. app.js registers a callback via setRouteListener that "syncs the
+// hash for the current state into location.hash". render.js never touches the
+// history API itself (route<->state conversion and pushState/popstate live entirely
+// in app.js). This lets the URL follow along every time render() runs, without
+// rewriting the existing navigation functions (openChampion etc.).
 let onRouteChange = null;
 export function setRouteListener(fn) { onRouteChange = fn; }
 
 export function render() {
   const root = $("root");
   ensureLayout(root);
-  // タブはトップレベル切替。back-btn は詳細 (champion / line / selected) または検索中に表示。
-  // "selected" (マイギャラリー) は専用導線で開く中間ビューなのでタブはどちらも非アクティブ
+  // Tabs are top-level switches. back-btn shows in detail views (champion / line / selected) or while searching.
+  // "selected" (My Gallery) is an intermediate view opened via its own path, so neither tab is active.
   const isLines = (state.view === "lines" || state.view === "line");
   const isSelected = (state.view === "selected");
   const isDetail = (state.view === "champion" || state.view === "line" || isSelected);
   const hasSearch = !!state.searchQuery;
   const showBack = isDetail || hasSearch;
-  // タブは「現在のビュー」を示すナビ。.active は見た目、aria-current は SR 向け
-  // (role="tab" の不完全実装を避け、ナビゲーションとして aria-current="page" を使う)
+  // Tabs are navigation indicating the "current view". .active is visual, aria-current is for screen readers
+  // (we avoid an incomplete role="tab" implementation and use aria-current="page" as navigation).
   const homeActive = !isLines && !isSelected;
   $("tab-home").classList.toggle("active", homeActive);
   $("nav-lines").classList.toggle("active", isLines);
@@ -185,42 +186,43 @@ export function render() {
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
   else if (state.view === "selected") renderSelected(root);
-  // 表示制御: back は showBack の時だけ、sort は home の時だけ可視 (ラベルも同条件)
+  // Visibility: back only when showBack, sort only on home (the label follows the same condition)
   $("back-btn").style.display = showBack ? "" : "none";
   const sortVis = state.view === "home" ? "" : "none";
   $("sort-label").style.display = sortVis;
   $("sort-select").style.display = sortVis;
-  // 検索プレースホルダ: 詳細 view (champion / line) では検索が view ローカルでなく
-  // 全チャンピオン横断 (= 暗黙に一覧へ戻る) であることを予告する文言に差し替える。
-  // applyStaticUIStrings が当てる初期値を view に応じて上書きする形なので、locale
-  // 切替後も render() が走って追従する。
+  // Search placeholder: in detail views (champion / line), swap in wording that signals search is
+  // not view-local but spans all champions (= implicitly returns to the list).
+  // It overrides the initial value applyStaticUIStrings sets, keyed on the view, so it keeps
+  // following along after a locale switch since render() runs again.
   const searchEl = $("search");
   if (searchEl) {
     const global = (state.view === "champion" || state.view === "line");
     const ph = t(global ? "search_placeholder_global" : "search_placeholder");
     searchEl.placeholder = ph;
-    // placeholder はアクセシブルネームにならない (入力すると消える / AT が拾わない) ので、
-    // 同じ翻訳済み文言を aria-label にも当てて SR / 音声操作に名前を渡す
+    // A placeholder is not an accessible name (it disappears on input / AT doesn't pick it up), so
+    // apply the same translated wording to aria-label to give screen readers / voice control a name.
     searchEl.setAttribute("aria-label", ph);
   }
   refreshGalleryBtn();
-  // 末尾で現在 state に対応する hash を app.js へ通知する。app.js 側は
-  // 「現在の location.hash と違う時だけ pushState」して二重 render を避ける。
+  // At the end, notify app.js of the hash for the current state. app.js only pushState's
+  // "when it differs from the current location.hash" to avoid a double render.
   if (onRouteChange) onRouteChange();
 }
 
-// ヘッダーの「マイギャラリー」ボタン: 選択件数を出し、ギャラリービュー中は
-// .primary でアクティブ表現にする。選択数が変わる箇所 (toggle/bulk/clear) と
-// render() から呼ぶ。locale 切替時は applyStaticUIStrings からも呼ばれる。
-// 件数はテキストに "(19)" と連結せず別 span (.gallery-count) で出す: 下部固定ナビ
-// (モバイル) は 4 ボタン等幅で横幅が厳しく、ラベルに数字を足すとはみ出すため。
-// CSS 側でデスクトップ=ラベル右のバッジ / モバイル=角バッジ に振り分ける。
+// The header "My Gallery" button: shows the selection count and, while in the gallery view,
+// renders an active look via .primary. Called wherever the selection count changes (toggle/bulk/clear)
+// and from render(). Also called from applyStaticUIStrings on locale switch.
+// The count is shown in a separate span (.gallery-count) rather than concatenated as "(19)": the
+// bottom fixed nav (mobile) packs 4 equal-width buttons, so width is tight and adding a number to
+// the label would overflow. CSS routes it to a badge right of the label on desktop / a corner badge on mobile.
 export function refreshGalleryBtn() {
   const btn = $("gallery-btn");
   if (!btn) return;
   const n = state.selected.size;
-  // ラベルは span に包む: モバイル下部ナビでボタンを overflow:visible にして件数バッジを
-  // ボタン上辺の外 (テキストの真上の空き) へ浮かせても、ラベル側の ellipsis を保てる
+  // Wrap the label in a span: in the mobile bottom nav we set the button to overflow:visible and
+  // float the count badge above the button's top edge (the gap right above the text), while keeping
+  // the label's ellipsis intact.
   btn.textContent = "";
   const label = document.createElement("span");
   label.className = "btn-label";
@@ -235,23 +237,24 @@ export function refreshGalleryBtn() {
   const galleryActive = state.view === "selected";
   btn.classList.toggle("primary", galleryActive);
   btn.setAttribute("aria-current", galleryActive ? "page" : "false");
-  // 役割は本来「ギャラリーボタンの件数表示」だが、選択数が変わる全経路 + render() から
-  // 呼ばれる唯一の同期点なので、ヘッダーの Slideshow ボタンの空状態表現もここに相乗りさせる。
-  // 選択 0 件なら .is-empty で淡色化 (disabled 風) するが、disabled 属性は付けない:
-  // クリック時に My Gallery へ誘導する動線 (app.js) を生かすため。
+  // This function's job is nominally "the gallery button's count display", but since it's the one
+  // sync point called from every path that changes the selection count + from render(), the header
+  // Slideshow button's empty-state look piggybacks here too. With 0 selected, dim it via .is-empty
+  // (disabled-looking) but don't set the disabled attribute: so the click path that routes to
+  // My Gallery (app.js) stays alive.
   const ssBtn = $("slideshow-btn");
   if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
 }
 
-// フィルタチップ: 渡された LABELS マップ群 (maps) のローカライズ語をワンタップで検索
-// クエリへ投入する。既存のマルチ軸検索 (renderHome=名前/ロール/地域、renderLines=rarity)
-// をそのまま使うので専用フィルタエンジンは持たない。軸の置き場所は性質で view を分ける:
-// home (チャンピオン一覧) は role/region (= チャンピオンの属性)、Lines (スキン一覧) は
-// rarity (= スキンの属性。per-skin なので「チャンピオンの絞り込み」には馴染まず、スキンを
-// 見る場所に置く)。表示には ROLE/RARITY/REGION_LABELS を「発見可能な入口」として可視化
-// するのが狙い。キー列挙は locale 非依存で安定する .default の Object.keys を基準にし、
-// ラベルだけ現在 locale (無ければ default) で当てる。active (現在の検索語と一致) な
-// チップを再タップすると検索を解除する (トグル)。
+// Filter chips: one tap injects a localized term from the given LABELS maps into the search query.
+// Reuses the existing multi-axis search (renderHome=name/role/region, renderLines=rarity), so there's
+// no dedicated filter engine. Axis placement is split by view based on its nature:
+// home (champion list) gets role/region (= champion attributes); Lines (skin list) gets
+// rarity (= a skin attribute; per-skin, so it doesn't fit "narrowing champions" and lives where
+// skins are viewed). The goal is to surface ROLE/RARITY/REGION_LABELS as a "discoverable entry point".
+// Key enumeration is keyed on .default's Object.keys (locale-independent and stable), and only
+// the label is resolved in the current locale (falling back to default). Re-tapping an active chip
+// (matching the current query) clears the search (toggle).
 function filterChipsHTML(q, maps) {
   const seen = new Set();
   const chips = [];
@@ -260,15 +263,15 @@ function filterChipsHTML(q, maps) {
     for (const key of Object.keys(map.default)) {
       const label = loc[key] || map.default[key];
       const low = label.toLowerCase();
-      // locale 差で同綴りが出ても 1 つに畳む (例: 未登録 locale の region は全部英語)
+      // Collapse duplicate spellings across locales into one (e.g. regions in unregistered locales are all English)
       if (seen.has(low)) continue;
       seen.add(low);
       const active = low === q ? " active" : "";
       chips.push(`<button type="button" class="filter-chip${active}" data-filter="${esc(label)}">${esc(label)}</button>`);
     }
   }
-  // 可視ラベルの span を aria-labelledby で参照し、グループ名を一度だけ読み上げる
-  // (aria-label と可視 span の二重読み上げを避ける)
+  // Reference the visible label span via aria-labelledby so the group name is announced once
+  // (avoids the double announcement of aria-label plus the visible span).
   return `<div class="filter-chips" role="group" aria-labelledby="filter-chips-label">`
     + `<span class="filter-chips-label" id="filter-chips-label">${esc(t("filters_label"))}</span>`
     + chips.join("") + `</div>`;
@@ -277,12 +280,12 @@ function filterChipsHTML(q, maps) {
 function wireFilterChips(root) {
   root.querySelectorAll(".filter-chip").forEach(el => {
     el.addEventListener("click", () => {
-      // active を再タップ → 解除。それ以外 → そのフィルタ語で検索。
+      // Re-tap an active chip -> clear. Otherwise -> search by that filter term.
       const next = el.classList.contains("active") ? "" : el.dataset.filter;
-      // 検索ボックスに値を入れて input を発火し、既存の debounce 検索経路に合流させる。
-      // state.searchQuery を直接書いて render() すると、直前のタイプで仕込まれた
-      // debounce タイマー (app.js) が 90ms 後に古い値で上書きしてしまう。input 経由なら
-      // そのタイマーが clear+張り直しされて競合せず、検索ロジックの二重実装も避けられる。
+      // Put the value in the search box and fire input, merging into the existing debounced search path.
+      // Writing state.searchQuery directly and calling render() would let the debounce timer (app.js)
+      // armed by the previous keystroke overwrite it 90ms later with the stale value. Going through input
+      // clears and re-arms that timer so there's no race, and avoids duplicating the search logic.
       const search = $("search");
       search.value = next;
       search.dispatchEvent(new Event("input", { bubbles: true }));
@@ -290,11 +293,11 @@ function wireFilterChips(root) {
   });
 }
 
-// Lines ビューで検索クエリ (lowercased) が rarity を「完全一致」で指しているか判定し、
-// 該当する英語キー (Epic/Legendary/Mythic/Ultimate) か null を返す。rarity チップは
-// ローカライズ済みラベルを exact で検索ボックスへ入れるので、部分一致にするとライン名の
-// タイプ ("epi" 等) と衝突する。完全一致に限ることでチップ経路とライン名検索が排他になり
-// 曖昧さが出ない (英語キー / default 英語ラベル / 現在 locale ラベルの三方を当てる)。
+// In the Lines view, decide whether the (lowercased) search query points at a rarity by "exact match",
+// returning the matching English key (Epic/Legendary/Mythic/Ultimate) or null. Rarity chips inject the
+// localized label exactly into the search box, so a substring match would collide with typing a line
+// name ("epi" etc.). Restricting to exact match makes the chip path and line-name search mutually
+// exclusive with no ambiguity (checks the English key / default English label / current locale label).
 function rarityKeyFromQuery(q) {
   if (!q) return null;
   const loc = RARITY_LABELS[state.locale] || {};
@@ -308,24 +311,24 @@ function rarityKeyFromQuery(q) {
 
 function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
-  // home view の先頭に常設するフィルタチップ列 (検索の有無に関わらず出す)。home は
-  // チャンピオンの絞り込みなので role/region (チャンピオンの属性) だけ。rarity (スキンの
-  // 属性) は Lines ビューへ移した。
+  // The filter chip row pinned at the top of the home view (shown regardless of search). home is
+  // about narrowing champions, so only role/region (champion attributes). rarity (a skin attribute)
+  // was moved to the Lines view.
   const chips = filterChipsHTML(q, [ROLE_LABELS, REGION_LABELS]);
-  // 検索キーワードは複数軸を OR で AND しない、つまり「どの軸でもヒットすれば残す」。
-  // 軸 (チャンピオン側): チャンピオン名 (alias/英語名/翻訳名)、ロール (Mage 等)、
-  // 地域 (Demacia 等)。軸 (スキン側): スキン名 (英語/翻訳) のみ。rarity は Lines ビューへ
-  // 移したので home の検索軸には含めない。role/region の翻訳は英語キーと並べてチェック
-  // するので、ユーザがどちらの言語で打っても拾える。検索中は「該当チャンピオン」「該当
-  // スキン」を別セクションにして縦に並べる: 例えば "garen" で打てば Garen 本人と他チャンプ
-  // の Garen 風スキン (もしあれば) を区別できる
+  // Search matching ORs across axes (not AND): "keep it if it hits on any axis".
+  // Champion-side axes: champion name (alias/English name/translated name), role (Mage etc.),
+  // region (Demacia etc.). Skin-side axis: skin name (English/translated) only. rarity moved to the
+  // Lines view, so it's not a home search axis. role/region translations are checked alongside the
+  // English keys, so it's found whichever language the user types. While searching, "matching champions"
+  // and "matching skins" go in separate stacked sections: typing "garen" distinguishes Garen himself
+  // from Garen-style skins on other champions (if any).
   const localeRoles = ROLE_LABELS[state.locale] || {};
   const localeRegions = REGION_LABELS[state.locale] || {};
   const hit = (s) => typeof s === "string" && s.toLowerCase().includes(q);
 
-  // 並び替え: 既定の "name_asc"/"name_desc" は localized name で localeCompare。
-  // 比較に Intl 経路を使うため、日本語/韓国語/中文 でもクライアントの自然な並びになる。
-  // "release" は data.json の順 (リリース順) をそのまま使うので何もしない (sortSign=0)
+  // Sorting: the default "name_asc"/"name_desc" use localeCompare on the localized name.
+  // Using the Intl path for comparison gives the client's natural ordering even in Japanese/Korean/Chinese.
+  // "release" keeps data.json order (release order) as-is, so it does nothing (sortSign=0).
   const sortSign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const cmpLocale = cmpTag();
   const sortChamps = (arr) => sortSign && arr.sort((a, b) =>
@@ -336,7 +339,7 @@ function renderHome(root) {
     return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
 
-  // 検索なし: 従来通りチャンピオン一覧だけ (renderChampion の前後ナビと同じ並びを共有)
+  // No search: just the champion list as before (shares the same ordering as renderChampion's prev/next nav)
   if (!q) {
     const list = sortedChampions();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
@@ -346,7 +349,7 @@ function renderHome(root) {
     return;
   }
 
-  // 検索あり: チャンピオン側ヒットとスキン側ヒットを別々に集める
+  // With search: collect champion-side hits and skin-side hits separately
   const champMatches = DATA.champions.filter(c => {
     if (hit(c.name) || hit(c.alias) || hit(champName(c))) return true;
     if ((c.roles || []).some(r => hit(r) || hit(localeRoles[r]) || hit(ROLE_LABELS.default[r]))) return true;
@@ -357,8 +360,8 @@ function renderHome(root) {
   for (const c of DATA.champions) {
     for (const s of c.skins) {
       if (!s.splash) continue;
-      // スキン側ヒットはスキン名のみ。rarity は Lines ビューの専用チップへ移したので
-      // home の検索軸からは外す (rarity は per-skin = チャンピオン絞り込みに馴染まない)
+      // Skin-side hits are skin name only. rarity moved to its dedicated chips in the Lines view, so
+      // it's excluded from home's search axes (rarity is per-skin = doesn't fit narrowing champions).
       if (hit(s.label) || hit(skinLabel(c, s))) skinMatches.push({ c, s });
     }
   }
@@ -369,14 +372,14 @@ function renderHome(root) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     wireFilterChips(root);
-    // WCAG 4.1.3: 検索 (フィルタチップ含む) の結果変化は status。SR へ読み上げる
+    // WCAG 4.1.3: result changes from search (including filter chips) are a status. Announce to screen readers.
     announce(t("no_results_msg", state.searchQuery));
     return;
   }
 
-  // primary header はトップセクションを担当 (champions が居れば Champions、
-  // skins だけなら Skins)。両方ある場合の二段目見出しは view-content 内に
-  // 通常の champ-header として innerHTML で書き出す (controls スロット無し)
+  // The primary header handles the top section (Champions if any champions, otherwise Skins).
+  // When both exist, the second-level heading is written into view-content as an ordinary
+  // champ-header via innerHTML (no controls slot).
   const parts = [];
   if (champMatches.length > 0) {
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length) });
@@ -397,44 +400,45 @@ function renderHome(root) {
   wireChampCards(root);
   wireSearchSkinCards(root, skinMatches);
   wireFilterChips(root);
-  // WCAG 4.1.3: 結果件数を SR へ。翻訳済みキーから合成 (新規キー不要)
+  // WCAG 4.1.3: announce result counts to screen readers. Composed from translated keys (no new key needed).
   const aParts = [];
   if (champMatches.length) aParts.push(t("champs_count", champMatches.length));
   if (skinMatches.length) aParts.push(t("skins_count", skinMatches.length));
   announce(aParts.join(", "));
 }
 
-// ＋ ボタン (sel-checkbox) の type/aria 属性を組む。三状態 (full=全選択 / partial=一部 /
-// 未選択) を aria-pressed (true / mixed / false) でスクリーンリーダーへ伝える。可視の
-// "+/✓/3-14" は ::before と textContent が担うので、aria-label は操作 (追加/解除) の説明にする。
-// (title 属性は SR・キーボードに乗らないので aria-label へ置き換えた)
+// Builds the type/aria attributes for the + button (sel-checkbox). Conveys the three states
+// (full=all selected / partial=some / none) to screen readers via aria-pressed (true / mixed / false).
+// The visible "+/✓/3-14" is handled by ::before and textContent, so aria-label describes the action
+// (add/remove) instead. (The title attribute isn't exposed to screen readers/keyboard, so we use aria-label.)
 function cbAttrs(full, partial) {
   const pressed = partial ? "mixed" : (full ? "true" : "false");
   const label = full ? t("gallery_remove") : t("gallery_add");
   return `type="button" aria-pressed="${pressed}" aria-label="${esc(label)}"`;
 }
 
-// カードの主アクション (開く) を担う、カード全面を覆う透明ボタン。カード本体を
-// role="button" にすると ＋ ボタン (interactive) を内包して入れ子になり ARIA 的に
-// 不正 (button の中に focusable な子) なので、開く操作は inset:0 の <button> で覆い、
-// ＋ ボタンは「兄弟」として上に重ねる (z-index で ＋ が上、被せボタンが下)。これで
-// ネイティブ button の Enter/Space がそのまま効き、入れ子も解消する。
+// A transparent button covering the whole card that serves as its primary action (open). Making the
+// card body role="button" would nest the interactive + button inside it, which is invalid ARIA
+// (a focusable child inside a button), so the open action is an inset:0 <button> overlay and the
+// + button is layered on top as a "sibling" (z-index: + on top, the cover button below). This way
+// native button Enter/Space work as-is and the nesting is resolved.
 function openBtn(label) {
   return `<button class="card-open" type="button" aria-label="${esc(label)}"></button>`;
 }
 
 function renderChampCards(list) {
   return list.map(c => {
-    // 配下スキンの選択件数を集計して partial/selected を分ける。
-    // state.selected は per-skin なので、ここは派生情報の計算でしかない (集合の真実は Set 側)
+    // Tally the selected count among the champion's skins to distinguish partial/selected.
+    // state.selected is per-skin, so this is just derived info (the source of truth is the Set).
     let cls = "", cbText = "", full = false, partial = false;
     if (c.skins.length > 0) {
       const sel = c.skins.reduce((n, s) => n + (state.selected.has(SELECT_KEY(c.alias, s.label)) ? 1 : 0), 0);
       if (sel === c.skins.length) { cls = " selected"; full = true; }
       else if (sel > 0) { cls = " partial"; partial = true; cbText = `${sel}/${c.skins.length}`; }
     }
-    // 開く操作は被せボタン (openBtn) が担い、名前を aria-label で 1 度だけ出す。img/label は
-    // 装飾 (alt="" / aria-hidden) にして二重読みを防ぐ。＋ は兄弟ボタンで Tab 個別到達できる。
+    // The cover button (openBtn) handles opening and surfaces the name once via aria-label. img/label
+    // are decorative (alt="" / aria-hidden) to prevent double reading. + is a sibling button reachable
+    // individually via Tab.
     const name = champName(c);
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
@@ -446,10 +450,10 @@ function renderChampCards(list) {
   }).join("");
 }
 
-// スキンタイル 1 枚の HTML。home(検索)/champion/line/selected の各 view が
-// 微差 (data-alias の有無・label の champ 名プレフィックス・常時選択) だけで
-// 同じカードを描いていたのを 1 箇所に集約する。video ありは ▶ バッジを重ねて
-// 「これは動く」とライトボックスを開く前に分かるようにする。
+// HTML for a single skin tile. The home(search)/champion/line/selected views all drew the same card
+// with only minor differences (presence of data-alias, a champ-name prefix on the label, always-selected),
+// so it's consolidated here. With video, overlay a ▶ badge so it's clear "this one moves" before
+// opening the lightbox.
 function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }) {
   const k = SELECT_KEY(c.alias, s.label);
   const selected = forceSelected || state.selected.has(k);
@@ -472,17 +476,17 @@ function renderSkinCards(matches) {
 
 function wireChampCards(root) {
   root.querySelectorAll(".champ-card").forEach(el => {
-    // 被せボタン (.card-open) で詳細画面へ。ネイティブ button なので Enter/Space も効く
+    // The cover button (.card-open) opens the detail view. It's a native button, so Enter/Space work too.
     el.querySelector(".card-open").addEventListener("click", () => openChampion(el.dataset.alias));
-    // ＋ は兄弟ボタン。「このチャンプの全スキンを一括 toggle」のショートカット
+    // + is a sibling button: a shortcut to "bulk-toggle all of this champion's skins"
     const cb = el.querySelector(".sel-checkbox");
     if (cb) cb.addEventListener("click", () => bulkToggleChamp(el.dataset.alias));
   });
 }
 
-// スキンタイル群への配線をまとめる共通ヘルパ。本体クリックでライトボックス
-// (lbList の同じ idx を開く)、＋ (.sel-checkbox) で当該スキン 1 枚を toggle する。
-// champion/line/selected/検索結果のどの view も同じ配線なので 1 箇所に集約する。
+// Shared helper that wires up a group of skin tiles. Body click opens the lightbox
+// (the same idx in lbList); + (.sel-checkbox) toggles that single skin.
+// The champion/line/selected/search-results views all wire the same way, so it's consolidated here.
 function wireSkinCards(scope, lbList) {
   scope.querySelectorAll(".skin-card").forEach(el => {
     el.querySelector(".card-open").addEventListener("click",
@@ -492,7 +496,7 @@ function wireSkinCards(scope, lbList) {
   });
 }
 
-// 検索結果のスキンタイル: home view 内の flat グリッドだけを対象に配線する
+// Search-result skin tiles: wire only the flat grid inside the home view
 function wireSearchSkinCards(root, matches) {
   const scope = root.querySelector(".skin-grid.is-flat");
   if (!scope) return;
@@ -506,11 +510,11 @@ function renderChampion(root) {
     skinCardHTML({ c, s, idx: i, label: skinLabel(c, s) })
   ).join("");
   const keys = c.skins.map(s => SELECT_KEY(c.alias, s.label));
-  // 前後ナビ: 一覧と同じ並び (sortedChampions) の中で現在 index を求め、両端は
-  // ラップアラウンド (lightbox の next/prev と同じ循環思想)。要素 1 個なら前後とも
-  // 自分自身になるので nav を渡さず両ボタンを hidden のままにする。
-  // openChampion は render() → hash 同期フックを走らせるので、ブラウザ戻るで一つ前の
-  // 詳細に戻れる (意図どおり)。
+  // Prev/next nav: find the current index within the same ordering as the list (sortedChampions),
+  // with wraparound at both ends (same circular idea as the lightbox next/prev). With a single element,
+  // prev and next are both itself, so we pass no nav and keep both buttons hidden.
+  // openChampion runs render() -> the hash sync hook, so the browser back button returns to the
+  // previous detail view (as intended).
   const order = sortedChampions();
   const i = order.findIndex(x => x.alias === c.alias);
   const nav = order.length > 1 && i >= 0 ? makeDetailNav(order, i, x => champName(x), x => openChampion(x.alias)) : null;
@@ -524,9 +528,9 @@ function renderChampion(root) {
   wireSkinCards($("view-content"), buildChampList(c));
 }
 
-// 詳細 view の前後ナビ用 { prevLabel, nextLabel, onPrev, onNext } を生成する。
-// order: 並び済み配列、i: 現在 index、labelOf: 隣の表示名、go: 隣へ遷移する関数。
-// 両端はラップアラウンド (循環) する。
+// Builds the { prevLabel, nextLabel, onPrev, onNext } for a detail view's prev/next nav.
+// order: the sorted array, i: current index, labelOf: the neighbor's display name, go: the function to move to a neighbor.
+// Both ends wrap around (circular).
 function makeDetailNav(order, i, labelOf, go) {
   const n = order.length;
   const prev = order[(i - 1 + n) % n];
@@ -541,16 +545,16 @@ function makeDetailNav(order, i, labelOf, go) {
 
 function renderLines(root) {
   const q = state.searchQuery.toLowerCase();
-  // Lines ビュー上部に常設する rarity チップ列 (= スキンの属性。home の role/region と対)。
-  // home の検索結果 Skins セクションと違い、ここでは rarity 単独の閲覧軸として持つ。
+  // The rarity chip row pinned at the top of the Lines view (= a skin attribute, paired with home's role/region).
+  // Unlike home's search-result Skins section, here it serves as a standalone browsing axis for rarity.
   const chips = filterChipsHTML(q, [RARITY_LABELS]);
-  // rarity チップ / rarity 名の完全一致タイプ時は、ライン一覧ではなく該当レア度のスキンを
-  // フラット表示する (home の検索結果 Skins セクションと同じ描画を再利用)。
+  // For a rarity chip / exact-match typing of a rarity name, show the skins of that rarity flat
+  // rather than the line list (reusing the same rendering as home's search-result Skins section).
   const rarityKey = rarityKeyFromQuery(q);
   if (rarityKey) { renderRaritySkins(root, chips, rarityKey); return; }
 
-  // per-line の選択件数を集計 (state.selected は変化するので毎回計算)。
-  // count/thumb は LINE_INDEX から取るので 1 回構築済み。
+  // Tally the per-line selected counts (recomputed each time since state.selected changes).
+  // count/thumb come from LINE_INDEX, which is built once.
   const selectedCounts = {};
   if (state.selected.size > 0) {
     for (const k of state.selected) {
@@ -562,15 +566,15 @@ function renderLines(root) {
       }
     }
   }
-  // 並び/件数は sortedLineEntries に集約 (renderLine の前後ナビと共有)。表示は翻訳名、
-  // 検索は (翻訳名 + 英語名) でマッチさせるので、フィルタはここで別途かける。
+  // Ordering/counts are consolidated in sortedLineEntries (shared with renderLine's prev/next nav). Display uses
+  // the translated name, but search matches on (translated name + English name), so the filter is applied here.
   const entries = sortedLineEntries()
     .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
     wireFilterChips(root);
-    // WCAG 4.1.3: 検索フィルタで 0 件になった時のみ SR へ通知 (素の一覧表示では黙る)
+    // WCAG 4.1.3: announce to screen readers only when the search filter yields 0 (stay silent for the plain list)
     if (q) announce(t("no_lines_msg"));
     return;
   }
@@ -601,14 +605,14 @@ function renderLines(root) {
     if (cb) cb.addEventListener("click", () => bulkToggleLine(el.dataset.line));
   });
   wireFilterChips(root);
-  // WCAG 4.1.3: 検索フィルタ時のみ結果件数を SR へ (素の一覧表示では黙る)
+  // WCAG 4.1.3: announce result counts to screen readers only when filtering by search (stay silent for the plain list)
   if (q) announce(t("lines_count", entries.length));
 }
 
-// rarity チップ起動時 (Lines ビュー) の表示: 該当レア度の全スキンをフラットなスキン
-// グリッドで並べる。描画/配線は home の検索結果 Skins セクション (renderSkinCards /
-// wireSearchSkinCards) をそのまま再利用する。チップ列は上部に残し、別 rarity への
-// 切替や (active チップ再タップでの) 解除をできるようにする。
+// Display when a rarity chip is activated (Lines view): lay out all skins of that rarity in a flat
+// skin grid. Rendering/wiring reuse home's search-result Skins section (renderSkinCards /
+// wireSearchSkinCards) as-is. The chip row stays at the top so the user can switch to another rarity
+// or clear it (by re-tapping the active chip).
 function renderRaritySkins(root, chips, rarityKey) {
   const matches = [];
   for (const c of DATA.champions) {
@@ -646,8 +650,8 @@ function renderLine(root) {
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
   ).join("");
   const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
-  // 前後ナビ: sortedLineEntries の並び (検索フィルタは無視 = 全 entries) の中で現在 id の
-  // index を求め、ラップアラウンドで前後 id へ。要素 1 個なら nav を渡さず両ボタン hidden。
+  // Prev/next nav: find the current id's index within sortedLineEntries' ordering (ignoring the search
+  // filter = all entries), wrapping around to the prev/next id. With a single element, pass no nav and keep both buttons hidden.
   const order = sortedLineEntries();
   const li = order.findIndex(e => String(e.id) === String(lid));
   const nav = order.length > 1 && li >= 0 ? makeDetailNav(order, li, e => e.name, e => openLine(e.id)) : null;
@@ -661,13 +665,13 @@ function renderLine(root) {
   wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
 }
 
-// マイギャラリー (選択中スキン一覧) ビュー。ヘッダーの「マイギャラリー」ボタンから開く。
-// state.selected (Set<SELECT_KEY>) を SKIN_BY_KEY で実体化し、localized 名前で
-// 安定ソートしてから skin-grid で並べる (Set のイテレーション順 = 追加順だと、
-// 再訪時の表示が直感的に並ばない)。
-// グリッド上部に DL / スライドショー / クリアのツールバーを置く (旧 pack-bar の役割)。
-// カードの ＋ クリックで toggleSelected しても即削除はせず、その場で淡色化するだけ
-// (やり直し可能にするため)。実際にグリッドから外れるのは次にギャラリーを開き直した時。
+// My Gallery (the list of selected skins) view. Opened via the header "My Gallery" button.
+// Materializes state.selected (Set<SELECT_KEY>) through SKIN_BY_KEY and stable-sorts by localized
+// name before laying out the skin-grid (the Set's iteration order = insertion order doesn't read
+// intuitively on a return visit).
+// A DL / Slideshow / Clear toolbar goes above the grid (the old pack-bar's role).
+// Clicking + on a card calls toggleSelected but doesn't remove it immediately, just dims it in place
+// (so it's undoable). It actually leaves the grid only the next time the gallery is reopened.
 function renderSelected(root) {
   const items = [];
   for (const k of state.selected) {
@@ -688,7 +692,7 @@ function renderSelected(root) {
   });
 
   if (items.length === 0) {
-    // 空状態は行き止まりになりやすいので、ヒント文の下に home へ戻る CTA を出す
+    // The empty state tends to be a dead end, so show a CTA back to home below the hint text
     $("view-content").innerHTML =
       `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
       `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button></div>`;
@@ -700,13 +704,13 @@ function renderSelected(root) {
   const cards = items.map((it, i) =>
     skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`, forceSelected: true })
   ).join("");
-  // ローカル実行モードでのみ「壁紙にする」(選択 → 確認モーダル → 一括設定) を出す。
-  // 1枚なら静止壁紙、2枚以上なら OS 純正スライドショーになる (実体は wallpaper.js + サーバ)。
-  // ローカルでは ZIP DL が消えてこれが主役になるので primary に格上げ。
+  // Only in local-run mode, show "Set as wallpaper" (select -> confirm modal -> bulk apply).
+  // One image = static wallpaper, two or more = the OS's native slideshow (handled by wallpaper.js + the server).
+  // In local mode ZIP DL goes away and this becomes the main action, so it's promoted to primary.
   const wpBtn = isLocalWallpaper()
     ? `<button class="btn primary" id="gallery-wp">${t("wallpaper_set_btn")}</button>`
     : "";
-  // ZIP DL は Web 専用 (ブラウザのサンドボックス回避手段)。ローカルでは隠す。
+  // ZIP DL is Web-only (the way to work around the browser sandbox). Hide it in local mode.
   const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
@@ -718,9 +722,9 @@ function renderSelected(root) {
     <div class="skin-grid gallery-grid">${cards}</div>`;
   const dl = $("gallery-dl");
   if (dl) dl.addEventListener("click", downloadSelected);
-  // ギャラリーツールバーの Slideshow: 通常は items がある時だけ出るが、splash の無い
-  // スキンばかり選んだエッジでは startGlobalSlideshow が false (再生対象 0) を返す。
-  // ここは既にギャラリービューなので追加導線は不要、toast で理由だけ伝える。
+  // The gallery toolbar's Slideshow: normally only shown when there are items, but in the edge case
+  // of selecting only skins without a splash, startGlobalSlideshow returns false (0 playable). We're
+  // already in the gallery view here, so no extra navigation is needed, just toast the reason.
   $("gallery-ss").addEventListener("click", () => {
     if (!startGlobalSlideshow()) toast(t("slideshow_empty"));
   });
@@ -748,10 +752,11 @@ export function toggleSelected(key, el) {
     if (el) el.classList.remove("selected");
   }
   saveSelected();
-  // ギャラリービューでも即 re-render しない。以前は解除した瞬間に grid から消えて
-  // やり直せなかったので、カードはその場に残し (.selected が外れて淡色化)、もう一度
-  // 押せば戻せるようにする。実際にグリッドから消えるのは次にギャラリーを開き直した時。
-  // どのビューでもカードの class 更新で済ませ、件数表示 (ヘッダー / ボタン) だけ即時更新。
+  // Don't re-render immediately even in the gallery view. Previously a card vanished from the grid
+  // the instant it was deselected, so it couldn't be undone; now the card stays in place (.selected
+  // removed = dimmed) and pressing again restores it. It actually leaves the grid only the next time
+  // the gallery is reopened. In every view we settle for a card class update, and only the count
+  // display (header / button) updates immediately.
   if (el) {
     const cb = el.querySelector(".sel-checkbox");
     if (cb) {
@@ -765,10 +770,10 @@ export function toggleSelected(key, el) {
     if (cnt) cnt.textContent = state.selected.size ? t("skins_count", state.selected.size) : "";
   }
 }
-// チャンプ/ライン単位の一括 toggle。state.selected は per-skin の Set なので、
-// 「配下スキンの SELECT_KEY を一括 add/remove するだけ」。
-// 「全部選択済み → 全解除」「それ以外 → 全選択」の indeterminate トグル。
-// 部分選択 (3/14 等) の状態を保持したいときは、ユーザーは詳細画面に入って個別調整する
+// Bulk toggle at the champion/line level. state.selected is a per-skin Set, so this is just
+// "bulk add/remove the SELECT_KEYs of the contained skins".
+// An indeterminate toggle: "all selected -> deselect all", "otherwise -> select all".
+// To keep a partial selection (3/14 etc.), the user enters the detail view and adjusts individually.
 function bulkToggleKeys(keys) {
   if (!keys.length) return;
   const allSel = keys.every(k => state.selected.has(k));
@@ -777,13 +782,13 @@ function bulkToggleKeys(keys) {
     else state.selected.add(k);
   }
   saveSelected();
-  // 以前は render() で全描画し直していたが、表示中の全カードの <img> が一斉に再マウントされ
-  // 画面が一瞬暗くなっていた。選択状態は state.selected から派生する見た目だけなので、
-  // 表示中カードのクラス/バッジをその場で更新する (img は触らない = フラッシュしない)。
+  // Previously this redrew everything with render(), but that remounted every visible card's <img>
+  // at once and briefly darkened the screen. The selection state is just a look derived from
+  // state.selected, so update the visible cards' classes/badges in place (don't touch img = no flash).
   applyCardSelectionStates();
   refreshGalleryBtn();
-  // 詳細画面 (champion/line) の主ボタンは「全選択 ⇄ 全解除」でラベルが変わる。toggle 後は
-  // allSel が反転した状態 (allSel だった→今は全解除 / でなければ→今は全選択済み)。
+  // In a detail view (champion/line), the primary button's label flips between "Select all" and
+  // "Deselect all". After the toggle, allSel is inverted (was allSel -> now deselected all / else -> now all selected).
   if (state.view === "champion" || state.view === "line") {
     const btn = $("primary-action");
     if (btn && !btn.hidden)
@@ -791,9 +796,9 @@ function bulkToggleKeys(keys) {
   }
 }
 
-// 表示中の全カード (champ / line / skin) の選択状態 (.selected / .partial + 件数バッジ) を
-// state.selected から再計算してその場で反映する。render() と違い <img> を作り直さないので、
-// 一括選択でも画面がちらつかない。
+// Recomputes the selection state (.selected / .partial + count badge) of every visible card
+// (champ / line / skin) from state.selected and applies it in place. Unlike render(), it doesn't
+// rebuild the <img>, so bulk selection doesn't flicker the screen.
 function applyCardSelectionStates() {
   const vc = $("view-content");
   if (!vc) return;
@@ -831,9 +836,9 @@ function applyCardSelectionStates() {
     }
   });
 }
-// 詳細画面 (champion/line) の主アクション。Web=ZIP DL、ローカル=全部選択トグル。
-// ローカルでは DL を隠し、ギャラリー → 壁紙スライドショー導線に寄せる。全選択済みなら
-// 「全部解除」になる (ラベル更新は bulkToggleKeys が primary-action を直接書き換える)。
+// The primary action of a detail view (champion/line). Web = ZIP DL, local = select-all toggle.
+// In local mode DL is hidden, steering toward the gallery -> wallpaper-slideshow path. When all are
+// selected it becomes "Deselect all" (the label update is done by bulkToggleKeys writing directly to primary-action).
 function detailPrimary(keys, zipLabel, zipClick) {
   if (!isLocal()) return { primaryLabel: zipLabel, primaryClick: zipClick };
   const allSel = keys.length > 0 && keys.every(k => state.selected.has(k));
@@ -856,18 +861,18 @@ function clearSelected() {
   state.selected.clear();
   saveSelected();
   render();
-  // Clear はギャラリービュー専用 (#gallery-clear)。再描画で押した Clear ボタンごと
-  // ツールバーが消え、選択 0 件の空状態に切り替わるため、フォーカスが body に落ちる。
-  // 空状態で出る「チャンピオンを見る」CTA へ移して、キーボード/SR の起点を保つ。
+  // Clear is gallery-view only (#gallery-clear). The re-render makes the toolbar (including the Clear
+  // button just pressed) disappear and switches to the 0-selected empty state, so focus drops to body.
+  // Move it to the "Browse champions" CTA shown in the empty state to keep a keyboard/screen-reader anchor.
   const browse = $("gallery-browse");
   if (browse) browse.focus();
 }
 
 export function openLine(lid) {
   state.view = "line"; state.currentLine = lid;
-  // 検索中に (90ms debounce 内で) ライン詳細を開くと、保留中の debounce が view を
-  // line→lines に戻して一覧へ弾き返す (+余計な history)。詳細は検索スコープでないので
-  // 他ナビ (openLines/goHome 等) と同じく検索をクリアして不変条件を保つ
+  // Opening a line detail while searching (within the 90ms debounce) would let the pending debounce
+  // flip the view line->lines and bounce back to the list (+ spurious history). Detail views aren't in
+  // the search scope, so like other navigation (openLines/goHome etc.) we clear the search to keep the invariant.
   state.searchQuery = ""; $("search").value = "";
   window.scrollTo(0, 0); render();
 }
@@ -883,13 +888,13 @@ function buildChampList(c) {
 
 export function openChampion(alias) {
   state.view = "champion"; state.currentChamp = alias;
-  // openLine と同様、検索中 (90ms debounce 内) に詳細を開いた時の弾き返しと
-  // history 汚染を防ぐため検索をクリアする (詳細は検索スコープでない)
+  // Like openLine, clear the search to prevent the bounce-back and history pollution when a detail is
+  // opened while searching (within the 90ms debounce) (detail views aren't in the search scope).
   state.searchQuery = ""; $("search").value = "";
   window.scrollTo(0, 0); render();
 }
-// 戻る: 検索中なら検索クリアを優先 (現在の view は維持)。
-// それ以外は lines系→lines 一覧、その他→home。
+// Back: if searching, prefer clearing the search (keep the current view).
+// Otherwise lines-family -> lines list, everything else -> home.
 export function goBack() {
   if (state.searchQuery) {
     state.searchQuery = ""; $("search").value = "";
@@ -903,16 +908,16 @@ export function goHome() {
   state.searchQuery = ""; $("search").value = ""; render();
 }
 
-// 画像のロード完了/失敗で親カードに img-loaded を付け、シマー (CSS の ::before) を止める。
-// 旧来は <img onload="imgLoaded(this)"> のインライン属性 (要 CSP script-src 'unsafe-inline')
-// から呼んでいたが、app.js が #root に capture フェーズで委譲リスナを張る方式へ移行した
-// (load/error はバブルしないので capture を使う)。これでインライン JS を撤廃し CSP を締めた。
+// On image load completion/failure, add img-loaded to the parent card to stop the shimmer (CSS ::before).
+// This used to be called from an inline <img onload="imgLoaded(this)"> attribute (which required CSP
+// script-src 'unsafe-inline'), but moved to app.js attaching a capture-phase delegated listener on #root
+// (load/error don't bubble, so capture is used). This let us drop inline JS and tighten CSP.
 export function imgLoaded(img) {
   const card = img.parentElement;
   if (card) card.classList.add("img-loaded");
 }
-// サムネ画像が CDN で 404 になった時、空のカードに見えないよう薄く塗りつぶす。
-// 失敗時もシマーを止めないと「ずっと読込中」に見えてしまうため img-loaded を付ける
+// When a thumbnail 404s at the CDN, fill it faintly so the card doesn't look empty.
+// On failure too, add img-loaded since not stopping the shimmer would make it look "stuck loading".
 export function imgErr(img) {
   img.style.opacity = "0.15";
   img.removeAttribute("src");

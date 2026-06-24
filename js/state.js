@@ -1,6 +1,6 @@
-// アプリ全体で共有する mutable state とインデックス、汎用ユーティリティ。
-// 他モジュールは ES Module の live binding でこの state / DATA を読み書きする
-// (DATA だけは再代入が必要なので setData setter 経由で書き換える)
+// App-wide shared mutable state, indexes, and generic utilities.
+// Other modules read/write this state / DATA via ES Module live bindings
+// (DATA needs reassignment, so it is mutated through the setData setter).
 
 export const $ = (id) => document.getElementById(id);
 
@@ -8,10 +8,10 @@ export function esc(s) {
   return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 }
 
-// スクリーンリーダー向けの polite ライブリージョン (#sr-status) 通知。視覚表示は伴わない
-// (検索結果件数の変化など、画面が変わったのに SR へ伝わらない status を読み上げさせる用)。
-// 同一文言でも再アナウンスされるよう、一度空にして次フレームで入れ直す
-// (share.js / local.js のコピー完了通知と同手法)。文字列は textContent なので esc 不要。
+// Announce via a polite live region (#sr-status) for screen readers, with no visual output
+// (so status that changed on screen but wouldn't reach SR — e.g. search result counts — gets read out).
+// Clear it then refill on the next frame so identical text is re-announced
+// (same technique as the copy-complete notices in share.js / local.js). Text is set via textContent, so no esc needed.
 export function announce(msg) {
   const sr = $("sr-status");
   if (!sr) return;
@@ -19,12 +19,12 @@ export function announce(msg) {
   requestAnimationFrame(() => { sr.textContent = msg; });
 }
 
-// 背景スクロールのロック (ライトボックス / チュートリアルのモーダル表示中)。
-// overflow:hidden だけだと iOS Safari はタッチスクロールを止めないので、body を
-// position:fixed にして現在のスクロール位置を退避する (= 定番の iOS scroll-lock)。
-// html/body に overflow-x:clip があり実スクロールコンテナが <html> 側になる構成でも、
-// body をフローから外せば <html> はスクロールしなくなる。
-// ライトボックスとチュートリアルが入れ子になっても破綻しないようカウンタで多重ロックを束ねる。
+// Lock background scroll (while the lightbox / tutorial modal is open).
+// overflow:hidden alone doesn't stop touch scrolling in iOS Safari, so pin body with
+// position:fixed and stash the current scroll position (the standard iOS scroll-lock).
+// Even when html/body have overflow-x:clip and the real scroll container is <html>,
+// taking body out of flow stops <html> from scrolling.
+// A counter bundles nested locks so the lightbox and tutorial can stack without breaking.
 let _scrollLockY = 0;
 let _scrollLockCount = 0;
 export function lockScroll() {
@@ -42,17 +42,19 @@ export function unlockScroll() {
   se.scrollTop = _scrollLockY;
 }
 
-// モーダル/ライトボックス表示中、背景 (topbar / main / footer) を inert にして、
-// スクリーンリーダーの仮想カーソルや Tab が背景コンテンツへ到達するのを防ぐ。
-// trapFocus が Tab を閉じ込めるのと対になる「SR 到達制御」で、aria-modal だけでは
-// 止められない browse モードの巡回を遮断する。モーダルは body 直下の別要素なので
-// inert 対象から外れて操作可能なまま残る。入れ子表示に備えてカウンタで束ねる。
+// While a modal/lightbox is open, mark the background (topbar / main / footer) inert so
+// the screen reader's virtual cursor and Tab can't reach background content.
+// This is the "SR reachability" counterpart to trapFocus trapping Tab: it blocks browse-mode
+// navigation that aria-modal alone can't stop. The modal lives as a separate element directly
+// under body, so it's excluded from the inert targets and stays operable.
+// A counter bundles nested displays.
 let _inertCount = 0;
 function _inertTargets() {
-  // topbar / 本文 / footer に加えて、body 直下に浮く唯一の操作要素 #to-top も対象にする
-  // (スクロール後にモーダルを開くと表示されたまま残り、SR の browse カーソルが裏の
-  // 「トップへ戻る」に到達できてしまうため)。#offline-banner / #sr-status / #toast は
-  // ライブリージョン (状態通知) なので意図的に対象外 = a11y ツリーに残す。
+  // Besides topbar / body / footer, also target #to-top, the one interactive element
+  // floating directly under body (if a modal opens after scrolling it stays visible and the
+  // SR browse cursor could reach the "back to top" behind the modal). #offline-banner /
+  // #sr-status / #toast are live regions (status notices), so they're intentionally excluded
+  // and kept in the a11y tree.
   return [
     document.querySelector(".topbar"),
     document.getElementById("root"),
@@ -69,16 +71,16 @@ export function clearBackgroundInert() {
   for (const el of _inertTargets()) if (el) el.inert = false;
 }
 
-// モーダル/ライトボックス表示中に Tab で背景 (topbar 等) へフォーカスが抜けるのを防ぐ。
-// aria-modal は SR へのヒントでしかなく、キーボードの Tab 順序は制限しないため
-// JS で root 内に閉じ込める。戻り値の関数で解除する (開閉のたびに張り直す)。
-// state.js は「依存される側専用」なので、ここに置くのは他モジュールを import しない
-// 純 DOM ユーティリティに限る (trapFocus はその条件を満たす)。
+// Prevent Tab from escaping focus to the background (topbar, etc.) while a modal/lightbox is open.
+// aria-modal is only a hint to SR and doesn't constrain the keyboard Tab order, so we trap focus
+// within root in JS. The returned function releases the trap (re-installed on each open/close).
+// state.js is "dependency-target only", so what lives here is limited to pure DOM utilities that
+// import no other module (trapFocus satisfies that).
 export function trapFocus(root) {
   const onKey = (e) => {
     if (e.key !== "Tab" || !root) return;
-    // フォーカス可能要素は開閉で増減する (ライトボックスの ⚙ メニュー / チュートリアルの
-    // Skip ボタン等が状態で出入りする) ので、リストはキャッシュせず毎回その場で計算する。
+    // Focusable elements come and go with state (the lightbox ⚙ menu, the tutorial Skip
+    // button, etc.), so don't cache the list — recompute it on the spot every time.
     const focusable = [...root.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     )].filter(el => !el.disabled && !el.hidden && el.offsetParent !== null);
@@ -86,7 +88,7 @@ export function trapFocus(root) {
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     const active = document.activeElement;
-    // activeElement が root 外 (= 背景) に居る時は先頭へ寄せてから閉じ込める
+    // If activeElement is outside root (the background), pull it to the first element before trapping
     if (!root.contains(active)) {
       e.preventDefault();
       first.focus();
@@ -100,7 +102,7 @@ export function trapFocus(root) {
       first.focus();
     }
   };
-  // capture で document に張る (背景要素のハンドラより先に Tab を握る)。
+  // Attach on document in capture phase (grab Tab before background element handlers).
   document.addEventListener("keydown", onKey, true);
   return () => document.removeEventListener("keydown", onKey, true);
 }
@@ -113,58 +115,58 @@ export const state = {
   currentChamp: null,
   currentLine: null,       // skin line id (string)
   searchQuery: "",
-  // ホーム画面のチャンピオン並び順。既定は "name_asc" (チャンピオン名の昇順)。
-  // "name_desc" は降順。どちらも localized name で localeCompare するので、
-  // locale を切替えると比較基準も同じ locale で再計算される。"release" は
-  // data.json の順 (= CDragon のリリース順、Annie が先頭) をそのまま使う
+  // Champion sort order on the home screen. Default is "name_asc" (ascending by champion name).
+  // "name_desc" is descending. Both localeCompare on the localized name, so switching locale
+  // recomputes the comparison basis in that same locale. "release" keeps the data.json order
+  // (CDragon release order, Annie first) as-is.
   sortOrder: "name_asc",
-  // 選択キー (= マイギャラリーの中身): `${alias}//${skinLabel}` (label はスキン側でユニーク)。
-  // 選択は常時有効 (モード概念なし): 各カードの ＋ で個別 toggle する
+  // Selection keys (the contents of My Gallery): `${alias}//${skinLabel}` (label is unique per skin).
+  // Selection is always on (no mode concept): the ＋ on each card toggles individually.
   selected: new Set(),
-  // ZIP生成キャンセル用フラグ
+  // Flag for cancelling ZIP generation
   packAbort: false,
-  // 表示言語。"default" は data.json の英語名そのまま。それ以外は i18n/<code>.json
-  // から読み込んだ翻訳マップで上書き表示する。実データ (alias, label, splash URL,
-  // SELECT_KEY, ZIP内パス) は locale 非依存で固定。localStorage で永続化
+  // Display language. "default" uses the English names from data.json as-is. Otherwise names
+  // are overridden via the translation map loaded from i18n/<code>.json. The real data (alias,
+  // label, splash URL, SELECT_KEY, in-ZIP path) is locale-independent and fixed. Persisted in localStorage.
   locale: "default",
   i18n: { champions: {}, skins: {}, skin_descriptions: {}, champion_descriptions: {}, lines: {} },
   lb: {
     list: [], idx: 0, mode: "manual",
     timer: null, interval: 7000, paused: false, frontIsA: true,
-    // スライドショー時のキャプション表示量: "full" (名前+説明) / "name" (名前のみ) /
-    // "none" (非表示)。⚙ メニューから循環。ビューアモードでは常に full 扱い (適用しない)
+    // Caption verbosity during slideshow: "full" (name + description) / "name" (name only) /
+    // "none" (hidden). Cycled from the ⚙ menu. Viewer mode always treats it as full (not applied).
     caption: "full",
     seq: 0, lastFocus: null,
-    // 画像の収め方: "contain" (全体表示・上下/左右に黒帯) ↔ "cover" (画面いっぱい・
-    // 一部クロップ)。縦長スマホで 16:9 スプラッシュの黒帯が大きいので切替えられる。
-    // localStorage で永続化し、ライトボックスを開く度に反映する
+    // Image fit: "contain" (whole image, with letterbox/pillarbox bars) ↔ "cover" (fills the
+    // screen, partially cropped). Toggleable because 16:9 splashes leave large bars on tall phones.
+    // Persisted in localStorage and applied each time the lightbox opens.
     fit: "contain",
   },
-  // チュートリアル: 現在のステップ番号 (1-based) と、開く直前にフォーカスしていた
-  // 要素 (閉じた時に戻すため)。state.lb と同じ形に揃える
+  // Tutorial: current step number (1-based) and the element focused just before opening
+  // (to restore on close). Mirrors the shape of state.lb.
   tut: { step: 1, lastFocus: null },
-  // ローカル実行 (local_app.py) の検知結果。null = 通常の Web (Pages) モード。
-  // local.js の probeLocal() が { wallpaper, slideshow, platform } をセットする
+  // Detection result for local mode (local_app.py). null = normal Web (Pages) mode.
+  // local.js's probeLocal() sets { wallpaper, slideshow, platform }.
   local: null,
 };
 
 export const SELECT_KEY = (alias, label) => `${alias}//${label}`;
 
-// 選択状態を再訪まで持ち越すための localStorage キー。値は JSON 配列。
-// 名前空間プレフィックス "old." は OpenLeagueDisplay の略 (将来別キーを追加する時の衝突回避)
+// localStorage key for carrying selection state across revisits. Value is a JSON array.
+// The "old." namespace prefix is short for OpenLeagueDisplay (avoids collisions when other keys are added later).
 export const LS_SELECTED_KEY = "old.selected";
 export const LS_LOCALE_KEY = "old.locale";
 export const LS_SORT_KEY = "old.sort";
-// 壁紙スライドショーの切替間隔 (ミリ秒) を永続化。ローカル実行モードでのみ使う。
+// Persists the wallpaper slideshow interval (milliseconds). Only used in local mode.
 export const LS_WP_INTERVAL_KEY = "old.wpInterval";
-// ライトボックスの画像フィット ("contain" / "cover") を永続化。
+// Persists the lightbox image fit ("contain" / "cover").
 export const LS_LB_FIT_KEY = "old.lbFit";
-// 初回訪問チュートリアルの既読フラグ。値は "1" (見せたら立てる) で、未設定なら未読扱い。
-// ヘッダの ? ボタン / ? キーから再表示する場合はこのフラグを変更しない (既読のまま)
+// Seen flag for the first-visit tutorial. Value is "1" (set once shown); unset means unseen.
+// Re-showing it from the header ? button / ? key doesn't change this flag (stays seen).
 export const LS_TUTORIAL_KEY = "old.tutorial.seen";
 
-// QuotaExceeded / プライベートブラウジング / 読み込み専用環境では落ちることがあるので
-// 失敗は無視して fallback を返す best-effort 永続化
+// Best-effort persistence: can throw under QuotaExceeded / private browsing / read-only
+// environments, so swallow failures and return the fallback.
 export function lsGet(key, fallback = null) {
   try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; }
 }
@@ -172,11 +174,11 @@ export function lsSet(key, value) {
   try { localStorage.setItem(key, value); } catch (_) {}
 }
 
-// data.json ロード後に1度だけ構築するインデックス。renderLines/renderLine/bulkToggleLine
-// が「全 champion × 全 skin」を毎回スキャンしないために用意する。
-// SKIN_BY_KEY: SELECT_KEY → { c, s }。state.selected を起点に items 列を作る時に O(1) で参照。
-// LINE_INDEX:  skin line id (string) → { count, thumb, members: [{c, s}, ...] }。renderLines のサムネ
-//              と件数、renderLine のメンバ列、bulkToggleLine の対象キーすべてここから取る。
+// Indexes built once after data.json loads, so renderLines/renderLine/bulkToggleLine don't
+// rescan "all champions × all skins" every time.
+// SKIN_BY_KEY: SELECT_KEY → { c, s }. O(1) lookup when building item lists from state.selected.
+// LINE_INDEX:  skin line id (string) → { count, thumb, members: [{c, s}, ...] }. Source for
+//              renderLines's thumbnail and count, renderLine's member list, and bulkToggleLine's target keys.
 export const SKIN_BY_KEY = new Map();
 export const LINE_INDEX = new Map();
 export function buildIndexes() {
@@ -194,7 +196,7 @@ export function buildIndexes() {
         }
         bucket.count++;
         bucket.members.push({ c, s });
-        // 代表サムネは「最初に見つかったスプラッシュあり」(チャンピオン順固定で決定的)
+        // Representative thumbnail = the first skin found that has a splash (deterministic since champion order is fixed)
         if (!bucket.thumb && s.splash) bucket.thumb = s.splash;
       }
     }
