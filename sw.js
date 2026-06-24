@@ -1,21 +1,22 @@
-// Service Worker: アプリシェル (HTML/CSS/JS/アイコン) をキャッシュして再訪を高速化し、
-// インストール可能要件を満たすための最小構成。
+// Service Worker: caches the app shell (HTML/CSS/JS/icons) to speed up revisits
+// and to meet the installability requirement. Minimal by design.
 //
-// 方針: 同一オリジンの GET は一律 network-first。
-// - オンライン時は常にネットワークから最新を取り、キャッシュは「オフライン時の
-//   フォールバック」として持つ。シェル (JS/CSS) も同じ扱いにすることで、ソース編集や
-//   言語切替が「リロードするまで反映されない」(stale-while-revalidate の罠) を解消する。
-//   静的ファイルは GitHub Pages が ETag を返すので、毎ロードの再取得は実体ほぼ 304 で安い。
-// - data.json / i18n/*.json も同じ network-first (週次更新データの鮮度も自然に担保)。
-// - 画像 (raw.communitydragon.org) や CDN (fonts / jsdelivr): 一切インターセプトしない。
-//   スプラッシュ全体で ~600MB あり、キャッシュに載せる方針ではない。
-// - オフライン動作 (PWA) はキャッシュフォールバックで維持。インストール時に
-//   SHELL をプリキャッシュしておく。シェル更新時は CACHE_VERSION を上げること。
+// Strategy: every same-origin GET is network-first.
+// - Online, always fetch the latest from the network; the cache is only an
+//   offline fallback. Treating the shell (JS/CSS) the same way avoids the
+//   stale-while-revalidate trap where source edits or a language switch
+//   "don't apply until you reload". Static files come with an ETag from GitHub
+//   Pages, so each load re-validates as a cheap 304.
+// - data.json / i18n/*.json are network-first too (keeps the weekly-updated data fresh).
+// - Images (raw.communitydragon.org) and CDNs (fonts / jsdelivr): never intercepted.
+//   The splashes total ~600MB, so they are intentionally not cached.
+// - Offline operation (PWA) survives via the cache fallback. SHELL is precached
+//   on install. Bump CACHE_VERSION whenever the shell changes.
 
 const CACHE_VERSION = "v13";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
-// プリキャッシュ対象。sw.js と同階層基準の相対パス (GitHub Pages のサブパス配信に対応)
+// Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).
 const SHELL = [
   "./",
   "./index.html",
@@ -37,7 +38,7 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
-  // 新しい SW を即座に待機解除して有効化する
+  // Promote the new SW out of the waiting state and activate it immediately
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((c) => c.addAll(SHELL))
@@ -55,9 +56,9 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// ネットワーク優先: 取れたらキャッシュも更新、失敗時 (オフライン) はキャッシュへ
-// フォールバック。ナビゲーション要求が未キャッシュなら index.html を返す
-// (SPA の deep link / 未知パスでもオフラインでアプリシェルを出す)。
+// Network-first: on success also refresh the cache; on failure (offline) fall
+// back to the cache. For an uncached navigation request, serve index.html so a
+// SPA deep link / unknown path still shows the app shell offline.
 async function networkFirst(req) {
   const cache = await caches.open(CACHE_NAME);
   try {
@@ -79,14 +80,14 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // 同一オリジンのみ扱う。CDragon 画像 / フォント / jsdelivr は素通し
+  // Only handle same-origin; let CDragon images / fonts / jsdelivr pass through.
   if (url.origin !== self.location.origin) return;
 
-  // ローカル実行モードの API (/api/ping 等) はキャッシュせず素通しする。
-  // GET /api/ping をキャッシュに乗せると古い検知結果を返してしまうため除外する。
+  // Let the local-mode API (/api/ping etc.) pass through uncached: caching
+  // GET /api/ping would return a stale feature-detection result.
   if (url.pathname.split("/").includes("api")) return;
 
-  // 同一オリジンの GET は一律 network-first (シェルもデータも)。オンラインなら常に
-  // 最新を配り、キャッシュはオフライン時のフォールバックに徹する。
+  // Every same-origin GET (shell and data alike) is network-first: online,
+  // always serve the latest, with the cache strictly as an offline fallback.
   e.respondWith(networkFirst(req));
 });

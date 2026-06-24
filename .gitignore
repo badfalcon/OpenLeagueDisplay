@@ -2,18 +2,18 @@ __pycache__/
 *.pyc
 .DS_Store
 .vscode/
-# ローカル開発用の venv (uv/venv どちらでも)。リポジトリには入れない
+# Local-dev venv (uv or venv). Don't commit to the repo
 .venv/
-# .idea/ は基本無視するが、共有用のRun Configurationだけはチェックインする
+# Ignore .idea/ in general, but check in only the shared Run Configurations
 .idea/*
 !.idea/runConfigurations/
-# generate_data.py が新チャンプ漏れ検知時にだけ書き出す。update.yml の自動起票
-# ステップが読み取ったあとは消える運命なのでコミット対象外
+# Written by generate_data.py only when it detects a missing new champion. It's
+# meant to be deleted after update.yml's auto-file step reads it, so don't commit
 unmapped_regions.json
-# PyInstaller (local_app.spec) のビルド成果物。バイナリはリポジトリに置かない方針なので
-# 無視する (配布は release.yml が Release アセットとして行う)。spec 本体は別 (コミットする)
+# PyInstaller (local_app.spec) build artifacts. Ignored since binaries aren't kept
+# in the repo (release.yml distributes them as Release assets). The spec itself is separate (committed)
 build/
 dist/
-# Inno Setup (installer/windows.iss) のビルド成果物 (setup.exe)。同上の理由で無視。
-# iss 本体はコミットする
+# Inno Setup (installer/windows.iss) build artifact (setup.exe). Ignored for the same reason.
+# The iss itself is committed
 installer/out/

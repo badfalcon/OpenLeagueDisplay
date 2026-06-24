@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 """
-ローカル実行モード用サーバ
-==========================
-serve.py (静的配信のみ) を壊さず、壁紙設定 API を足した上位版。これを起動すると
-フロント (js/local.js) が /api/ping を検知して "ローカルモード" になり、スプラッシュを
-複数選択 → 確認 → 「壁紙にする」で一括設定できるようになる。1枚なら静止壁紙、2枚以上なら
-OS 純正スライドショー (Windows=IDesktopWallpaper / macOS=System Events のフォルダ
-ローテーション / Linux GNOME=slideshow XML) として設定するので、アプリを閉じても OS が
-回し続け、設定アプリの背景種類も正しく「スライドショー」になる。GitHub Pages では
-/api/ping が無い (404) ので何も変わらない ＝ 同一コードベースで段階的デグレード。
+Local-mode server
+=================
+A superset of serve.py (static serving only) that adds a wallpaper-setting API
+without breaking serve.py. When this is running, the frontend (js/local.js)
+detects /api/ping and switches to "local mode", letting the user multi-select
+splashes, confirm, and apply them all at once via "Set as wallpaper". One image
+becomes a static wallpaper; two or more become an OS-native slideshow
+(Windows=IDesktopWallpaper / macOS=System Events folder rotation / Linux
+GNOME=slideshow XML), so the OS keeps rotating even after the app closes and the
+Settings app correctly shows the background type as "slideshow". On GitHub Pages
+there is no /api/ping (404), so nothing changes = graceful degradation from a
+single codebase.
 
-壁紙設定・画像取得はすべて Python 標準ライブラリのみ (urllib / ctypes [COM 直叩き] /
-winreg / subprocess / threading)。pywebview だけが唯一の任意依存で、入っていればネイティブ
-窓、無ければ既定ブラウザにフォールバックするので必須にはしない。
+Wallpaper setting and image fetching use only the Python standard library
+(urllib / ctypes [direct COM calls] / winreg / subprocess / threading).
+pywebview is the only optional dependency: when present it gives a native window,
+otherwise it falls back to the default browser, so it is never required.
 
-実行:
-    python local_app.py            # 8000番、ネイティブ窓 (pywebview があれば) で起動
-    python local_app.py 8080       # ポート指定
-    python local_app.py --no-window   # 窓を出さずサーバだけ (CI / curl テスト用)
+Run:
+    python local_app.py            # port 8000, native window (if pywebview is present)
+    python local_app.py 8080       # specify port
+    python local_app.py --no-window   # server only, no window (for CI / curl tests)
 """
 
 from __future__ import annotations
@@ -39,9 +43,10 @@ import urllib.parse
 import urllib.request
 import webbrowser
 
-# Windows の既定コンソール encoding (cp932 / cp1252) だと起動ログの非ASCII文字 (em dash
-# 等) を print した瞬間 UnicodeEncodeError で落ちる。stdout/stderr を UTF-8 に固定する
-# (windowed ビルドでは None になり得るので存在チェック付き)。generate_data.py と同方針。
+# With Windows' default console encoding (cp932 / cp1252), printing non-ASCII
+# characters in startup logs (em dash, etc.) crashes immediately with
+# UnicodeEncodeError. Force stdout/stderr to UTF-8 (with an existence check since
+# they can be None in a windowed build). Same approach as generate_data.py.
 for _stream in (sys.stdout, sys.stderr):
     try:
         if _stream is not None:
@@ -49,33 +54,36 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-HOST = "127.0.0.1"  # 外向きには公開しない (SSRF / 横取りを防ぐ第一の関門)
+HOST = "127.0.0.1"  # never exposed externally (first gate against SSRF / hijacking)
 
-# PyInstaller の onefile は実体を sys._MEIPASS に展開する。通常実行ではこのファイルの
-# あるディレクトリ。ここを静的配信ルートにすることで cwd 依存をやめる。
+# PyInstaller onefile extracts its payload to sys._MEIPASS. For a normal run it's
+# this file's directory. Using it as the static-serving root removes the cwd dependency.
 BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 
-# スプラッシュの取得元はこのホストだけに固定する。file:// や内部 IP、任意ドメインへの
-# 誘導 (SSRF) を封じる。CDragon は global asset の公式ミラー。
+# Pin the splash fetch source to this host only. Blocks SSRF redirection to
+# file://, internal IPs, or arbitrary domains. CDragon is the official mirror of
+# the global assets.
 ALLOWED_HOST = "raw.communitydragon.org"
 
-# CSRF 関門。/api への POST はこのヘッダを必須にする。クロスサイトからの "simple
-# request" はカスタムヘッダを付けられず (付ければ CORS プリフライトが走り、本サーバは
-# OPTIONS に許可を返さないので弾かれる) ＝ 同一オリジン (= 自分のフロント) しか撃てない。
+# CSRF gate. POSTs to /api require this header. A cross-site "simple request"
+# cannot set a custom header (adding one triggers a CORS preflight, and this
+# server returns no allow for OPTIONS so it gets rejected) = only same-origin
+# (= our own frontend) can hit it.
 CSRF_HEADER = "X-OLD-Local"
 
-# 壁紙スライドショーのサーバ側最小間隔 (暴走防止)。UI 側の既定は 5 分。
+# Server-side minimum interval for the wallpaper slideshow (runaway guard). UI default is 5 min.
 MIN_INTERVAL_S = 10
-# ダウンロード上限。巨大ファイル / 非画像レスポンスを弾く多層防御。
+# Download cap. Defense-in-depth that rejects huge files / non-image responses.
 MAX_BYTES = 25 * 1024 * 1024
-# /api への POST ボディ上限。正規の {urls:[...], interval} は数十 KB で収まるので
-# 1MB あれば十分 (巨大ボディをメモリへ読み込まないための上限)。
+# POST body cap for /api. A legitimate {urls:[...], interval} fits in tens of KB,
+# so 1MB is plenty (cap to avoid reading a huge body into memory).
 MAX_BODY_BYTES = 1 * 1024 * 1024
 
-# 壁紙適用の進捗。/api/wallpaper は全画像を順次 DL し終えるまで 1 リクエストでブロックする
-# ので、フロントは別スレッドの GET /api/wallpaper/progress でこの done/total をポーリング
-# して進捗ゲージを出す (枚数が多いと「固まった」ように見えるのを防ぐ)。ThreadingHTTPServer
-# なので POST 実行中でも GET を別スレッドで捌ける。適用は同時に1件しか起きない想定。
+# Wallpaper-apply progress. /api/wallpaper blocks for one request until every
+# image has been downloaded in sequence, so the frontend polls this done/total
+# from a separate thread via GET /api/wallpaper/progress to show a progress gauge
+# (prevents it looking "frozen" with many images). ThreadingHTTPServer can serve
+# the GET on another thread during the POST. Only one apply is expected at a time.
 _wp_progress = {"done": 0, "total": 0}
 _wp_progress_lock = threading.Lock()
 
@@ -87,15 +95,15 @@ def set_wp_progress(done: int, total: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 画像キャッシュ
+# Image cache
 # ---------------------------------------------------------------------------
 def cache_dir() -> pathlib.Path:
-    """ダウンロードした壁紙の保存先。
+    """Where downloaded wallpapers are stored.
 
-    /tmp ではなく永続のユーザ専用ディレクトリに置く。Linux(gsettings) と macOS は
-    壁紙を「ファイルパス参照」で設定する (画像をコピーしない) ため、再起動で消える
-    /tmp に置くと次回ログイン時に壁紙が壊れる。他ユーザから読めない場所なので
-    プライバシ / TOCTOU も軽減できる。
+    A persistent per-user directory, not /tmp. Linux (gsettings) and macOS set
+    the wallpaper by *file-path reference* (they don't copy the image), so
+    storing in /tmp (which is wiped on reboot) would break the wallpaper at next
+    login. Being unreadable by other users also mitigates privacy / TOCTOU.
     """
     system = platform.system()
     if system == "Windows":
@@ -111,12 +119,12 @@ def cache_dir() -> pathlib.Path:
 
 
 def current_set_dir() -> pathlib.Path:
-    """「今アクティブな壁紙セット」専用フォルダ。
+    """Folder dedicated to the "currently active wallpaper set".
 
-    OS 純正スライドショーは*フォルダを参照*して中の画像を回すので、ユーザが今回
-    選んだ画像「だけ」がここに入っている必要がある。適用のたびに `reset_current_set()`
-    で空にしてから選択画像を入れ直す。cache_dir() 直下 (全 DL 履歴の sha1 置き場) とは
-    分離する。
+    The OS-native slideshow *references the folder* and rotates the images inside
+    it, so only the images the user selected this time must be in here. On each
+    apply we clear it and refill it with the selected images. Kept separate from
+    cache_dir() directly (the sha1 store of the full download history).
     """
     d = cache_dir() / "current"
     d.mkdir(parents=True, exist_ok=True)
@@ -124,12 +132,14 @@ def current_set_dir() -> pathlib.Path:
 
 
 def prune_current_set(keep: set) -> pathlib.Path:
-    """current_set_dir 内の、keep (ファイル名集合) に含まれないファイルを削除して返す。
+    """Delete files in current_set_dir not in `keep` (a set of filenames); return the dir.
 
-    単純な全消しではなく「今表示中のファイルだけ残す」のがポイント。OS 純正
-    スライドショーは表示中の画像パスを保持するので、それを消すと存在しないパスを指して
-    画面が真っ黒になる (Windows で実機確認)。適用のたびに live を keep に入れて呼ぶことで、
-    旧セットは掃除しつつ表示中ファイルだけ残し、黒画面を防ぐ。
+    The point is not a blanket wipe but "keep only the currently displayed file".
+    The OS-native slideshow holds onto the displayed image path, so deleting it
+    leaves the path pointing at nothing and the screen goes black (verified on
+    real Windows hardware). Calling this with the live file in `keep` on each
+    apply cleans up the old set while preserving the displayed file, preventing
+    the black screen.
     """
     d = current_set_dir()
     for p in d.iterdir():
@@ -139,11 +149,12 @@ def prune_current_set(keep: set) -> pathlib.Path:
 
 
 def live_wallpaper_names() -> set:
-    """今まさにデスクトップに表示中の壁紙ファイル名 (basename) の集合。
+    """Set of basenames of wallpaper files currently shown on the desktop.
 
-    黒画面防止のため「消してはいけないファイル」を知るのに使う。Windows のみ実装
-    (純正スライドショーが表示中パスを保持するのが問題なので)。他 OS / 取得失敗は空集合
-    = 旧セットを全削除 (従来どおり) に倒れる。
+    Used to learn "which files must not be deleted" to prevent the black screen.
+    Implemented on Windows only (the problem is the native slideshow holding the
+    displayed path). Other OSes / failure return an empty set = fall back to
+    deleting the whole old set (the prior behavior).
     """
     if platform.system() == "Windows":
         try:
@@ -154,7 +165,7 @@ def live_wallpaper_names() -> set:
 
 
 def validate_url(url: str) -> bool:
-    """https かつ ALLOWED_HOST のみ許可 (file:// や内部 IP を弾く SSRF 対策)。"""
+    """Allow only https + ALLOWED_HOST (SSRF defense rejecting file:// and internal IPs)."""
     try:
         u = urllib.parse.urlparse(url)
     except ValueError:
@@ -163,8 +174,9 @@ def validate_url(url: str) -> bool:
 
 
 def safe_filename(url: str) -> str:
-    """URL から決定的で衝突しにくいファイル名を作る。本体は URL の sha1 にして
-    path traversal / 長すぎ問題を避け、拡張子だけ元のものを (画像系のみ) 引き継ぐ。"""
+    """Build a deterministic, collision-resistant filename from a URL. The body is
+    the URL's sha1 to avoid path traversal / overlong-name issues; only the
+    extension (image types only) is carried over from the original."""
     ext = os.path.splitext(urllib.parse.urlparse(url).path)[1].lower()
     if ext not in (".jpg", ".jpeg", ".png", ".webp"):
         ext = ".jpg"
@@ -172,11 +184,12 @@ def safe_filename(url: str) -> str:
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """リダイレクト先も毎回 validate_url で検証する (多層防御)。
+    """Re-validate every redirect target with validate_url (defense-in-depth).
 
-    validate_url は初回 URL しか見ないので、万一 CDragon が別ホストや内部アドレスへ
-    リダイレクトを返しても urllib が黙って追従しないようにする。同一ホスト内の
-    正当なリダイレクトは許可されるので画像取得は壊れない。
+    validate_url only sees the initial URL, so this prevents urllib from silently
+    following a redirect should CDragon ever return one to a different host or an
+    internal address. Legitimate same-host redirects are allowed, so image
+    fetching still works.
     """
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -190,11 +203,12 @@ _OPENER = urllib.request.build_opener(_SafeRedirectHandler())
 
 
 def download_image(url: str, dest_dir: pathlib.Path | None = None) -> pathlib.Path:
-    """検証済み URL を dest_dir (既定 cache_dir) にダウンロードして絶対パスを返す。
+    """Download a validated URL into dest_dir (default cache_dir) and return its absolute path.
 
-    既に同じ sha1 名のファイルがあれば再ダウンロードしない。temp に書いてから
-    os.replace でアトミックに置くので、同じパスへ同時に書いても壁紙設定側が
-    壊れかけのファイルを読むことはない。
+    Skips re-downloading if a file with the same sha1 name already exists. Writes
+    to a temp file then atomically os.replace's it into place, so concurrent
+    writes to the same path can't let the wallpaper-setting side read a
+    half-written file.
     """
     base = dest_dir if dest_dir is not None else cache_dir()
     dest = (base / safe_filename(url)).resolve()
@@ -210,9 +224,10 @@ def download_image(url: str, dest_dir: pathlib.Path | None = None) -> pathlib.Pa
     if len(data) > MAX_BYTES:
         raise ValueError("image too large")
 
-    # tmp 名はスレッドごとに固有にする (PID だけだと、スライドショースレッドと手動設定が
-    # 同じ URL を同時に取得した時に同一 tmp を奪い合い、片方の os.replace が
-    # FileNotFoundError になる)。スレッド ID を混ぜて衝突を防ぐ。
+    # Make the tmp name unique per thread (with PID alone, the slideshow thread
+    # and a manual apply fetching the same URL concurrently would fight over the
+    # same tmp and one os.replace would get FileNotFoundError). Mixing in the
+    # thread ID prevents the collision.
     tmp = dest.with_suffix(dest.suffix + f".{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_bytes(data)
     os.replace(tmp, dest)
@@ -220,14 +235,15 @@ def download_image(url: str, dest_dir: pathlib.Path | None = None) -> pathlib.Pa
 
 
 # ---------------------------------------------------------------------------
-# 壁紙設定 (OS 別) — 1枚=静止 / 2枚以上=OS純正スライドショー
+# Wallpaper setting (per OS) — 1 image=static / 2+=OS-native slideshow
 # ---------------------------------------------------------------------------
-# 自前タイマーで静止画を設定し直す旧方式はやめ、各 OS の「純正スライドショー」機構に
-# 寄せる。これにより (1) 設定アプリの背景種類が正しく「スライドショー」になり
-# (2) アプリを閉じても OS が回し続ける。1枚だけのときは静止壁紙にし、これが
-# 「スライドショーを解除して1枚に戻す」操作も兼ねる。
+# We dropped the old approach of re-setting a static image on our own timer and
+# leaned on each OS's "native slideshow" mechanism. This makes (1) the Settings
+# app show the correct background type "slideshow" and (2) the OS keep rotating
+# even after the app closes. With a single image we set a static wallpaper, which
+# also serves as the "cancel slideshow and go back to one image" operation.
 def set_wallpaper_static(path: pathlib.Path) -> None:
-    """選んだ1枚を静止壁紙にする。失敗時は例外を投げる。"""
+    """Set the single selected image as a static wallpaper. Raises on failure."""
     p = str(path)
     system = platform.system()
     if system == "Windows":
@@ -239,7 +255,7 @@ def set_wallpaper_static(path: pathlib.Path) -> None:
 
 
 def set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool = False) -> None:
-    """folder 内の画像を OS 純正スライドショーとして設定する (2枚以上向け)。"""
+    """Set the images in `folder` as an OS-native slideshow (for 2+ images)."""
     interval_s = max(MIN_INTERVAL_S, float(interval_s))
     system = platform.system()
     if system == "Windows":
@@ -251,10 +267,12 @@ def set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool = False
 
 
 # ---- Windows: IDesktopWallpaper (COM) ----------------------------------------
-# 設定アプリ自身が使う COM API。レガシーの SystemParametersInfoW と違い、設定アプリの
-# 背景種類・最近使った画像とも整合し、スライドショーは OS 管理 (アプリ終了後も継続) になる。
-# 追加依存なしで ctypes から vtable を直叩きする (stdlib のみ方針を維持)。WINFUNCTYPE /
-# windll / HRESULT は Windows 専用なので、参照は必ず関数本体内 (= Windows でのみ実行) に置く。
+# The COM API the Settings app itself uses. Unlike the legacy SystemParametersInfoW,
+# it stays consistent with the Settings app's background type and recently-used
+# images, and the slideshow becomes OS-managed (continues after the app exits).
+# We call the vtable directly from ctypes with no extra dependency (keeping the
+# stdlib-only policy). WINFUNCTYPE / windll / HRESULT are Windows-only, so any
+# reference to them must stay inside a function body (= only ever runs on Windows).
 _CLSID_DesktopWallpaper = "{C2CF3110-460E-4FC1-B9D0-8A1C0C9CC4BD}"
 _IID_IDesktopWallpaper = "{B92B56A9-8B55-4E14-9A89-0199BBB6F93B}"
 _IID_IShellItem = "{43826D1E-E718-42EE-BC55-A1E261C37BFE}"
@@ -281,8 +299,8 @@ def _guid(s: str) -> "_GUID":
 
 
 def _vtbl(ptr, index, restype, argtypes):
-    """COM インターフェースポインタ ptr の vtable[index] を呼べる callable を返す。
-    第1引数は this ポインタ。"""
+    """Return a callable for vtable[index] of the COM interface pointer `ptr`.
+    The first argument is the `this` pointer."""
     vtable = ctypes.cast(ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)))[0]
     proto = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)
     return proto(vtable[index])
@@ -294,7 +312,7 @@ def _com_release(ptr) -> None:
 
 
 def _desktop_wallpaper():
-    """IDesktopWallpaper を生成 (要 CoInitialize 済み)。呼び出し側が _com_release する。"""
+    """Create an IDesktopWallpaper (requires prior CoInitialize). Caller must _com_release it."""
     ptr = ctypes.c_void_p()
     clsid = _guid(_CLSID_DesktopWallpaper)
     iid = _guid(_IID_IDesktopWallpaper)
@@ -309,7 +327,7 @@ def _win_set_wallpaper(p: str) -> None:
     try:
         _win_com_set_wallpaper(p)
     except OSError as e:
-        # 万一 COM が使えない環境ではレガシー SPI に退避する (多層防御)。
+        # If COM is somehow unavailable, fall back to the legacy SPI (defense-in-depth).
         print(f"[wallpaper] IDesktopWallpaper failed ({e}); SPI fallback", file=sys.stderr)
         _win_set_wallpaper_spi(p)
 
@@ -319,9 +337,10 @@ def _win_com_set_wallpaper(p: str) -> None:
     dw = None
     try:
         dw = _desktop_wallpaper()
-        # SetWallpaper(NULL, path) は直前がスライドショーだと反映されないことがあるため、
-        # モニタ毎に明示設定する (_win_pin_current_image)。これでスライドショーは解除され
-        # 静止壁紙になる (1枚指定 = スライドショー解除も兼ねる、の意図どおり)。
+        # SetWallpaper(NULL, path) sometimes doesn't take effect when the previous
+        # state was a slideshow, so set it explicitly per monitor
+        # (_win_pin_current_image). This cancels the slideshow and yields a static
+        # wallpaper (as intended: a single image also cancels the slideshow).
         _win_pin_current_image(dw, p)
         # SetPosition(FILL) (slot 10)
         _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
@@ -332,15 +351,18 @@ def _win_com_set_wallpaper(p: str) -> None:
 
 
 def _win_pin_current_image(dw, image_path: str) -> None:
-    """各モニタの「今表示する壁紙」を実在ファイル image_path に明示設定する。
+    """Explicitly set each monitor's "currently displayed wallpaper" to the existing file image_path.
 
-    SetWallpaper(NULL, path) は直前がスライドショーだと効かないことがあるので、
-    GetMonitorDevicePathAt で得た各モニタ ID を指定して SetWallpaper する。静止壁紙設定
-    (_win_com_set_wallpaper) と、スライドショー設定後に表示画像が存在しないパスを指して
-    しまった異常系の復帰 (_win_set_slideshow のフォールバック) の両方で使う。この呼び出しは
-    スライドショーを解除して静止に倒す副作用があるので、正常系のスライドショー設定では
-    使わない (黒画面は「表示中ファイルを消さない」= prune_current_set 側で防ぐ)。
-    GetMonitorDevicePathAt が返す文字列は CoTaskMem なので明示解放する。
+    Since SetWallpaper(NULL, path) sometimes doesn't take effect when the previous
+    state was a slideshow, we SetWallpaper using each monitor ID obtained from
+    GetMonitorDevicePathAt. Used both for static wallpaper setting
+    (_win_com_set_wallpaper) and for recovering from the abnormal case where, after
+    setting a slideshow, the displayed image points at a nonexistent path
+    (_win_set_slideshow's fallback). This call has the side effect of cancelling
+    the slideshow and dropping to static, so it is NOT used in the normal slideshow
+    path (the black screen is prevented on the prune_current_set side by "not
+    deleting the displayed file"). The string returned by GetMonitorDevicePathAt is
+    CoTaskMem, so it is freed explicitly.
     """
     count = ctypes.c_uint(0)
     # GetMonitorDevicePathCount (slot 6)
@@ -364,10 +386,11 @@ def _win_pin_current_image(dw, image_path: str) -> None:
 
 
 def _win_current_wallpaper_paths(dw) -> list:
-    """各モニタが今表示している壁紙ファイルのパス一覧 (GetWallpaper, slot 4)。
+    """List of wallpaper file paths each monitor is currently displaying (GetWallpaper, slot 4).
 
-    返り値が存在しないパスを含むなら「表示中ファイルが消えて真っ黒」の状態。
-    出力文字列は CoTaskMem なので解放する。
+    If the return value contains a nonexistent path, the state is "displayed file
+    is gone and the screen is black". The output strings are CoTaskMem, so they
+    are freed.
     """
     out = []
     count = ctypes.c_uint(0)
@@ -394,7 +417,7 @@ def _win_current_wallpaper_paths(dw) -> list:
 
 
 def _win_live_wallpaper_names() -> set:
-    """Windows が今表示中の壁紙ファイル名 (basename) の集合。失敗時は空集合。"""
+    """Set of basenames of the wallpaper files Windows is currently displaying. Empty set on failure."""
     ctypes.windll.ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
     dw = None
     try:
@@ -415,7 +438,7 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
     dw = None
     try:
         dw = _desktop_wallpaper()
-        # フォルダの IShellItem → IShellItemArray を作って SetSlideshow に渡す
+        # Build the folder's IShellItem -> IShellItemArray and pass it to SetSlideshow
         iid_si = _guid(_IID_IShellItem)
         iid_sia = _guid(_IID_IShellItemArray)
         hr = ctypes.windll.shell32.SHCreateItemFromParsingName(
@@ -426,13 +449,14 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
             psi, ctypes.byref(iid_sia), ctypes.byref(psia))
         if hr < 0:
             raise ctypes.WinError(hr)
-        # SetSlideshow(items) (slot 12)。restype=HRESULT は失敗 (負値) で OSError を
-        # 自動 raise する (ctypes の仕様) ので、本丸の失敗は呼び出し元へ伝播して
-        # フロントに「失敗」として返る。
+        # SetSlideshow(items) (slot 12). restype=HRESULT auto-raises OSError on
+        # failure (negative value) per ctypes' behavior, so the core failure
+        # propagates to the caller and returns to the frontend as "failed".
         _vtbl(dw, 12, ctypes.HRESULT, [ctypes.c_void_p])(dw, psia)
-        # SetSlideshowOptions(options, tickMs) (slot 14、最小 tick は 1000ms) と
-        # SetPosition(FILL) (slot 10) は装飾系。ここまで来ればスライドショー自体は
-        # 成立しているので、失敗してもログだけ残して適用成功として続行する。
+        # SetSlideshowOptions(options, tickMs) (slot 14, minimum tick is 1000ms) and
+        # SetPosition(FILL) (slot 10) are cosmetic. By this point the slideshow
+        # itself is established, so on failure we just log and continue treating
+        # the apply as successful.
         opts = _DSO_SHUFFLEIMAGES if shuffle else 0
         try:
             _vtbl(dw, 14, ctypes.HRESULT, [ctypes.c_int, ctypes.c_uint])(
@@ -440,12 +464,14 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
             _vtbl(dw, 10, ctypes.HRESULT, [ctypes.c_int])(dw, _DWPOS_FILL)
         except OSError as e:
             print(f"[wallpaper] slideshow options/position failed: {e}", file=sys.stderr)
-        # SetSlideshow は「今表示中の画像」を切り替えず Windows が保持している現在画像を
-        # そのまま表示し続ける (回転は次の tick から)。呼び出し側が表示中ファイルを消さない
-        # (prune_current_set が live を残す) ので通常は有効画像のまま黒くならない。万一
-        # 現在画像が存在しないパスを指していたら (異常系・既に黒い等)、実在画像を pin して
-        # 復帰させる。この場合スライドショーは静止に落ちうるが、黒画面よりは良い (次回適用で
-        # 表示中ファイルが有効になれば回転に戻る)。
+        # SetSlideshow doesn't switch the "currently displayed image"; Windows keeps
+        # showing the current image it holds (rotation begins from the next tick).
+        # Since the caller doesn't delete the displayed file (prune_current_set keeps
+        # the live one), it normally stays a valid image and doesn't go black. If the
+        # current image somehow points at a nonexistent path (abnormal case, already
+        # black, etc.), pin an existing image to recover. The slideshow may drop to
+        # static in that case, but that beats a black screen (it returns to rotating
+        # once the displayed file is valid at the next apply).
         current = _win_current_wallpaper_paths(dw)
         if current and not all(os.path.isfile(p) for p in current):
             images = sorted(str(p) for p in folder.iterdir()
@@ -460,7 +486,7 @@ def _win_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -
 
 
 def _win_set_wallpaper_spi(p: str) -> None:
-    """レガシー SPI フォールバック (COM が使えない時用)。表示スタイルを fill に。"""
+    """Legacy SPI fallback (for when COM is unavailable). Sets the display style to fill."""
     try:
         import winreg
 
@@ -488,8 +514,8 @@ def _mac_set_wallpaper(p: str) -> None:
 
 
 def _mac_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool) -> None:
-    # System Events の「フォルダを指定して一定間隔で回す」純正ローテーション。
-    # picture rotation: 0=オフ, 1=インターバル, 2=ログイン/スリープ復帰。
+    # System Events' native "point at a folder and rotate at a fixed interval" rotation.
+    # picture rotation: 0=off, 1=interval, 2=on login/wake from sleep.
     lines = [
         'tell application "System Events"',
         'tell every desktop',
@@ -523,8 +549,9 @@ def _linux_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool)
                   if p.is_file() and p.suffix.lower() in _IMG_EXTS)
     if not imgs:
         raise OSError("no images for slideshow")
-    # GNOME の純正スライドショーは <background> XML を picture-uri に指す方式。各画像を
-    # duration 秒表示し、次へ transition する連鎖を書く (最後は先頭へ戻してループ)。
+    # GNOME's native slideshow points picture-uri at a <background> XML. We write
+    # a chain that shows each image for `duration` seconds and transitions to the
+    # next (wrapping back to the first at the end to loop).
     dur, trans = float(interval_s), 1.5
     parts = ['<?xml version="1.0"?>', "<background>"]
     for i, img in enumerate(imgs):
@@ -536,7 +563,7 @@ def _linux_set_slideshow(folder: pathlib.Path, interval_s: float, shuffle: bool)
     parts.append("</background>")
     xml_path = folder / "slideshow.xml"
     xml_path.write_text("\n".join(parts), encoding="utf-8")
-    # GNOME 以外 (feh) は時間回転ができないので先頭1枚を静止にフォールバック。
+    # Non-GNOME (feh) can't rotate on a timer, so fall back to the first image as static.
     _linux_apply_uri(xml_path.as_uri(), feh_path=imgs[0])
 
 
@@ -558,15 +585,15 @@ def _linux_apply_uri(uri: str, feh_path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# HTTP ハンドラ
+# HTTP handler
 # ---------------------------------------------------------------------------
 class Handler(http.server.SimpleHTTPRequestHandler):
-    """静的配信は SimpleHTTPRequestHandler のまま、/api/* だけ自前で処理する。"""
+    """Static serving stays as SimpleHTTPRequestHandler; only /api/* is handled ourselves."""
 
-    # ログを少し静かに (ヘルスチェック的な GET /api/ping を毎回出さない)
+    # Quiet the log a bit (don't emit the health-check-like GET /api/ping every time)
     def log_message(self, fmt: str, *args) -> None:
         p = self.path or ""
-        if "/api/ping" in p or "/api/wallpaper/progress" in p:  # 頻繁なポーリングは黙らせる
+        if "/api/ping" in p or "/api/wallpaper/progress" in p:  # silence frequent polling
             return
         super().log_message(fmt, *args)
 
@@ -582,10 +609,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return (self.path or "").split("?")[0]
 
     def _host_ok(self) -> bool:
-        # DNS リバインディング対策。サーバは 127.0.0.1 にしか bind しないので、正規の
-        # アクセスは Host が必ずループバックリテラルになる。悪意サイトが自ドメインを
-        # 127.0.0.1 に rebind して same-origin 化し X-OLD-Local を付けて撃ってきても、
-        # Host ヘッダは攻撃者ドメインのままなのでここで弾ける (CSRF 関門の補強)。
+        # DNS-rebinding defense. The server binds only to 127.0.0.1, so legitimate
+        # access always has a loopback-literal Host. Even if a malicious site
+        # rebinds its own domain to 127.0.0.1 to become same-origin and fires with
+        # X-OLD-Local attached, the Host header is still the attacker's domain so
+        # it's rejected here (reinforces the CSRF gate).
         host = self.headers.get("Host", "")
         hostname = host.rsplit(":", 1)[0].strip("[]") if host else ""
         return hostname in ("127.0.0.1", "localhost", "::1")
@@ -604,25 +632,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             })
             return
         if path == "/api/wallpaper/progress":
-            # 適用中の進捗ポーリング用 (読み取り専用なので CSRF ヘッダは不要、Host だけ確認)。
+            # For progress polling during apply (read-only, so no CSRF header needed; only check Host).
             if not self._host_ok():
                 self._json(403, {"ok": False, "error": "bad host"})
                 return
             with _wp_progress_lock:
                 self._json(200, {"done": _wp_progress["done"], "total": _wp_progress["total"]})
             return
-        super().do_GET()  # それ以外は通常の静的配信
+        super().do_GET()  # everything else is normal static serving
 
     def do_POST(self) -> None:
         path = self._path()
         if not path.startswith("/api/"):
             self._json(404, {"ok": False, "error": "not found"})
             return
-        # DNS リバインディング対策: ループバック以外の Host は拒否 (CSRF 関門の補強)
+        # DNS-rebinding defense: reject any non-loopback Host (reinforces the CSRF gate)
         if not self._host_ok():
             self._json(403, {"ok": False, "error": "bad host"})
             return
-        # CSRF 関門: カスタムヘッダ必須 (クロスサイトからは付けられない)
+        # CSRF gate: custom header required (cross-site can't attach it)
         if self.headers.get(CSRF_HEADER) is None:
             self._json(403, {"ok": False, "error": "forbidden"})
             return
@@ -632,7 +660,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._handle_wallpaper(body)
             else:
                 self._json(404, {"ok": False, "error": "not found"})
-        except Exception as e:  # 何が起きても JSON で返す (フロントは ok を見る)
+        except Exception as e:  # always reply in JSON whatever happens (the frontend checks ok)
             self._json(500, {"ok": False, "error": str(e)})
 
     def _read_json(self) -> dict:
@@ -643,27 +671,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return json.loads(raw or b"{}")
 
     def _handle_wallpaper(self, body: dict) -> None:
-        """選択 URL 群を current フォルダに一括 DL し、枚数で静止/スライドショーに振り分ける。
+        """Download the selected URLs into the current folder and dispatch to static/slideshow by count.
 
-        body: {urls: [...], interval: ms, shuffle: bool}。後方互換で単数 url も受ける。
-        1枚 → 静止壁紙 (スライドショー解除も兼ねる)、2枚以上 → OS 純正スライドショー。
+        body: {urls: [...], interval: ms, shuffle: bool}. Also accepts a singular
+        url for backward compat. 1 image -> static wallpaper (also cancels the
+        slideshow); 2+ -> OS-native slideshow.
         """
         urls = [str(u) for u in (body.get("urls") or [])]
         if not urls and body.get("url"):
-            urls = [str(body["url"])]  # 旧 {url} 形式の後方互換
+            urls = [str(body["url"])]  # backward compat with the old {url} form
         urls = [u for u in urls if validate_url(u)]
         if not urls:
             self._json(400, {"ok": False, "error": "no valid urls"})
             return
 
-        # 黒画面防止: 前回セットを掃除する前に「今表示中のファイル」を調べ、それだけは残す。
-        # OS 純正スライドショーは表示中の画像パスを保持するので、それを消すと存在しないパスを
-        # 指して画面が真っ黒になる (Windows で実機確認)。表示中ファイルは新セットへ回転する
-        # まで残り、次回適用で (表示中でなくなれば) 掃除される。
+        # Black-screen prevention: before cleaning the previous set, find the
+        # "currently displayed file" and keep only that. The OS-native slideshow
+        # holds onto the displayed image path, so deleting it leaves the path
+        # pointing at nothing and the screen goes black (verified on real Windows
+        # hardware). The displayed file survives until the slideshow rotates onward
+        # to the new set, then gets cleaned at the next apply (once it's no longer displayed).
         folder = current_set_dir()
         keep = live_wallpaper_names() | {safe_filename(u) for u in urls}
         prune_current_set(keep)
-        # 1枚ずつ DL しながら進捗を更新する (フロントが /api/wallpaper/progress でポーリング)。
+        # Download one at a time while updating progress (the frontend polls /api/wallpaper/progress).
         set_wp_progress(0, len(urls))
         paths = []
         for u in urls:
@@ -681,11 +712,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 # ---------------------------------------------------------------------------
-# 起動
+# Startup
 # ---------------------------------------------------------------------------
 def _serve(port: int) -> http.server.ThreadingHTTPServer:
-    # ThreadingHTTPServer: 画像 DL (最大 ~20s) 中でも他リクエスト (停止 / 静的) を捌く。
-    # directory= で配信ルートを明示し cwd 依存をやめる (PyInstaller 同梱に対応)。
+    # ThreadingHTTPServer: serve other requests (stop / static) even during an
+    # image download (up to ~20s). directory= makes the serving root explicit and
+    # removes the cwd dependency (supports PyInstaller bundling).
     handler = functools.partial(Handler, directory=BASE_DIR)
     httpd = http.server.ThreadingHTTPServer((HOST, port), handler)
     return httpd
@@ -701,25 +733,29 @@ def main() -> None:
     url = f"http://{HOST}:{port}"
     print(f"OpenLeagueDisplay (local mode, wallpaper enabled) — {url}  (Ctrl+C to stop)")
 
-    # pywebview があればネイティブ窓。GUI はメインスレッド必須 (特に macOS) なので
-    # サーバを別スレッド (daemon) で回し、webview をメインスレッドで起動する。
+    # Native window if pywebview is present. GUIs require the main thread
+    # (especially on macOS), so run the server on a separate (daemon) thread and
+    # start webview on the main thread.
     if not no_window:
         try:
             import webview  # pywebview
         except ImportError:
             webview = None
         if webview is not None:
-            # ネイティブ窓を試す。pywebview があっても GUI backend 不全 (例: Linux で
-            # WebKitGTK 無し / DISPLAY 無し) だと create_window/start が ImportError 以外を
-            # 投げるので、その時はブラウザに切替えてサーバを生かしたまま待機する。
+            # Try a native window. Even with pywebview present, a broken GUI backend
+            # (e.g. no WebKitGTK / no DISPLAY on Linux) makes create_window/start
+            # throw something other than ImportError, so in that case switch to the
+            # browser and keep the server alive while waiting.
             server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
             server_thread.start()
             try:
                 webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
-                # Windows のタスクバー/タイトルバーアイコンを明示指定する。pywebview は
-                # 無指定だと実行 exe からアイコンを抽出する (winforms.py) が、UPX 圧縮等で
-                # 抽出に失敗すると既定アイコンになる。同梱した icon.ico を直接渡して確実にする。
-                # mac は .icns 形式が別物、Linux は backend 依存なので Windows でだけ渡す。
+                # Explicitly specify the Windows taskbar/titlebar icon. With nothing
+                # specified, pywebview extracts the icon from the running exe
+                # (winforms.py), but if extraction fails (e.g. under UPX compression)
+                # it falls back to the default icon. Pass the bundled icon.ico
+                # directly to make it reliable. macOS uses the different .icns format
+                # and Linux is backend-dependent, so only pass it on Windows.
                 start_kwargs = {}
                 icon_path = os.path.join(BASE_DIR, "icon.ico")
                 if sys.platform == "win32" and os.path.isfile(icon_path):
@@ -735,7 +771,7 @@ def main() -> None:
             finally:
                 httpd.shutdown()
             return
-        # pywebview 未インストール: 既定ブラウザを開いてサーバを foreground で回す
+        # pywebview not installed: open the default browser and run the server in the foreground
         webbrowser.open(url)
 
     try:

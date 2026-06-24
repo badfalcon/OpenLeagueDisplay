@@ -1,28 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec — OpenLeagueDisplay ローカル実行ファイル
-=========================================================
-`local_app.py` を 1 ファイルにまとめ、静的アセット (HTML/CSS/JS/データ) を同梱する。
-リポジトリにはこの spec (テキスト) だけを置き、生成バイナリはコミットしない
-(Release アセットとして配布する)。
+PyInstaller spec — OpenLeagueDisplay local executable
+=====================================================
+Bundles `local_app.py` into a single file along with the static assets
+(HTML/CSS/JS/data). Only this spec (text) lives in the repo; the generated
+binaries are not committed (they are distributed as Release assets).
 
-ビルド (PyInstaller 6.x 想定):
+Build (assumes PyInstaller 6.x):
     pip install pyinstaller pywebview
     pyinstaller local_app.spec
     # → dist/OpenLeagueDisplay(.exe)
 
-datas は OS 非依存に書ける (--add-data の ';' / ':' 区切り問題を回避できる)。
-実行時、local_app.py は同梱物を sys._MEIPASS (= BASE_DIR) から配信する。
+datas can be written OS-independently (avoids the --add-data ';' / ':' separator
+problem). At runtime, local_app.py serves the bundled files from sys._MEIPASS
+(= BASE_DIR).
 """
 
 import sys
 
-# Windows ではリポジトリにコミット済みの icon.ico を exe に埋め込む (タスクバー等で
-# 正しいアイコンが出る)。mac/linux では .ico を使わず None = デフォルトアイコン
-# (PyInstaller の mac アイコンは .icns 形式で別物なので渡さない)。
+# On Windows, embed the repo-committed icon.ico into the exe (so the correct icon
+# shows in the taskbar, etc.). On mac/linux don't use the .ico and pass None =
+# default icon (PyInstaller's mac icon is the different .icns format, so we don't pass it).
 _icon = "icon.ico" if sys.platform == "win32" else None
 
-# 同梱する静的アセット。(ソース, 展開先) のタプル。ディレクトリはそのまま再帰コピー。
+# Static assets to bundle. (source, destination) tuples. Directories are copied recursively as-is.
 datas = [
     ("index.html", "."),
     ("styles.css", "."),
@@ -31,8 +32,9 @@ datas = [
     ("manifest.webmanifest", "."),
     ("sw.js", "."),
     ("data.json", "."),
-    # 実行時にネイティブ窓のアイコンとして渡す (タスクバー/タイトルバー)。exe 埋め込み
-    # (icon= の方) とは別経路で、UPX 圧縮でのアイコン抽出失敗に左右されず確実に出すため。
+    # Passed at runtime as the native window icon (taskbar/titlebar). A separate
+    # path from the exe embedding (the icon= one), to show reliably regardless of
+    # icon-extraction failure under UPX compression.
     ("icon.ico", "."),
     ("js", "js"),
     ("i18n", "i18n"),
@@ -43,8 +45,9 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=datas,
-    # pywebview のバックエンドは遅延 import されるため、PyInstaller が拾い損ねる
-    # 環境では明示する。pywebview 同梱のフックが効けば不要。
+    # pywebview's backend is lazily imported, so declare it explicitly for
+    # environments where PyInstaller fails to pick it up. Unnecessary if the hook
+    # bundled with pywebview takes effect.
     hiddenimports=["webview"],
     hookspath=[],
     hooksconfig={},
@@ -55,7 +58,7 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
-# onefile: a.binaries / a.datas を EXE に渡す (COLLECT は作らない)。
+# onefile: pass a.binaries / a.datas to EXE (don't create a COLLECT).
 exe = EXE(
     pyz,
     a.scripts,
@@ -69,7 +72,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,   # GUI アプリ (ネイティブ窓) なのでコンソールは出さない
+    console=False,   # GUI app (native window), so don't show a console
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

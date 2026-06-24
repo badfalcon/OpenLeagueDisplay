@@ -1,41 +1,41 @@
 <!DOCTYPE html>
-<!-- i18n-loading: ES Modules は defer 相当で、保存 locale の applyStaticUIStrings()
-     が走る前に index.html の英語ハードコードが一瞬見えてしまう。styles.css 側で
-     対象要素を visibility:hidden にしておき、init() 内で外す。
-     JS が完全に失敗した時のための保険として 3 秒経過で自動解除する -->
+<!-- i18n-loading: ES Modules behave like defer, so the hardcoded English in index.html
+     flashes briefly before the saved locale's applyStaticUIStrings() runs. styles.css
+     keeps the target elements visibility:hidden and init() removes it.
+     As a failsafe for when JS fails entirely, it auto-clears after 3 seconds -->
 <html lang="en" class="i18n-loading">
 <head>
 <script src="js/i18n-failsafe.js"></script>
 <meta charset="utf-8">
-<!-- ピンチズームを許可 (WCAG 1.4.4 拡大)。maximum-scale=1 / user-scalable=no は
-     入れない: iOS は元々これらを無視するが Android だけズーム不能になっていた。
-     ダブルタップズームの抑止は styles.css の touch-action: manipulation が担う -->
+<!-- Allow pinch-zoom (WCAG 1.4.4 Resize text). Do NOT add maximum-scale=1 / user-scalable=no:
+     iOS ignores them anyway, but they disabled zoom on Android.
+     Double-tap zoom is suppressed by touch-action: manipulation in styles.css -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
   Content Security Policy (defense-in-depth)
   ------------------------------------------
-  全 innerHTML 補間は esc() で HTML エスケープ済みなので XSS シンクは無いが、
-  将来の回帰防止と CDN 侵害時の影響軽減のためのバックストップ。
-  - script-src: 'self' で js/*.js (ES Modules + i18n-failsafe.js の classic script) を
-    カバー。インライン JS は全廃したので 'unsafe-inline' は付けない (画像の load/error は
-    #root への capture 委譲で拾い、i18n-loading のフェイルセーフは js/i18n-failsafe.js に
-    外出しした)。jsdelivr は JSZip の CDN ロード用、static.cloudflareinsights.com は
-    Cloudflare Web Analytics の beacon.min.js 用
-  - style-src: 'self' で styles.css をカバー。Google Fonts と一部 innerHTML 内の
-    style="min-width:Nch" のような inline style 属性のため 'unsafe-inline'
-  - img-src: data: は styles.css の inline SVG アイコン (検索虫眼鏡 / セレクト矢印 /
-    body::after ノイズ) を表示するために必要。blob: は生成していないので付けない。
-    CDragon + 国旗 CDN を外部画像として許可
-  - connect-src: ZIP化で raw.communitydragon.org に fetch、i18n/data.json は self、
-    cloudflareinsights.com は Web Analytics の計測 beacon 送信先
-  - manifest-src: PWA の manifest.webmanifest は同一オリジン
+  All innerHTML interpolation is HTML-escaped via esc(), so there is no XSS sink, but this
+  is a backstop against future regressions and to limit the blast radius of a CDN compromise.
+  - script-src: 'self' covers js/*.js (ES Modules + i18n-failsafe.js classic script).
+    Inline JS was fully removed, so no 'unsafe-inline' (image load/error is caught via
+    capture delegation on #root, and the i18n-loading failsafe was moved out to
+    js/i18n-failsafe.js). jsdelivr is for loading JSZip from CDN, static.cloudflareinsights.com
+    is for Cloudflare Web Analytics' beacon.min.js
+  - style-src: 'self' covers styles.css. 'unsafe-inline' is needed for Google Fonts and for
+    inline style attributes inside innerHTML such as style="min-width:Nch"
+  - img-src: data: is needed to render styles.css's inline SVG icons (search magnifier /
+    select arrow / body::after noise). blob: is not added since none are generated.
+    CDragon + flag CDN are allowed as external images
+  - connect-src: ZIP creation fetches from raw.communitydragon.org, i18n/data.json are self,
+    cloudflareinsights.com is the Web Analytics beacon destination
+  - manifest-src: the PWA manifest.webmanifest is same-origin
 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — A splash viewer for every League of Legends champion and skin. Pick favorites, download as ZIP, set as wallpaper.">
-<!-- OGP / Twitter Card: og:image / twitter:image はクローラが相対URLを解決
-     できないので絶対URLで指す。ogp.png は 1200x630 (twitter:card は
-     summary_large_image の推奨比 1.91:1)、リポジトリ直下の静的アセット。
-     差し替え時は og:image:width/height も合わせること -->
+<!-- OGP / Twitter Card: og:image / twitter:image use absolute URLs because crawlers
+     can't resolve relative ones. ogp.png is 1200x630 (the 1.91:1 ratio recommended for
+     twitter:card summary_large_image), a static asset at the repo root.
+     When swapping it, update og:image:width/height to match -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://badfalcon.github.io/OpenLeagueDisplay/">
 <meta property="og:title" content="OpenLeagueDisplay">
@@ -50,9 +50,9 @@
 <meta name="twitter:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
 <title>OpenLeagueDisplay</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<!-- PWA: ホーム画面追加 / インストール用。アイコンは SVG (リポジトリにバイナリを
-     置かない方針を維持)。theme-color はサイトの --bg に揃える。
-     apple-* メタは iOS の standalone 表示と非透過ステータスバー指定用 -->
+<!-- PWA: for add-to-home-screen / install. Icons are SVG (keeping the no-binaries-in-repo
+     policy). theme-color matches the site's --bg.
+     apple-* meta are for iOS standalone display and the translucent status bar -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#07060b">
 <link rel="apple-touch-icon" href="favicon.svg">
@@ -63,9 +63,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://raw.communitydragon.org">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- JSZip: ブラウザ完結でZIPを作るために遅延読込。CDN障害時もビューア自体は動く。
-     integrity (SRI) で jsdelivr 侵害時の任意JS実行を防ぐ。バージョンを上げる時は
-     https://www.srihash.org/ などでハッシュも再生成すること -->
+<!-- JSZip: lazy-loaded to build ZIPs entirely in the browser. The viewer itself works even
+     if the CDN is down. integrity (SRI) prevents arbitrary JS execution if jsdelivr is
+     compromised. When bumping the version, regenerate the hash (e.g. via https://www.srihash.org/) -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
         integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
         crossorigin="anonymous" defer></script>
@@ -74,33 +74,33 @@
 </head>
 <body>
 
-<!-- スキップリンク: キーボード利用者が 2 段ヘッダ (タイトル/?/言語/タブ/操作ボタン) を
-     Tab で抜けずに本文 (チャンピオングリッド) へ直行できる導線。普段は画面外に隠し、
-     フォーカス時だけ左上に出す。文言は applyStaticUIStrings() が locale 追従させる -->
+<!-- Skip link: lets keyboard users jump straight to the content (champion grid) without
+     tabbing through the two-row header (title / ? / language / tabs / action buttons). Normally
+     hidden off-screen, shown at top-left only on focus. applyStaticUIStrings() keeps the text in sync with the locale -->
 <a href="#root" class="skip-link" id="skip-link">Skip to content</a>
 
-<!-- topbar: 2 段構成の sticky バー。
-     行1 (.header-primary):   brand (ロゴ + 件数) … ? + 言語ピッカー (.header-utils)
-     行2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
-     行1 に識別情報 + 常設ユーティリティ、行2 に閲覧操作、と役割で段を分ける。
-     検索バー / 戻るボタン / ソートは下の dom-stash に置き、render() で
-     .champ-header-controls スロットへ transplant する -->
+<!-- topbar: a two-row sticky bar.
+     Row 1 (.header-primary):   brand (logo + count) … ? + language picker (.header-utils)
+     Row 2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
+     Rows are split by role: row 1 holds identity + persistent utilities, row 2 holds browsing controls.
+     The search bar / back button / sort live in the dom-stash below and are transplanted
+     into the .champ-header-controls slot by render() -->
 <div class="topbar">
   <header>
     <div class="header-primary">
       <div class="header-brand">
         <div class="header-brand-info">
-          <!-- ロゴ = home へ戻る操作。見出し (h1) の意味は残しつつ、クリック操作を
-               キーボードでも使えるよう内側を <button> にする (透明・font 継承で見た目は不変) -->
+          <!-- Logo = return to home. Keep the h1 heading semantics while making the click
+               action keyboard-accessible by wrapping a <button> inside (transparent + inherited font, so it looks unchanged) -->
           <h1><button id="title" type="button">OpenLeagueDisplay</button></h1>
           <span id="stats"></span>
         </div>
       </div>
       <div class="header-utils">
         <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
-        <!-- 共有: Web Share API 対応端末 (主にモバイル) はネイティブ共有シート、
-             非対応端末はサイト URL をクリップボードへコピーする。アイコンは
-             外部アセットを増やさないため inline SVG (リポジトリにバイナリを置かない方針) -->
+        <!-- Share: devices with the Web Share API (mostly mobile) get the native share sheet;
+             others copy the site URL to the clipboard. The icon is inline SVG to avoid adding
+             external assets (no-binaries-in-repo policy) -->
         <button class="btn btn-icon" id="share-btn" type="button" aria-label="Share this site">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="18" cy="5" r="3"></circle>
@@ -111,25 +111,25 @@
           </svg>
         </button>
         <div class="lang-picker" id="lang-picker">
-          <!-- disclosure (開閉トグル) なので aria-haspopup は付けない (aria-haspopup="true"
-               は "menu" を意味し、矢印キー等のメニュー操作モデルが無い実装と不整合になる)。
-               aria-expanded だけで開閉状態を伝える -->
+          <!-- This is a disclosure (open/close toggle), so no aria-haspopup (aria-haspopup="true"
+               implies "menu", which mismatches an implementation that has no arrow-key menu model).
+               aria-expanded alone conveys the open/closed state -->
           <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
             <img class="lang-flag" id="lang-flag" alt="" decoding="async">
           </button>
-          <!-- 開閉式の言語メニュー (disclosure)。当初 role="listbox" + role="option" だったが、
-               <li> を挟むと listbox→option の所有関係が崩れ、option を Tab フォーカス可能な
-               <button> にしているのも listbox パターン (矢印キー/activedescendant) と不整合
-               だった。実態 (ボタンを押すと開く、項目もボタン) に合わせて素のリストにし、
-               現在の言語は aria-current で示す。キーボードは Tab/Enter/Esc で従来通り動く -->
+          <!-- Collapsible language menu (disclosure). Originally role="listbox" + role="option",
+               but interposing <li> breaks the listbox→option ownership, and making each option a
+               Tab-focusable <button> also mismatched the listbox pattern (arrow keys / activedescendant).
+               Switched to a plain list to match reality (button opens it, items are buttons), and
+               the current language is marked with aria-current. Keyboard still works via Tab/Enter/Esc -->
           <ul class="lang-menu" id="lang-menu" hidden></ul>
         </div>
       </div>
     </div>
     <div class="header-secondary">
-      <!-- ビュー切替ナビ。role="tab" は tabpanel / 矢印キー操作までを伴って初めて
-           成立するので、ここでは実態 (クライアント側ナビゲーション) に合わせて
-           aria-current="page" で現在地を伝える (render() がトグルする) -->
+      <!-- View-switch nav. role="tab" is only valid together with a tabpanel / arrow-key
+           operation, so here we match reality (client-side navigation) and convey the current
+           location with aria-current="page" (toggled by render()) -->
       <div class="view-tabs">
         <button class="tab" id="tab-home" type="button">Champions</button>
         <button class="tab" id="nav-lines" type="button">Skin Lines</button>
@@ -142,9 +142,9 @@
   </header>
 </div>
 
-<!-- DOM 保管庫: 検索バー / 戻るボタン / 並び順セレクタの「住所」。render() の
-     直前にここへ退避させ、innerHTML 再生成後の .champ-header-controls スロットに
-     transplant する。hidden 属性で非表示 -->
+<!-- DOM stash: the "home" for the search bar / back button / sort selector. They are parked
+     here, then transplanted into the .champ-header-controls slot after innerHTML is regenerated
+     in render(). Hidden via the hidden attribute -->
 <div class="dom-stash" id="dom-stash" hidden>
   <button class="btn" id="back-btn">← Back</button>
   <input type="search" id="search" placeholder="Search champion…">
@@ -156,7 +156,7 @@
   </select>
 </div>
 
-<!-- tabindex="-1" でスキップリンクの着地先 (プログラム的フォーカス) になれるようにする -->
+<!-- tabindex="-1" lets this be the skip link's landing target (programmatic focus) -->
 <main id="root" tabindex="-1">
   <div class="loading"><h2 id="loading-title">LOADING</h2><p id="loading-msg">Loading manifest…</p></div>
 </main>
@@ -176,39 +176,39 @@
   </div>
 </div>
 
-<!-- aria-labelledby で表示中スキン (lb-champ = チャンピオン名 / lb-skin = スキン名) を
-     ダイアログ名にする。openLightbox が表示直後に updateMeta() で両者を埋めてから
-     フォーカスを移すので、SR には「<チャンピオン> <スキン>, ダイアログ」と読まれる -->
-<!-- 閉じている間 (既定) は inert: フェード用に opacity/pointer-events で隠すだけだと、
-     非表示の操作ボタン (閉じる/前後/fit 等) がタブ順に残り SR からも届いてしまう
-     (他オーバーレイは display:none で消えるのに対しライトボックスはフェードのため残る)。
-     openLightbox で inert を外し、closeLightbox で再付与する -->
+<!-- aria-labelledby names the dialog after the displayed skin (lb-champ = champion name /
+     lb-skin = skin name). openLightbox fills both via updateMeta() right after showing, before
+     moving focus, so a screen reader reads "<champion> <skin>, dialog" -->
+<!-- inert while closed (default): hiding it only with opacity/pointer-events for the fade would
+     leave the hidden controls (close / prev-next / fit etc.) in the tab order and reachable by SR
+     (other overlays vanish with display:none, but the lightbox stays because it fades).
+     openLightbox removes inert and closeLightbox re-adds it -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-champ lb-skin" aria-hidden="true" inert>
   <div class="lb-stage">
     <img class="lb-img" id="lb-img-a" alt="">
     <img class="lb-img" id="lb-img-b" alt="">
-    <!-- アニメーションスプラッシュ (splashVideoPath を持つスキン) 用。
-         muted + playsinline は autoplay ポリシー回避、loop は interval 中の継続再生。
-         poster に splash 静止画を当てて、動画ロード完了までの繋ぎにする -->
+    <!-- For animated splashes (skins with splashVideoPath).
+         muted + playsinline get around the autoplay policy, loop keeps it playing across the interval.
+         The poster shows the static splash image to bridge until the video finishes loading -->
     <video class="lb-video" id="lb-video" muted loop playsinline preload="auto"></video>
   </div>
-  <!-- 操作系は上部の 1 本のバーに集約。counter を左、操作ボタン (一時停止 / fit /
-       ⚙ / 閉じる) を右に寄せて閉じるを右端に。spacer が左右を押し分ける。
-       ナビ矢印 ‹ › だけはタップしやすさ優先で左右中央に大きく残す -->
+  <!-- Controls are consolidated into a single top bar. counter on the left, control buttons
+       (pause / fit / ⚙ / close) on the right with close at the far right. The spacer pushes
+       the two sides apart. Only the nav arrows ‹ › stay large and vertically centered on each side, prioritizing tap target size -->
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
     <span class="lb-toolbar-spacer"></span>
-    <!-- 一時停止: スライドショー時のみ JS で display 切替して表示 -->
+    <!-- Pause: shown only during the slideshow, JS toggles display -->
     <button class="ss-btn" id="ss-pause" style="display:none">⏸ Pause</button>
-    <!-- 画像フィット切替: contain (全体) ↔ cover (画面いっぱい)。縦長スマホで
-         16:9 スプラッシュの黒帯を潰せる。アイコンで状態を示し aria-label は固定。
-         ビューア/スライドショー両方で効くので常時表示する -->
+    <!-- Image fit toggle: contain (whole image) ↔ cover (fill screen). Kills the letterboxing
+         of 16:9 splashes on tall phones. State is shown via the icon and the aria-label is fixed.
+         Always visible since it applies in both viewer and slideshow modes -->
     <button class="ss-btn lb-icon" id="lb-fit" aria-label="Toggle image fit">⛶</button>
-    <!-- 間隔・キャプションは「一度決めたら固定」の設定なので ⚙ メニューに集約する。
-         スライドショー時のみ JS で wrap ごと表示する -->
+    <!-- Interval and caption are "set once and leave it" settings, so they're consolidated into
+         the ⚙ menu. JS shows the whole wrap only during the slideshow -->
     <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
-      <!-- 言語メニューと同じく disclosure (間隔/キャプションのトグル群) なので
-           aria-haspopup は付けず aria-expanded だけで開閉を伝える -->
+      <!-- Like the language menu, this is a disclosure (interval/caption toggle group), so no
+           aria-haspopup; aria-expanded alone conveys open/closed -->
       <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
       <div class="ss-menu" id="ss-menu" hidden>
         <button class="ss-btn" id="ss-interval">⏱ 7s</button>
@@ -222,15 +222,15 @@
   <div class="lb-overlay">
     <div class="lb-champ" id="lb-champ"></div>
     <div class="lb-skin" id="lb-skin"></div>
-    <!-- スキンの説明文 (lore/flavor)。description を持つスキンは少数だが、無い時も
-         領域 (min-height) を確保して、説明の有無でスキン名の高さがズレないようにする
-         (畳まない)。テキストは js が入れる -->
+    <!-- Skin description (lore/flavor). Few skins have a description, but the area (min-height)
+         is reserved even when absent so the skin name's height doesn't shift depending on whether
+         a description exists (it doesn't collapse). JS fills in the text -->
     <div class="lb-desc" id="lb-desc"></div>
   </div>
 </div>
 
-<!-- tutorial overlay: 初回訪問時に自動表示 / ヘッダ ? ボタンと ? キーから再表示。
-     本文は tutorial.js が i18n テーブルから innerHTML で流す (信頼済み文字列のみ) -->
+<!-- tutorial overlay: auto-shown on first visit / reopened via the header ? button and ? key.
+     tutorial.js injects the body from the i18n table via innerHTML (trusted strings only) -->
 <div class="tutorial-overlay" id="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tut-title" aria-hidden="true">
   <div class="tutorial-box">
     <div class="tut-step-counter" id="tut-step-counter"></div>
@@ -247,22 +247,22 @@
   </div>
 </div>
 
-<!-- オフライン検知バナー: navigator.onLine と online/offline イベントで開閉。
-     CDragon のスプラッシュ画像はキャッシュ対象外なので、オフラインでは画像が
-     出ない。「壊れている」ように見えないよう理由を明示する。
-     文言は applyStaticUIStrings() が i18n テーブルから流す -->
+<!-- Offline-detection banner: opened/closed via navigator.onLine and online/offline events.
+     CDragon splash images aren't cached, so they won't appear while offline. State the reason
+     explicitly so it doesn't look "broken".
+     applyStaticUIStrings() fills the text from the i18n table -->
 <div class="offline-banner" id="offline-banner" role="status" aria-live="polite" hidden>
   <span id="offline-banner-text">You are offline — splash images may not load.</span>
 </div>
 
-<!-- 「トップへ戻る」FAB: 長い一覧 (全チャンピオン / スキンライン) を下までスクロール
-     した時に頭出しへ素早く戻す導線。グリフ (↑) なので文言は i18n 不要だが aria-label は
-     applyStaticUIStrings() が locale 追従させる。初期は hidden、app.js が scrollY 閾値で出す -->
+<!-- "Back to top" FAB: a quick way back to the top when a long list (all champions / skin lines)
+     is scrolled down. The glyph (↑) needs no i18n, but applyStaticUIStrings() keeps the aria-label
+     in sync with the locale. Initially hidden; app.js shows it past a scrollY threshold -->
 <button class="to-top" id="to-top" aria-label="Back to top" hidden>↑</button>
 
-<!-- スクリーンリーダー向けの状態通知。視覚ユーザーには共有ボタンのアイコンが
-     チェックマークへ変わるが、aria-label の書き換えだけでは読み上げられないため、
-     コピー完了をこの live region のテキスト更新で通知する -->
+<!-- Status announcements for screen readers. Sighted users see the share button's icon turn
+     into a checkmark, but rewriting aria-label alone isn't announced, so copy-complete is
+     reported by updating this live region's text -->
 <div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
 
 <footer>
@@ -277,18 +277,18 @@
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay" target="_blank" rel="noopener">Source</a>
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
     </div>
-    <!-- 法的免責: Riot の "Legal Jibber Jabber" ポリシーは Riot 非公認である旨の
-         明記を求めている。文言は applyStaticUIStrings() が i18n テーブルから流す -->
+    <!-- Legal disclaimer: Riot's "Legal Jibber Jabber" policy requires explicitly stating this is
+         not endorsed by Riot. applyStaticUIStrings() fills the text from the i18n table -->
     <p class="footer-disclaimer" id="footer-disclaimer"></p>
   </div>
 </footer>
 
-<!-- Cloudflare Web Analytics: Cookie レス / プライバシー配慮の軽量アクセス解析。
-     beacon.min.js を defer で 1 本読むだけ。機能ライブラリ (JSZip) とは別枠の
-     解析専用の外部依存で、CDN 障害時もビューア自体は動く。
-     計測 beacon は cloudflareinsights.com へ送られる (CSP の connect-src で許可)。
-     sw.js は同一オリジンのみインターセプトするのでこのリクエストは素通し。
-     data-cf-beacon の token は Cloudflare ダッシュボードのサイト登録で発行された値。 -->
+<!-- Cloudflare Web Analytics: cookieless / privacy-conscious lightweight analytics.
+     Just one deferred load of beacon.min.js. An analytics-only external dependency, separate
+     from the feature library (JSZip); the viewer itself works even if the CDN is down.
+     The beacon is sent to cloudflareinsights.com (allowed by the CSP connect-src).
+     sw.js only intercepts same-origin requests, so this one passes through.
+     The data-cf-beacon token is the value issued when registering the site in the Cloudflare dashboard. -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
         data-cf-beacon='{"token": "3b9c447cd38d42a48d7bc318ffedd059"}'></script>
 

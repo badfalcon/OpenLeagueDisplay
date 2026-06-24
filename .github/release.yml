@@ -1,31 +1,31 @@
-# GitHub の「自動生成リリースノート」の分類設定。
-# release.yml ワークフローが generate_release_notes: true で Release を作る際、
-# 前回タグからマージされた PR をここのルールでカテゴリ分けして並べる。
-# (週次の data.json 自動更新は PR ではなく main への直 push なのでノートに出ない)
+# Categorization config for GitHub's "auto-generated release notes".
+# When the release.yml workflow creates a Release with generate_release_notes: true,
+# PRs merged since the previous tag are grouped and listed by these rules.
+# (The weekly data.json auto-update is a direct push to main, not a PR, so it doesn't appear in the notes.)
 changelog:
   exclude:
-    # data.json 自動更新 bot や、リリースに出したくない PR を除外
+    # Exclude the data.json auto-update bot and PRs we don't want in the release
     authors:
       - github-actions
       - dependabot
     labels:
       - ignore-for-release
   categories:
-    - title: ✨ 新機能
+    - title: ✨ Features
       labels:
         - feature
         - enhancement
-    - title: 🐛 修正
+    - title: 🐛 Fixes
       labels:
         - bug
         - fix
-    - title: 📝 ドキュメント
+    - title: 📝 Documentation
       labels:
         - documentation
-    - title: 🔒 セキュリティ
+    - title: 🔒 Security
       labels:
         - security
-    # 上のどれにもラベルが付いていない PR の受け皿 ('*' は必須)
-    - title: 🔧 その他
+    # Catch-all for PRs that have none of the labels above ('*' is required)
+    - title: 🔧 Other
       labels:
         - "*"

@@ -1,11 +1,11 @@
-// ZIP DL: 選択スキン / チャンピオン単位 / スキンライン単位の一括ダウンロード。
-// CDragon に直接 fetch → JSZip でブラウザ内パッキング → blob を a.download で保存。
-// GitHub の帯域は使わない (Pages → CDragon 経路は無く、ブラウザ ↔ CDragon の直接通信)。
+// ZIP download: bulk download of selected skins / per champion / per skin line.
+// Fetch directly from CDragon → pack in-browser with JSZip → save the blob via a.download.
+// Uses no GitHub bandwidth (there's no Pages → CDragon path; it's direct browser ↔ CDragon traffic).
 
 import { state, $, SKIN_BY_KEY, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t, champName } from "./i18n.js";
 
-// 進捗オーバーレイのフォーカストラップ解除関数 (showProgress で張り、hideProgress で解除)。
+// Focus-trap release function for the progress overlay (installed in showProgress, released in hideProgress).
 let releaseTrap = null;
 
 
@@ -16,7 +16,7 @@ export function extOf(url) {
   const m = /\.([a-zA-Z0-9]{2,4})(?:\?|$)/.exec(url);
   return m ? "." + m[1].toLowerCase() : ".jpg";
 }
-// "Aatrox//Justicar Aatrox" の key 配列から { champ, skin, url, path } リストを作る
+// Build a { champ, skin, url, path } list from the array of "Aatrox//Justicar Aatrox" keys
 export function buildItemsFromSelected() {
   const items = [];
   for (const k of state.selected) {
@@ -32,15 +32,15 @@ export function itemFor(c, s) {
     alias: c.alias,
     skin: skinName,
     url: s.splash,
-    // ZIP内パスは平坦に <Champion>_<SkinName>.jpg。
-    // Windows の壁紙スライドショー等は指定フォルダ直下しか走査しないため、
-    // サブフォルダに分けると壁紙ローテーションで認識されない。
-    // ファイル名衝突 (Classic.jpg が全チャンピオン分発生) はチャンピオン名で回避。
+    // In-ZIP path is flat: <Champion>_<SkinName>.jpg.
+    // Windows wallpaper slideshows etc. only scan directly inside the chosen folder, so splitting
+    // into subfolders would make wallpaper rotation miss the files.
+    // Filename collisions (Classic.jpg would occur for every champion) are avoided by the champion name.
     path: `${safeName(c.name)}_${safeName(skinName)}${extOf(s.splash)}`,
   };
 }
 
-// 並列度制限付きの並列実行 (1度に concurrency 件まで)
+// Concurrency-limited parallel execution (at most `concurrency` at a time)
 async function pMap(items, fn, concurrency = 6) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -69,14 +69,14 @@ export function showProgress(title, desc) {
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
   setBackgroundInert();
-  // Tab で背景へ抜けないよう閉じ込める (hideProgress で解除)
+  // Trap focus so Tab can't escape to the background (released in hideProgress)
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus(ov);
-  // フォーカスを Cancel に移してキーボード/SR の起点を作る (他モーダルと作法を揃える)
+  // Move focus to Cancel to give keyboard/SR a starting point (consistent with other modals)
   $("prog-cancel").focus();
 }
 export function updateProgress(done, total, failed) {
-  // 描画コスト軽減のため、最後の更新から100ms以内ならスキップ (最終フレームは別途呼ぶ)
+  // To cut render cost, skip if less than 100ms since the last update (the final frame is called separately)
   const now = performance.now();
   if (done < total && now - progressLastUpdate < 100) return;
   progressLastUpdate = now;
@@ -93,12 +93,12 @@ export function hideProgress() {
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
 }
 
-// JSZip 読み込み完了まで待つ (defer で後読みのため init より遅れることがある)
+// Wait until JSZip has finished loading (it's deferred, so it can arrive after init)
 export function ensureJSZip() {
   return new Promise((resolve, reject) => {
     if (typeof JSZip !== "undefined") return resolve();
     const start = performance.now();
-    // 外側で定義した i18n 関数 `t()` を遮らないよう、interval ID 用の変数は別名にする
+    // Name the interval-ID variable differently so it doesn't shadow the outer i18n function `t()`
     const iv = setInterval(() => {
       if (typeof JSZip !== "undefined") { clearInterval(iv); resolve(); }
       else if (performance.now() - start > 10000) {
@@ -139,7 +139,7 @@ async function downloadAsZip(items, zipName, opts = {}) {
   updateProgress(items.length, items.length, failed);
   $("prog-title").textContent = t("zip_compressing");
   $("prog-desc").textContent = t("zip_bundling");
-  // JPEG は元々圧縮済みなので STORE で時間短縮
+  // JPEG is already compressed, so STORE saves time
   const blob = await zip.generateAsync(
     { type: "blob", compression: "STORE" },
     (meta) => {
@@ -147,8 +147,8 @@ async function downloadAsZip(items, zipName, opts = {}) {
       $("prog-count").textContent = t("zip_bundling_pct", meta.percent.toFixed(0));
     },
   );
-  // 圧縮フェーズ中のキャンセル (Cancel/Esc は packAbort を立てるだけで generateAsync は
-  // 走り切る) をここで拾う。捨てるのは生成済み blob だけなので保存せず終了する
+  // Catch cancellation during the compression phase (Cancel/Esc only set packAbort while
+  // generateAsync runs to completion). The only thing discarded is the generated blob, so bail out without saving.
   if (state.packAbort) { hideProgress(); return; }
   saveBlob(blob, zipName);
   hideProgress();
@@ -163,18 +163,18 @@ export function saveBlob(blob, name) {
   a.href = url; a.download = name;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
-  // 大きい ZIP のダウンロード完了前に revoke すると壊れるので長めに遅延
+  // Revoking before a large ZIP finishes downloading corrupts it, so delay generously
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
-// すべてのZIPに共通でプレフィックスを付けて、DLフォルダ内で識別しやすくする
+// Prefix every ZIP the same way so it's easy to spot in the downloads folder
 export const ZIP_PREFIX = "OpenLeagueDisplay";
 
 export function downloadChampion(c) {
   const items = c.skins.filter(s => s.splash).map(s => itemFor(c, s));
-  // ZIP のファイル名/内部パスは英語固定 (locale 非依存にして、複数 locale で
-  // 同じファイル名・配布物を作れるようにする / 古いツールの非ASCII問題回避)。
-  // 進捗テキストだけは UI と整合させて翻訳名で出す
+  // ZIP filename / internal paths are fixed to English (locale-independent, so the same filenames
+  // and artifacts are produced across locales / avoids non-ASCII issues with older tools).
+  // Only the progress text uses the translated name to stay consistent with the UI.
   downloadAsZip(items, `${ZIP_PREFIX}-${safeName(c.name)}.zip`, {
     desc: t("zip_pack_desc", champName(c), items.length),
   });

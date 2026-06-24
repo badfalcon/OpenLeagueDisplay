@@ -1,9 +1,9 @@
-// i18n-loading フェイルセーフ (旧来は index.html のインライン <script>)。
-// ES Modules (app.js) が何らかの理由で applyStaticUIStrings まで到達できなくても、
-// 3 秒で <html class="i18n-loading"> を外して、隠していたタブ/ボタン/ローディング
-// 文言を必ず見せる保険。app.js とは独立した classic script として head で早期に走らせる
-// (module が throw / 遅延しても効くように)。インライン化しないのは CSP の
-// script-src 'unsafe-inline' を外すため (同一オリジン 'self' で読む)。
+// i18n-loading failsafe (formerly an inline <script> in index.html).
+// Even if ES Modules (app.js) for some reason never reach applyStaticUIStrings, this removes
+// <html class="i18n-loading"> after 3 seconds, guaranteeing the hidden tabs/buttons/loading text
+// become visible. Runs early in head as a classic script independent of app.js (so it still works
+// if the module throws or is delayed). Kept as a separate file rather than inlined so the CSP can
+// drop script-src 'unsafe-inline' (loaded same-origin via 'self').
 setTimeout(function () {
   document.documentElement.classList.remove("i18n-loading");
 }, 3000);

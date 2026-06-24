@@ -1,16 +1,16 @@
-// ライトボックス (画像拡大表示) と全局スライドショー。
-// state.lb がライトボックスの内部状態 (現在 idx, mode, timer, A/B フェード等) を持つ。
+// Lightbox (enlarged image view) and global slideshow.
+// state.lb holds the lightbox's internal state (current idx, mode, timer, A/B fade, etc.).
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
 
-// フォーカストラップ解除関数 (open で張り、close で呼ぶ)。chrome-hidden (opacity:0) 中も
-// ツールバーのボタンは offsetParent が残る (opacity は offsetParent に影響しない) ので
-// Tab 対象に残る。視覚と不一致だが、キーボード操作の起点 (lb-close) を失わないための
-// 意図的な挙動。
+// Focus-trap release function (installed on open, called on close). Even while chrome-hidden
+// (opacity:0), toolbar buttons keep their offsetParent (opacity doesn't affect offsetParent),
+// so they stay Tab targets. This diverges from the visuals but is intentional, so we don't lose
+// the keyboard-operation starting point (lb-close).
 let releaseTrap = null;
 
-// スライドショー対象: 選択中のスキンだけを返す (splash が無いものは除外)
+// Slideshow source: returns only the selected skins (excluding any without a splash)
 function buildSelectedList() {
   const list = [];
   for (const k of state.selected) {
@@ -29,11 +29,10 @@ function shuffle(arr) {
 }
 
 export function openLightbox(list, idx, mode) {
-  // 戻る (Android バックジェスチャ / ブラウザ戻る) で「サイト離脱」ではなく
-  // 「ライトボックスを閉じる」に倒すため、URL は変えずに戻る 1 回分の history
-  // エントリだけ積む。popstate ハンドラ (app.js) はライトボックスが開いていれば
-  // closeLightbox を呼ぶ。判定は DOM の .open クラスで行うので、リロードで
-  // history.state.lb だけ残っても誤動作しない。
+  // So that "back" (Android back gesture / browser back) closes the lightbox rather than
+  // leaving the site, push one history entry's worth without changing the URL. The popstate
+  // handler (app.js) calls closeLightbox if the lightbox is open. The check uses the DOM .open
+  // class, so a reload that leaves only history.state.lb behind won't misbehave.
   history.pushState({ lb: 1 }, "", location.href);
   state.lb.list = list; state.lb.idx = idx; state.lb.mode = mode;
   state.lb.paused = false; state.lb.frontIsA = true;
@@ -41,48 +40,48 @@ export function openLightbox(list, idx, mode) {
   const lb = $("lightbox");
   lb.classList.add("open");
   lb.setAttribute("aria-hidden", "false");
-  lb.inert = false;  // 閉じ状態の inert を解除 (フォーカス/タブ/操作を有効化)。focus より前に必須
+  lb.inert = false;  // Clear the closed-state inert (re-enables focus/tab/interaction). Must come before focus()
   document.body.classList.add("lightbox-open");
   lockScroll();
   setBackgroundInert();
   lb.classList.toggle("slideshow", mode === "slideshow");
-  // ステージタップで隠せる操作系 (chrome) は開くたびに必ず表示状態に戻す。
-  // caption と違い「隠したまま」を持ち越さない (永続化しない) ので毎回外す。
+  // The chrome (controls hideable by tapping the stage) is always restored to visible on each open.
+  // Unlike caption, a "kept hidden" state isn't carried over (not persisted), so clear it every time.
   lb.classList.remove("chrome-hidden");
-  // 永続化された画像フィット設定を反映 (.fill = object-fit: cover)
+  // Apply the persisted image fit setting (.fill = object-fit: cover)
   lb.classList.toggle("fill", state.lb.fit === "cover");
-  // スマホ拡大時の左右パン (CSS lb-panx) の長さを 1 スライドの表示時間に合わせる。
-  // showImage が初回 .show を付ける前に設定しないと 1 枚目だけ CSS 既定 7000ms を読む
+  // Match the duration of the horizontal pan on mobile zoom (CSS lb-panx) to one slide's display time.
+  // If not set before showImage adds the first .show, only the first image reads the CSS default 7000ms.
   lb.style.setProperty("--lb-pan-dur", state.lb.interval + "ms");
-  // 一時停止ボタンは上ツールバーの 1 列に同居 (独立コンテナは廃止)。
-  // スライドショー時のみ表示する
+  // The pause button shares the top toolbar row (the standalone container was removed).
+  // Shown only during slideshow.
   $("ss-pause").style.display = mode === "slideshow" ? "" : "none";
-  // 前回 pause したまま閉じた時にラベル/見た目が「再開」のまま残るのを防ぐ
-  // (paused は上で false に戻したので、開いた瞬間に必ず再生中表示へ同期する)
+  // Prevent the label/appearance staying at "resume" when last closed while paused
+  // (paused was reset to false above, so sync to the playing state the instant it opens).
   syncPauseButton();
   syncCaptionButton();
-  // 間隔・キャプションの ⚙ メニューはスライドショー時のみ。開いた瞬間は必ず畳む
+  // The interval/caption ⚙ menu only exists during slideshow. Always collapse it on open.
   $("ss-options-wrap").style.display = mode === "slideshow" ? "" : "none";
   $("ss-menu").hidden = true;
   $("ss-options").setAttribute("aria-expanded", "false");
   applyCaption();
-  // 初回メディアはクロスフェード不要。動画スキンなら動画、それ以外は静止画を直接表示
+  // The first media needs no crossfade. Video skin → play video, otherwise show the still directly.
   const seq = ++state.lb.seq;
   const item = state.lb.list[idx];
   if (item && item.video) showVideo(item, seq);
   else showImage(item, seq, false);
   updateMeta();
   preloadAdjacent();
-  // 閉じるボタンへフォーカス (キーボード操作の起点)
+  // Focus the close button (the keyboard-operation starting point)
   $("lb-close").focus();
-  // Tab で背景へ抜けないよう閉じ込める (close で解除)
+  // Trap focus so Tab can't escape to the background (released on close)
   if (releaseTrap) releaseTrap();
   releaseTrap = trapFocus(lb);
 }
 
-// <img> A/B クロスフェードで静止スプラッシュを表示する。crossfade=false は
-// openLightbox の初回用 (A に直接乗せる)、true は showCurrent からの遷移用。
-// 直前が動画スキンだった可能性があるので、動画レイヤは必ず畳んでから処理する。
+// Show a still splash with an <img> A/B crossfade. crossfade=false is for openLightbox's
+// first frame (loads straight onto A); true is for transitions from showCurrent.
+// The previous item may have been a video skin, so always collapse the video layer first.
 function showImage(item, seq, crossfade) {
   const a = $("lb-img-a"), b = $("lb-img-b");
   const video = $("lb-video");
@@ -112,15 +111,15 @@ function showImage(item, seq, crossfade) {
   };
   back.onerror = () => {
     if (seq !== state.lb.seq) return;
-    // 画像取得失敗時もスライドショーは止めず次へ
+    // On image load failure, don't stop the slideshow — advance to the next
     if (state.lb.mode === "slideshow") scheduleNext();
   };
   back.src = item.src;
 }
 
-// アニメーションスプラッシュ (video フィールドあり) を再生する。poster に splash
-// 静止画を当てているので、動画ロード完了までは静止画が見える。画像レイヤは畳む。
-// 動画取得に失敗したスキンは静止スプラッシュにフォールバックする。
+// Play an animated splash (skins with a `video` field). The poster is the still splash,
+// so the still is visible until the video finishes loading. The image layers are collapsed.
+// Skins whose video fails to load fall back to the still splash.
 function showVideo(item, seq) {
   const a = $("lb-img-a"), b = $("lb-img-b");
   const video = $("lb-video");
@@ -141,12 +140,12 @@ function showVideo(item, seq) {
   };
   video.src = item.video;
   video.load();
-  // poster (= splash) が即表示されるので、遷移前の画像から滑らかにフェードする
+  // The poster (= splash) shows immediately, so it fades smoothly from the pre-transition image
   video.classList.add("show");
 }
 
-// 現在 idx の前後 1 枚を Image() で先読みしてブラウザキャッシュに乗せる。
-// 次のスライド遷移時に fetch を待たずにフェードできる。リスト 1 枚のときは何もしない。
+// Preload the images one before and after the current idx via Image() into the browser cache,
+// so the next slide transition can fade without waiting on a fetch. No-op when the list has one item.
 function preloadAdjacent() {
   const list = state.lb.list;
   const n = list.length;
@@ -154,31 +153,31 @@ function preloadAdjacent() {
   const next = (state.lb.idx + 1) % n;
   const prev = (state.lb.idx - 1 + n) % n;
   const targets = next === prev ? [next] : [next, prev];
-  // Image().src を立てるとブラウザのリソースキャッシュに乗る。GC されても
-  // 同一 URL を再要求した時にキャッシュヒットするので参照保持は不要。
+  // Setting Image().src puts it in the browser's resource cache. Even if GC'd, re-requesting
+  // the same URL hits the cache, so we don't need to hold a reference.
   for (const i of targets) new Image().src = list[i].src;
 }
 export function closeLightbox() {
   const lb = $("lightbox");
   lb.classList.remove("open");
   lb.setAttribute("aria-hidden", "true");
-  lb.inert = true;  // 閉じたら操作ボタンをタブ順 / a11y ツリーから除く (フェード中も非操作で問題ない)
+  lb.inert = true;  // Once closed, remove control buttons from tab order / a11y tree (no interaction needed even mid-fade)
   document.body.classList.remove("lightbox-open");
   unlockScroll();
   clearBackgroundInert();
   if (releaseTrap) { releaseTrap(); releaseTrap = null; }
   stopSlideshow();
-  // openLightbox の seq を進めて係争中の onload を無効化
+  // Bump seq to invalidate any in-flight onload from openLightbox
   state.lb.seq++;
-  // 閉じた後も動画が裏で再生/バッファし続けないよう止める
+  // Stop the video so it doesn't keep playing/buffering in the background after closing
   const video = $("lb-video");
   if (video) { video.pause(); video.classList.remove("show"); }
   if (state.lb.lastFocus && typeof state.lb.lastFocus.focus === "function") {
     state.lb.lastFocus.focus();
   }
-  // UI からの閉じ (✕ / Esc) の時だけ、openLightbox で積んだ history エントリを
-  // 消費する。popstate 経由 (戻るで閉じる) の場合は既に history が巻き戻っていて
-  // state.lb が消えているので history.back() は発火せず、二重戻りにならない。
+  // Only consume the history entry pushed by openLightbox when closing from the UI (✕ / Esc).
+  // For a popstate-driven close (back closes it), history is already unwound and state.lb is
+  // gone, so history.back() doesn't fire — no double-back.
   if (history.state && history.state.lb) history.back();
 }
 function updateMeta() {
@@ -186,16 +185,16 @@ function updateMeta() {
   if (!item) return;
   $("lb-champ").textContent = item.champ;
   $("lb-skin").textContent = item.skin;
-  // 説明文はめったに付いていないが、無くても領域は CSS の min-height で確保しておき、
-  // 説明の有無でスキン名の高さがズレないようにする (畳まない)。テキストだけ差し替える
+  // Descriptions are rarely present, but the area is reserved via CSS min-height even when absent,
+  // so the skin name's height doesn't shift based on whether a description exists (don't collapse). Only swap the text.
   const descEl = $("lb-desc");
   if (descEl) descEl.textContent = item.desc || "";
   $("lb-counter").textContent = `${state.lb.idx + 1} / ${state.lb.list.length}`;
 }
-// キャプション表示量を lightbox ルートの class に反映する。CSS 側で
-// .caption-name は説明文を、.caption-none はオーバーレイ全体を畳む。
-// ビューアモードでは設定 UI (⚙) を出さないので常に full 扱いにして予測可能にする
-// (= スライドショーで none にしても、別途開いた拡大表示には影響させない)。
+// Reflect caption verbosity into the lightbox root's class. In CSS, .caption-name collapses the
+// description and .caption-none collapses the whole overlay.
+// Viewer mode shows no settings UI (⚙), so always treat it as full for predictability
+// (i.e. setting none in slideshow doesn't affect a separately opened enlarged view).
 export function applyCaption() {
   const active = state.lb.mode === "slideshow" ? state.lb.caption : "full";
   const lb = $("lightbox");
@@ -205,7 +204,7 @@ export function applyCaption() {
 function showCurrent() {
   const item = state.lb.list[state.lb.idx];
   if (!item) return;
-  // 連打や低速回線で onload が遅延した場合、古いコールバックを無視するための識別子
+  // Identifier to ignore stale callbacks when onload is delayed (rapid clicks or slow connections)
   const seq = ++state.lb.seq;
   if (item.video) showVideo(item, seq);
   else showImage(item, seq, true);
@@ -214,7 +213,7 @@ function showCurrent() {
 }
 export function nextSlide() { state.lb.idx = (state.lb.idx + 1) % state.lb.list.length; showCurrent(); }
 export function prevSlide() { state.lb.idx = (state.lb.idx - 1 + state.lb.list.length) % state.lb.list.length; showCurrent(); }
-// フェード完了/エラー後に呼ばれる。次の interval ぶん待ってから次のスライドへ
+// Called after a fade completes/errors. Wait one interval, then advance to the next slide.
 export function scheduleNext() {
   stopSlideshow();
   if (state.lb.mode !== "slideshow" || state.lb.paused) return;
@@ -222,22 +221,22 @@ export function scheduleNext() {
 }
 export function startSlideshow() {
   stopSlideshow();
-  // 間隔ボタン (app.js) は再生中ここを呼び直すので、左右パンの長さも追従させる
-  // (走行中アニメには反映されず次スライドから効く)
+  // The interval buttons (app.js) re-call this during playback, so keep the horizontal-pan duration
+  // in sync (doesn't affect the running animation, takes effect from the next slide).
   $("lightbox").style.setProperty("--lb-pan-dur", state.lb.interval + "ms");
-  // 初回画像のロード完了後に scheduleNext が呼ばれるので、ここで明示的に開始する必要なし。
-  // ただし初回画像がキャッシュ済みで onload 発火タイミングが微妙な場合に備え、
-  // フォールバックで interval 後に1回開始する
+  // scheduleNext is called after the first image loads, so no explicit start is needed here.
+  // But in case the first image is already cached and the onload timing is iffy, start once
+  // after interval as a fallback.
   state.lb.timer = setTimeout(nextSlide, state.lb.interval);
 }
 export function stopSlideshow() {
   if (state.lb.timer) { clearTimeout(state.lb.timer); state.lb.timer = null; }
 }
-// 選択中スキンで全局スライドショーを開始する。開始できたら true、ギャラリーが空
-// (= splash 付きの選択が 0 件) なら false を返す。
-// 空振り時の行き先 (ギャラリービューへ誘導 + toast) は呼び出し側に任せる:
-// ここで alert / render.js への遷移を抱えると lightbox→render の循環 import を
-// 作ってしまうため、ナビゲーションの責務は app.js / render.js 側に置く。
+// Start a global slideshow from the selected skins. Returns true if it could start, false if the
+// gallery is empty (0 selections with a splash).
+// What happens on an empty start (steering to the gallery view + toast) is left to the caller:
+// holding alert / a transition into render.js here would create a lightbox→render circular import,
+// so navigation responsibility stays on the app.js / render.js side.
 export function startGlobalSlideshow() {
   if (!DATA) return false;
   const list = buildSelectedList();

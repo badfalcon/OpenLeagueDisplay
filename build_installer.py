@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""installer/windows.iss を Inno Setup でビルドするローカル用ラッパー (Windows 専用)。
+"""Local wrapper that builds installer/windows.iss with Inno Setup (Windows only).
 
-CI (release.yml) はランナーに Inno Setup を入れて ISCC.exe を直接呼ぶ。これはその
-ローカル版で、PyCharm の Run Configuration "Build installer (Inno Setup)" から手元で
-setup.exe を作るためのもの。ISCC.exe は Python ではないので、前提チェック付きの薄い
-ラッパーにして「先に exe を作る」「Inno Setup を入れる」を分かりやすく案内する。
-スクリプトは stdlib のみ (プロジェクト方針)。
+CI (release.yml) installs Inno Setup on the runner and calls ISCC.exe directly.
+This is the local equivalent, for building setup.exe by hand from PyCharm's
+"Build installer (Inno Setup)" Run Configuration. Since ISCC.exe isn't Python,
+this is a thin wrapper with prerequisite checks that clearly guides "build the exe
+first" and "install Inno Setup". The script is stdlib-only (project policy).
 
-前提:
-  1. 先に PyInstaller ビルドで dist/OpenLeagueDisplay.exe を作る
+Prerequisites:
+  1. Build dist/OpenLeagueDisplay.exe first with PyInstaller
      (Run ▸ "Build desktop exe (PyInstaller)" / python -m PyInstaller --noconfirm local_app.spec)
-  2. Inno Setup 6 がインストール済み (ISCC.exe)。未導入なら:
+  2. Inno Setup 6 installed (ISCC.exe). If not installed:
        winget install JRSoftware.InnoSetup
 
-使い方:
-  python build_installer.py            # AppVersion=dev でビルド
+Usage:
+  python build_installer.py            # build with AppVersion=dev
   python build_installer.py 1.2.3      # AppVersion=1.2.3
 
-出力: installer/out/OpenLeagueDisplay-windows-setup.exe
+Output: installer/out/OpenLeagueDisplay-windows-setup.exe
 """
 import os
 import pathlib
@@ -32,11 +32,11 @@ OUT = ROOT / "installer" / "out" / "OpenLeagueDisplay-windows-setup.exe"
 
 
 def find_iscc() -> str | None:
-    """ISCC.exe を PATH → 標準インストール先の順に探す。見つからなければ None。"""
+    """Find ISCC.exe in PATH, then the standard install locations. None if not found."""
     found = shutil.which("ISCC") or shutil.which("ISCC.exe")
     if found:
         return found
-    # 標準 (管理者) インストール先 + winget の per-user インストール先 (%LOCALAPPDATA%\Programs)
+    # Standard (admin) install location + winget's per-user install location (%LOCALAPPDATA%\Programs)
     bases = (
         os.environ.get("ProgramFiles(x86)"),
         os.environ.get("ProgramFiles"),
@@ -54,12 +54,12 @@ def find_iscc() -> str | None:
 
 def main() -> int:
     if sys.platform != "win32":
-        print("Windows 専用です (Inno Setup は Windows のみ)。", file=sys.stderr)
+        print("Windows only (Inno Setup is Windows-only).", file=sys.stderr)
         return 2
     if not EXE.is_file():
         print(
-            f"先に exe をビルドしてください: {EXE} がありません\n"
-            "  Run ▸ 'Build desktop exe (PyInstaller)'  または\n"
+            f"Build the exe first: {EXE} is missing\n"
+            "  Run ▸ 'Build desktop exe (PyInstaller)'  or\n"
             "  python -m PyInstaller --noconfirm local_app.spec",
             file=sys.stderr,
         )
@@ -67,7 +67,7 @@ def main() -> int:
     iscc = find_iscc()
     if not iscc:
         print(
-            "Inno Setup (ISCC.exe) が見つかりません。インストールしてください:\n"
+            "Inno Setup (ISCC.exe) not found. Please install it:\n"
             "  winget install JRSoftware.InnoSetup",
             file=sys.stderr,
         )
@@ -75,10 +75,10 @@ def main() -> int:
 
     version = sys.argv[1] if len(sys.argv) > 1 else "dev"
     cmd = [iscc, f"/DAppVersion={version}", str(ISS)]
-    print("実行:", " ".join(cmd), flush=True)
+    print("Running:", " ".join(cmd), flush=True)
     result = subprocess.run(cmd)
     if result.returncode == 0:
-        print(f"\n完成: {OUT}" if OUT.is_file() else "\nビルド成功 (出力先: installer/out)")
+        print(f"\nDone: {OUT}" if OUT.is_file() else "\nBuild succeeded (output dir: installer/out)")
     return result.returncode
 
 

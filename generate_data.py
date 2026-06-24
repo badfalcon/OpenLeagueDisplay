@@ -2,13 +2,13 @@
 """
 data.json generator
 ===================
-Community Dragon から最新パッチのチャンピオン/スキン情報を取得して
-data.json を生成。GitHub Pages から fetch されるマニフェストです。
+Fetches the latest-patch champion/skin info from Community Dragon and
+generates data.json, the manifest fetched by GitHub Pages.
 
-実行方法:
+Usage:
     python generate_data.py
 
-GitHub Actions から自動実行されますが、ローカルでも手動で実行可能。
+Runs automatically from GitHub Actions, but can also be run manually locally.
 """
 
 from __future__ import annotations
@@ -25,9 +25,10 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-# Windows の既定コンソール encoding (cp932 / cp1252) だと日本語ログの print が
-# UnicodeEncodeError になる (CI の Windows ランナーで顕在化)。stdout/stderr を
-# UTF-8 に固定する。生成ファイルは write_text(encoding="utf-8") なので元から無関係。
+# On Windows's default console encoding (cp932 / cp1252), printing non-ASCII log
+# text raises UnicodeEncodeError (surfaces on the CI Windows runner). Pin
+# stdout/stderr to UTF-8. Generated files use write_text(encoding="utf-8"), so
+# they were never affected.
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
@@ -39,20 +40,20 @@ UA = {"User-Agent": "Mozilla/5.0 (OpenLeagueDisplay-Generator)"}
 TIMEOUT = 30
 RETRY = 3
 
-# CDragon のスキン rarity 値。kNoRarity は大多数 (= 1350 等) でノイズなので落とす。
-# 既知の rarity だけを data.json に書き出し、js/i18n.js 側の RARITY_LABELS と
-# 1:1 で対応させる (UI 翻訳の無い未知 rarity が混ざらないように)
+# CDragon skin rarity values. kNoRarity is the majority (e.g. 1350) and is noise,
+# so drop it. Only write known rarities to data.json, kept 1:1 with RARITY_LABELS
+# in js/i18n.js (so no unknown rarity without a UI translation slips in).
 KNOWN_RARITIES = {"kEpic", "kLegendary", "kMythic", "kUltimate"}
 
-# クライアントが公式に提供している (= CDragon でも参照可能な) LoL ロケール。
-# `default` は en_US 相当なので別途出さない (data.json 側がそのまま英語名)。
-# 並びはクライアントの言語ピッカーに近い順序で並べてあるが、UI 側は alpha 順で
-# 並べ替えるので順序自体に依存はない。
+# LoL locales the client officially provides (= also referenceable on CDragon).
+# `default` equals en_US, so it isn't emitted separately (data.json already holds
+# the English names). The order roughly follows the client's language picker, but
+# the UI re-sorts alphabetically so the order itself doesn't matter.
 #
-# 注: vn_vn (Garena ベトナム) は CDragon に mirror が存在せず
-# `/plugins/rcp-be-lol-game-data/global/vn_vn/` 自体が 404 のため除外。
-# 含めると 1 locale あたり 172 チャンピオン × retry ぶんの 404 待ちで生成が
-# 10 分以上余分にかかる。th_th / id_id は CDragon にちゃんと存在するので含める。
+# Note: vn_vn (Garena Vietnam) is excluded because CDragon has no mirror —
+# `/plugins/rcp-be-lol-game-data/global/vn_vn/` itself 404s. Including it would
+# add 10+ minutes per run waiting on 172 champions x retries of 404s. th_th /
+# id_id do exist on CDragon, so they are included.
 LOCALES = [
     "ja_jp", "ko_kr", "zh_cn", "zh_tw",
     "fr_fr", "de_de", "it_it",
@@ -61,7 +62,7 @@ LOCALES = [
     "cs_cz", "el_gr", "hu_hu", "ro_ro",
     "th_th", "id_id",
 ]
-# 各 locale の表示用ラベル (UI のセレクトで使用)。CDragon キー → "ネイティブ表記"
+# Display label per locale (used in the UI select). CDragon key -> "native name"
 LOCALE_LABELS = {
     "default": "English",
     "ja_jp": "日本語",
@@ -87,11 +88,12 @@ LOCALE_LABELS = {
 
 
 def _build_ssl_context() -> ssl.SSLContext:
-    """OSのシステム証明書ストアを取り込んだ SSLContext を返す。
+    """Return an SSLContext that includes the OS system certificate store.
 
-    Windows + Python 同梱の CA だけでは MITM プロキシや古い中間CAが絡む
-    環境で `CERTIFICATE_VERIFY_FAILED` になることが多いので、Windows では
-    `ssl.enum_certificates` でシステムストア (ROOT/CA) を取り込む。
+    On Windows, Python's bundled CAs alone often cause
+    `CERTIFICATE_VERIFY_FAILED` in environments with a MITM proxy or old
+    intermediate CAs, so on Windows we pull in the system store (ROOT/CA) via
+    `ssl.enum_certificates`.
     """
     ctx = ssl.create_default_context()
     if sys.platform == "win32":
@@ -111,17 +113,19 @@ def _build_ssl_context() -> ssl.SSLContext:
 
 
 SSL_CTX = _build_ssl_context()
-# 最終手段: 環境変数 LOL_INSECURE=1 で SSL 検証を完全無効化
-# CDragon は公開データなのでローカル開発では妥協できるが、本番(Actions)では使わない
+# Last resort: env var LOL_INSECURE=1 fully disables SSL verification.
+# CDragon is public data, so this is an acceptable compromise for local dev,
+# but never use it in production (Actions).
 SSL_INSECURE = os.environ.get("LOL_INSECURE") == "1"
 
-# 同時 HTTP 取得数。CDragon は静的 CDN なので並列に強いが、礼儀として控えめに。
-# 過大にすると上流のレートリミットや一時的 5xx を誘発しやすい
+# Concurrent HTTP fetches. CDragon is a static CDN and handles parallelism well,
+# but stay modest out of courtesy. Going too high tends to trigger upstream rate
+# limits or transient 5xx.
 FETCH_CONCURRENCY = int(os.environ.get("LOL_CONCURRENCY", "8"))
 
 
 def fetch_json(url: str) -> dict | list:
-    """Retry付きでJSONを取得"""
+    """Fetch JSON with retries"""
     global SSL_INSECURE
     last_err = None
     for attempt in range(RETRY):
@@ -131,18 +135,18 @@ def fetch_json(url: str) -> dict | list:
             with urllib.request.urlopen(req, timeout=TIMEOUT, context=ctx) as r:
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.URLError as e:
-            # SSL検証エラーは1度だけ自動でSSL_INSECUREに切り替えて再試行する
+            # On an SSL verification error, flip to SSL_INSECURE once and retry
             if (
                 not SSL_INSECURE
                 and "CERTIFICATE_VERIFY_FAILED" in str(e)
             ):
                 print(
-                    "[警告] SSL 証明書検証に失敗。検証を無効化して続行します"
-                    " (LOL_INSECURE=1 と同等)",
+                    "[WARN] SSL certificate verification failed. Disabling"
+                    " verification and continuing (equivalent to LOL_INSECURE=1)",
                     flush=True,
                 )
                 SSL_INSECURE = True
-                continue  # 待ち時間なしで再試行 (この失敗も attempt を 1 回消費する)
+                continue  # retry with no wait (this failure still spends one attempt)
             last_err = e
             if attempt < RETRY - 1:
                 time.sleep(1 + attempt)
@@ -153,35 +157,38 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
-# リリース日は CDragon/DDragon の静的データには存在しない (champion-summary も
-# per-champion JSON も date フィールドを持たない)。そのため UI の「リリース日順」は
-# 長らく champion-summary の並び (= 内部 champion id 昇順) を流用していたが、id は
-# 開発初期に予約されるため実リリース日とズレる (例: Naafiri は id=950 で 2023-07 実装
-# なのに、後発の Hwei(910)/Smolder(901) より後ろに来る / Aurora は id=893 で 2024-07
-# 実装なのに前方に来る)。実日付は LoL Wiki の Module:ChampionData/data が
-# `["apiname"]` (= Riot 内部名 = CDragon の alias) と `["date"] = "YYYY-MM-DD"` で
-# 機械可読に持っているので、ここから取って data.json に埋める。**突合は apiname で行う**:
-# 当初は `["id"]` で突合していたが、wiki の id は Ahri のブロックをテンプレ流用した
-# コピペミスで誤っていることがある (実例: Ambessa/Mel が Ahri と同じ id=103 を持ち、
-# id 突合だと Mel の date が Ahri を上書きしていた)。apiname は champion 名なので
-# 編集者が必ず直す = 信頼できる。週次 update.yml が自動で最新化するので手動メンテ不要。
+# Release dates aren't in CDragon/DDragon's static data (neither champion-summary nor
+# the per-champion JSON has a date field). So the UI's "by release date" long reused
+# champion-summary's order (= ascending internal champion id), but id is reserved early
+# in development and drifts from the real release date (e.g. Naafiri is id=950, shipped
+# 2023-07, yet sorts after the later Hwei(910)/Smolder(901); Aurora is id=893, shipped
+# 2024-07, yet sorts toward the front). The real dates live machine-readable in the LoL
+# Wiki's Module:ChampionData/data as `["apiname"]` (= Riot internal name = CDragon alias)
+# and `["date"] = "YYYY-MM-DD"`, so we pull them from there and embed them in data.json.
+# **Match on apiname, not id**: we originally matched on `["id"]`, but the wiki's id is
+# sometimes wrong from copy-paste (a block templated off Ahri's) — e.g. Ambessa/Mel
+# carried Ahri's id=103, so id matching let Mel's date overwrite Ahri's. apiname is the
+# champion name, so editors always fix it = trustworthy. The weekly update.yml refreshes
+# it automatically, so no manual upkeep.
 #
-# 取得経路: wiki の `?action=raw` は両 wiki とも 403。公式 wiki
-# (wiki.leagueoflegends.com) は API も 403 で bot を弾く。唯一 API が通る Fandom ミラー
-# (leagueoflegends.fandom.com) の MediaWiki API (`action=query&prop=revisions&
-# rvprop=content`) で Lua 本文を JSON 経由で受け取る。Fandom が最新キャラを取りこぼして
-# も、そのキャラは date 欠落として末尾 (最新側) に回るので順序は破綻しない。複数ソースを
-# 試して最も件数が多い結果を採る構造は残してある (将来別ミラーを足せる)。全ソース失敗時は
-# {} を返し、フロントは従来の data.json 順 (id 順) にフォールバックする。
+# Fetch path: the wiki's `?action=raw` 403s on both wikis. The official wiki
+# (wiki.leagueoflegends.com) also 403s the API to block bots. The only API that works is
+# the Fandom mirror (leagueoflegends.fandom.com) MediaWiki API
+# (`action=query&prop=revisions&rvprop=content`), which returns the Lua source as JSON.
+# Even if Fandom misses the newest champions, those fall to the end (newest side) as
+# missing dates, so ordering doesn't break. The structure tries multiple sources and takes
+# the one with the most entries (so another mirror can be added later). If every source
+# fails it returns {} and the front end falls back to the legacy data.json (id) order.
 RELEASE_API_URLS = (
     "https://leagueoflegends.fandom.com/api.php"
     "?action=query&prop=revisions&titles=Module:ChampionData/data"
     "&rvslots=main&rvprop=content&format=json&formatversion=2",
 )
-# `["apiname"] = "X"` と `["date"] = "YYYY-MM-DD"` を、間に別の `["apiname"]` を挟まない
-# 範囲でペアにする。負の先読みが「次チャンピオンの ["apiname"]」を跨いでその date を
-# 誤取得するのを防ぐので、date 欠落の新キャラは (誤った日付を拾わず) 正しく未取得になる。
-# 鍵を id ではなく apiname にするのは wiki の id にコピペ由来の重複/誤りがあるため (上記)。
+# Pair each `["apiname"] = "X"` with its `["date"] = "YYYY-MM-DD"` without crossing another
+# `["apiname"]` in between. The negative lookahead stops a date from being grabbed across
+# "the next champion's ["apiname"]", so a new champion with no date is correctly left unset
+# (rather than picking up a wrong date). Keying on apiname rather than id is because the
+# wiki's id has copy-paste duplicates/errors (see above).
 _RELEASE_PAT = re.compile(
     r'\["apiname"\]\s*=\s*"([^"]+)"'
     r'(?:(?!\["apiname"\]\s*=)[\s\S])*?'
@@ -190,39 +197,41 @@ _RELEASE_PAT = re.compile(
 
 
 def _parse_release_api(data: dict) -> dict[str, str]:
-    """MediaWiki API (formatversion=2) のレスポンスから Lua 本文を取り出し、
-    {apiname(小文字): "YYYY-MM-DD"} を抽出する (apiname = CDragon の alias)。"""
+    """Extract the Lua source from a MediaWiki API (formatversion=2) response and pull out
+    {apiname(lowercased): "YYYY-MM-DD"} (apiname = CDragon alias)."""
     content = data["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
     return {name.lower(): d for name, d in _RELEASE_PAT.findall(content)}
 
 
 def fetch_release_dates() -> dict[str, str]:
-    """LoL Wiki から {apiname(小文字): "YYYY-MM-DD"} を取得する。
+    """Fetch {apiname(lowercased): "YYYY-MM-DD"} from the LoL Wiki.
 
-    複数ソースを叩いて最も件数が多い結果を採用する (= 古いミラーに引きずられない)。
-    全ソースが取得・パース失敗なら空 dict を返す (= 呼び出し側は id 順フォールバック)。
+    Hit multiple sources and adopt the one with the most entries (= not dragged down by a
+    stale mirror). If every source fails to fetch/parse, return an empty dict (= the caller
+    falls back to id order).
     """
     best: dict[str, str] = {}
     for url in RELEASE_API_URLS:
         try:
             dates = _parse_release_api(fetch_json(url))
         except Exception as e:
-            print(f"   [警告] リリース日ソース取得失敗 ({type(e).__name__}): {url[:48]}...", flush=True)
+            print(f"   [WARN] release-date source fetch failed ({type(e).__name__}): {url[:48]}...", flush=True)
             continue
-        print(f"   {len(dates)} 件取得: {url[:48]}...", flush=True)
+        print(f"   {len(dates)} fetched: {url[:48]}...", flush=True)
         if len(dates) > len(best):
             best = dates
     if not best:
-        print("   [警告] リリース日が取得できませんでした。id 順にフォールバックします", flush=True)
+        print("   [WARN] could not fetch release dates; falling back to id order", flush=True)
     return best
 
 
-# 地域 (Demacia / Noxus 等) は本来 Riot の universe-meeps API から取る予定だった
-# が、サーバ側の S3 IAM 設定が壊れていて永続的に 403 を返すことが probe で確定
-# (probe ログに `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is
-# not authori...` の AccessDenied)。CDragon にも champion→region のマッピングは
-# 無いため、やむを得ずハードコードで持つ。新チャンピオンが追加された時はここに
-# 1 行足す。新地域なら REGION_NAMES と js/i18n.js の REGION_LABELS にも追加する。
+# Regions (Demacia / Noxus, etc.) were originally meant to come from Riot's universe-meeps
+# API, but a probe confirmed the server-side S3 IAM config is broken and permanently returns
+# 403 (probe log: AccessDenied,
+# `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is not authori...`).
+# CDragon also has no champion->region mapping, so we hardcode it. When a new champion is
+# added, add one line here. For a new region, also add it to REGION_NAMES (below) and
+# REGION_LABELS in js/i18n.js.
 REGION_NAMES: dict[str, str] = {
     "demacia": "Demacia",
     "noxus": "Noxus",
@@ -237,15 +246,16 @@ REGION_NAMES: dict[str, str] = {
     "targon": "Mount Targon",
     "ixtal": "Ixtal",
     "void": "Void",
-    "runeterra": "Runeterra",  # 無所属/汎用 (Bard, Ryze, Kindred 等)
+    "runeterra": "Runeterra",  # unaffiliated/generic (Bard, Ryze, Kindred, etc.)
     "camavor": "Camavor",
     "icathia": "Icathia",
 }
 
-# CDragon の alias を lowercase したものをキーにする (例: MonkeyKing → monkeyking)。
-# Riot/Fandom Wiki の "primary region" を基準に、複数地域に深く関わるキャラ
-# (Lucian/Senna/Viego 等) は両方持たせる。空配列は「未調査」として残してOK
-# (regions 軸で検索ヒットしないだけで他は影響なし)。
+# Keyed by the CDragon alias lowercased (e.g. MonkeyKing -> monkeyking).
+# Based on the "primary region" from the Riot/Fandom Wiki; champions deeply tied
+# to multiple regions (Lucian/Senna/Viego, etc.) get both. An empty list is fine
+# to leave as "not yet researched" (only the regions search axis misses it,
+# nothing else is affected).
 CHAMPION_REGIONS: dict[str, list[str]] = {
     "aatrox": ["runeterra"],
     "ahri": ["ionia"],
@@ -402,7 +412,7 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
     "vladimir": ["noxus", "camavor"],
     "volibear": ["freljord"],
     "warwick": ["zaun"],
-    "monkeyking": ["ionia"],  # CDragon alias は MonkeyKing (Wukong)
+    "monkeyking": ["ionia"],  # CDragon alias is MonkeyKing (Wukong)
     "xayah": ["ionia"],
     "xerath": ["shurima"],
     "xinzhao": ["demacia"],
@@ -423,10 +433,11 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
 
 
 def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
-    """`skinlines.json` の生 JSON を id → name のマップに正規化。
+    """Normalize the raw `skinlines.json` JSON into an id -> name map.
 
-    string_keys=True なら id を str で返す (i18n 用 JSON のキーは文字列で揃える)。
-    既知の特殊値: id=0 は CDragon 上で "未分類" を示すので除外する。
+    With string_keys=True, ids are returned as str (i18n JSON keys are all
+    strings). Known special value: id=0 means "uncategorized" on CDragon, so
+    it is excluded.
     """
     out: dict = {}
     for s in raw or []:
@@ -444,38 +455,38 @@ def parse_skinlines(raw, *, string_keys: bool = False) -> dict:
 
 
 def cdragon_url(asset_path: str) -> str:
-    """`/lol-game-data/assets/...` → CDragon の実URLに変換"""
+    """Convert `/lol-game-data/assets/...` to the real CDragon URL"""
     p = asset_path.lstrip("/")
     prefix = "lol-game-data/assets/"
     if p.startswith(prefix):
         rest = p[len(prefix):].lower()
         p = f"plugins/rcp-be-lol-game-data/global/default/{rest}"
     elif p.startswith("lol-game-data/"):
-        # 観測上ここに来るケースは無いが、CDragon が将来 assets/ 抜きのパスを
-        # 返してきても URL を組み立てられるよう防御的に残してある
+        # Not observed in practice, but kept defensively so we can still build a
+        # URL if CDragon ever returns a path without the assets/ segment
         rest = p[len("lol-game-data/"):].lower()
         p = f"plugins/rcp-be-lol-game-data/global/default/{rest}"
     return f"{CDRAGON}/latest/{p}"
 
 
 def clean_bio(raw) -> str:
-    """champion の shortBio をライトボックス表示用に正規化する。
+    """Normalize a champion's shortBio for lightbox display.
 
-    shortBio には `<br><br>` や `<i>` 等の HTML タグ・`&quot;` 等の実体参照が
-    混ざる。ライトボックスは textContent で出すのでタグはそのまま文字列として
-    見えてしまうため、タグ除去 + 実体参照復元 + 連続空白の畳み込みをする。
-    空 (元から無い / 除去後に空) のときは "" を返す。
+    shortBio mixes in HTML tags like `<br><br>` or `<i>` and entities like
+    `&quot;`. The lightbox renders via textContent, so tags would show up as
+    literal text; strip tags, unescape entities, and collapse runs of
+    whitespace. Returns "" when empty (absent originally / empty after stripping).
     """
     if not isinstance(raw, str):
         return ""
-    # <br> 等は前後を空白に。残りのタグは単純除去
+    # Turn <br> etc. into surrounding whitespace; strip remaining tags outright
     text = re.sub(r"<[^>]+>", " ", raw)
     text = html.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
 
 def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
-    """1スキン or 1ティアからエントリを作成"""
+    """Build an entry from one skin or one tier"""
     skin_name = skin_obj.get("name", "Unknown")
     label = f"{alias}_Classic" if skin_obj.get("isBase") else skin_name
 
@@ -491,47 +502,48 @@ def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
     if tile:
         entry["tile"] = cdragon_url(tile)
 
-    # アニメーションスプラッシュ動画 (.webm)。一部のスキンだけが持つフィールドで、
-    # 大半の skin/tier では未定義。ブラウザ側はライトボックスで splash の代わりに
-    # 動画を再生する (無いスキンは従来通り静止 splash)。URL 変換規則は画像と同じ。
+    # Animated splash video (.webm). A field only some skins carry; undefined for
+    # most skins/tiers. The browser plays the video instead of the splash in the
+    # lightbox (skins without it keep the static splash). Same URL conversion as images.
     video = skin_obj.get("splashVideoPath")
     if video:
         entry["video"] = cdragon_url(video)
 
-    # 所属スキンライン (PROJECT, Star Guardian 等) — まとめDLのキーになる
+    # Owning skin lines (PROJECT, Star Guardian, etc.) — the key for bulk download
     lines = skin_obj.get("skinLines") or []
     line_ids = [ln.get("id") for ln in lines if isinstance(ln, dict) and ln.get("id")]
     if line_ids:
         entry["lines"] = line_ids
 
-    # スキン rarity (Legendary, Ultimate, Mythic, ...) — 検索キーワードに使う。
-    # CDragon は "kEpic" / "kLegendary" / "kUltimate" / "kMythic" / "kNoRarity" を
-    # 返す。UI 側 (js/i18n.js の RARITY_LABELS) に翻訳マップを持たせる都合で、
-    # 既知集合 KNOWN_RARITIES に絞る。新しい rarity が出たら両側を更新する想定。
+    # Skin rarity (Legendary, Ultimate, Mythic, ...) — used as a search keyword.
+    # CDragon returns "kEpic" / "kLegendary" / "kUltimate" / "kMythic" /
+    # "kNoRarity". Since the UI carries a translation map (RARITY_LABELS in
+    # js/i18n.js), restrict to the known set KNOWN_RARITIES. If a new rarity
+    # appears, update both sides.
     rarity = skin_obj.get("rarity")
     if isinstance(rarity, str) and rarity in KNOWN_RARITIES:
         entry["rarity"] = rarity[1:]
 
-    # スキンの説明文 (ライトボックスでだけ使う lore/flavor text)。
-    # 大半の skin/quest tier には null だが、Legendary/Ultimate や questSkinInfo
-    # の各ティアには短い説明が入っていることがある。空文字は落とす。
+    # Skin description (lore/flavor text, used only in the lightbox).
+    # null for most skins/quest tiers, but Legendary/Ultimate and each
+    # questSkinInfo tier sometimes carry a short description. Drop empty strings.
     desc = skin_obj.get("description")
     if isinstance(desc, str) and desc.strip():
         entry["desc"] = desc.strip()
 
-    # 画像URLが1つも無い場合はスキップ
+    # Skip if there is no image URL at all
     if "splash" not in entry:
         return []
     return [entry]
 
 
 def _walk_skins_with_index(detail: dict):
-    """champion JSON の skins[] を default 側と同じ順序で巡回するイテレータ。
+    """Iterate champion JSON skins[] in the same order as the default side.
 
-    locale 間で skins[] と questSkinInfo.tiers[] の並びは一致する (CDragon は
-    クライアントデータの同一構造ミラー) 前提。yield する `path` は
-    `(top_index, quest_tier_index_or_None)` のタプルで、locale 側 JSON でも
-    同じ path で同じ論理スキンに到達できる。
+    Assumes skins[] and questSkinInfo.tiers[] ordering matches across locales
+    (CDragon mirrors client data with identical structure). The yielded `path`
+    is a `(top_index, quest_tier_index_or_None)` tuple, so the same path reaches
+    the same logical skin in the locale JSON too.
     """
     for ti, skin in enumerate(detail.get("skins", [])):
         yield (ti, None), skin
@@ -542,44 +554,47 @@ def _walk_skins_with_index(detail: dict):
 
 
 def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
-    """data.json 用の manifest と、i18n パスで使う locale-align 用メタ情報を返す。
+    """Return the data.json manifest plus locale-align metadata used for i18n paths.
 
-    第2返り値の各要素は `(cid, alias, [(path, english_label, english_desc), ...], english_bio)`。
-    `path` は `_walk_skins_with_index` が返すのと同じ `(top_index, quest_index_or_None)`。
-    locale 側でも同じ path で同じ論理スキンに到達できるので、英語 label をキーに
-    locale 名を引ける辞書を生成できる。末尾の `english_bio` は champion 紹介文の
-    locale 取得時に「未訳 = 英語と同じ」を判定するために持たせる。
+    Each element of the 2nd return value is
+    `(cid, alias, [(path, english_label, english_desc), ...], english_bio)`.
+    `path` is the same `(top_index, quest_index_or_None)` `_walk_skins_with_index`
+    yields. Since the same path reaches the same logical skin in the locale side,
+    we can build a dict keyed by English label to look up the locale name. The
+    trailing `english_bio` is carried to detect "untranslated = same as English"
+    when fetching the champion bio per locale.
     """
-    print("==> CDragon からチャンピオン一覧を取得...", flush=True)
+    print("==> Fetching champion list from CDragon...", flush=True)
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/default/v1"
     summary = fetch_json(f"{base}/champion-summary.json")
-    # CDragon の champion-summary には Doom Bots 等の PvE NPC が混入している。
-    # 観測上、特殊エントリは id >= 1000 (現状 66600 番台) かつ alias が "Ruby_*"
-    # で識別できるので両条件で弾く (将来別系統のNPCが増えた時も id 上限で拾う)
+    # CDragon's champion-summary mixes in PvE NPCs like Doom Bots. In practice
+    # the special entries are identifiable as id >= 1000 (currently the 66600s)
+    # AND alias starting with "Ruby_", so reject on both conditions (the id cap
+    # still catches future NPC families).
     champions = [
         c for c in summary
         if 0 < c.get("id", 0) < 1000
         and not c.get("alias", "").startswith("Ruby_")
     ]
-    print(f"    {len(champions)} 体検出", flush=True)
+    print(f"    {len(champions)} champions detected", flush=True)
 
-    # スキンライン (PROJECT, K/DA, Star Guardian など) の id→name マッピング
-    print("==> スキンライン一覧を取得...", flush=True)
+    # id->name mapping for skin lines (PROJECT, K/DA, Star Guardian, etc.)
+    print("==> Fetching skin line list...", flush=True)
     try:
         skin_lines = parse_skinlines(fetch_json(f"{base}/skinlines.json"))
-        print(f"    {len(skin_lines)} 件のスキンライン", flush=True)
+        print(f"    {len(skin_lines)} skin lines", flush=True)
     except Exception as e:
-        print(f"   [警告] skinlines.json の取得に失敗: {e}", flush=True)
+        print(f"   [WARN] failed to fetch skinlines.json: {e}", flush=True)
         skin_lines = {}
 
-    # リリース日 (LoL Wiki)。UI の「リリース日順」ソート用。取得できなくても続行する
-    print("==> リリース日 (LoL Wiki) を取得...", flush=True)
+    # Release dates (LoL Wiki). For the UI's "by release date" sort. Continue even if this fails.
+    print("==> Fetching release dates (LoL Wiki)...", flush=True)
     release_dates = fetch_release_dates()
-    print(f"    {len(release_dates)} 体ぶんのリリース日", flush=True)
+    print(f"    release dates for {len(release_dates)} champions", flush=True)
 
-    # 並列に全 champion JSON を取得。返却順序は champions の元順を保ちたいので
-    # 結果を id→detail の dict に入れてから再度元順で組み上げる
-    print(f"==> {len(champions)} champion JSON を並列取得 (concurrency={FETCH_CONCURRENCY})...", flush=True)
+    # Fetch all champion JSON in parallel. We want to preserve the original
+    # champions order, so collect into an id->detail dict and reassemble in order
+    print(f"==> Fetching {len(champions)} champion JSON in parallel (concurrency={FETCH_CONCURRENCY})...", flush=True)
     details: dict[int, dict] = {}
     done_counter = [0]
     def _fetch_one(ch: dict):
@@ -588,32 +603,33 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
             return cid, fetch_json(f"{base}/champions/{cid}.json")
         except Exception as e:
             alias = ch.get("alias") or str(cid)
-            print(f"   {alias}: スキップ ({type(e).__name__})", flush=True)
+            print(f"   {alias}: skipped ({type(e).__name__})", flush=True)
             return cid, None
         finally:
             done_counter[0] += 1
             if done_counter[0] % 25 == 0 or done_counter[0] == len(champions):
-                print(f"   [{done_counter[0]}/{len(champions)}] スキャン進捗", flush=True)
+                print(f"   [{done_counter[0]}/{len(champions)}] scan progress", flush=True)
 
     with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as ex:
         for cid, detail in ex.map(_fetch_one, champions):
             if detail is not None:
                 details[cid] = detail
 
-    # 地域は CHAMPION_REGIONS / REGION_NAMES に hardcode (universe-meeps が
-    # 永続的に 403 を返すため、外部 fetch なし)
-    print(f"==> 地域マッピング (hardcoded): {len(CHAMPION_REGIONS)} 体 / {len(REGION_NAMES)} 地域", flush=True)
-    # 新チャンピオン追加時の漏れ検知。CDragon 側の alias が CHAMPION_REGIONS に
-    # 無い場合だけ警告 (空リスト扱いで先に進む = regions 軸の検索に出ないだけ)。
-    # `unmapped_regions.json` を書き出すので update.yml がそれを読んで @claude
-    # 宛て issue を自動起票する (なければ書かない = 後段の hashFiles で no-op)
+    # Regions are hardcoded in CHAMPION_REGIONS / REGION_NAMES (no external fetch,
+    # since universe-meeps permanently returns 403)
+    print(f"==> Region mapping (hardcoded): {len(CHAMPION_REGIONS)} champions / {len(REGION_NAMES)} regions", flush=True)
+    # Detect omissions when a new champion is added. Warn only when a CDragon alias
+    # is missing from CHAMPION_REGIONS (treated as an empty list and we continue =
+    # it just won't show up on the regions search axis). Writes
+    # `unmapped_regions.json` so update.yml can read it and auto-open an issue to
+    # @claude (nothing written = no-op for the later hashFiles step).
     unmapped = sorted(
         ch.get("alias", "").lower()
         for ch in champions
         if ch.get("alias") and ch["alias"].lower() not in CHAMPION_REGIONS
     )
     if unmapped:
-        print(f"   [警告] CHAMPION_REGIONS 未登録: {unmapped}", flush=True)
+        print(f"   [WARN] not registered in CHAMPION_REGIONS: {unmapped}", flush=True)
         (Path(__file__).parent / "unmapped_regions.json").write_text(
             json.dumps(unmapped), encoding="utf-8"
         )
@@ -629,11 +645,12 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         name = ch.get("name") or alias
 
         skin_entries: list[dict] = []
-        # スキン entry を作りつつ、同じ path 情報を i18n 用に控える。
-        # collect_skins_from_skin_obj が画像URL不在で空リストを返した場合は
-        # entry にも入らないし path にも残さない (browser 側で参照されない)。
-        # 3要素目に英語版 description を持たせて locale 取得時の「未訳=英語と同じ」
-        # 判定に使う (英語と同じ説明文を locale ファイルに重複して書かないため)。
+        # Build skin entries while recording the same path info for i18n. If
+        # collect_skins_from_skin_obj returns an empty list (no image URL), it
+        # ends up neither in entries nor paths (the browser never references it).
+        # The 3rd element carries the English description, used to detect
+        # "untranslated = same as English" per locale (so we don't duplicate the
+        # English text into locale files).
         paths_for_locale: list[tuple[tuple[int, int | None], str, str | None]] = []
         for path, skin_obj in _walk_skins_with_index(detail):
             made = collect_skins_from_skin_obj(alias, skin_obj)
@@ -644,17 +661,17 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         if not skin_entries:
             continue
 
-        # 代表画像 (tile -> Classic skin の splash の順で fallback)
+        # Representative image (fall back tile -> Classic skin splash)
         classic = next((s for s in skin_entries if s["label"].endswith("_Classic")), skin_entries[0])
         portrait = classic.get("tile") or classic.get("splash")
 
-        # ロール (Mage/Tank/Support/...) は champion-summary 由来。検索に使う
+        # Roles (Mage/Tank/Support/...) come from champion-summary. Used for search
         roles = [r for r in (ch.get("roles") or []) if isinstance(r, str)]
 
         regions: list[str] = list(CHAMPION_REGIONS.get(alias.lower(), []))
 
-        # チャンピオン紹介文。Classic/base スキンは skin 固有の説明文を持たないので、
-        # ライトボックスで bio をフォールバック表示する材料にする (空なら付けない)。
+        # Champion bio. Classic/base skins have no skin-specific description, so
+        # this serves as the lightbox fallback (omitted if empty).
         bio = clean_bio(detail.get("shortBio"))
 
         entry = {
@@ -669,28 +686,30 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
             entry["regions"] = regions
         if bio:
             entry["bio"] = bio
-        # リリース日 (YYYY-MM-DD)。apiname (= alias) で突合する。欠落 (Wiki 未掲載の
-        # 新キャラ等) は付けない = フロントが末尾 (最新側) に回す。release_dates が空なら
-        # 全員付かず id 順フォールバック
+        # Release date (YYYY-MM-DD), matched by apiname (= alias). Omitted when missing
+        # (e.g. a new champion not yet on the Wiki) so the front end sends it to the end
+        # (newest side). If release_dates is empty, nobody gets one and it falls back to id order.
         release = release_dates.get(alias.lower())
         if release:
             entry["release"] = release
         out_champs.append(entry)
-        # 4 要素目に英語 bio を持たせて、locale 取得時の「未訳 = 英語と同じ」判定に使う
+        # The 4th element carries the English bio, used to detect "untranslated =
+        # same as English" when fetching per locale
         align_meta.append((cid, alias, paths_for_locale, bio))
 
     total = sum(len(c["skins"]) for c in out_champs)
 
-    # リリース日の欠落検知。release_dates を取得できた (= ソースは生きている) のに
-    # 一部チャンピオンに日付が無い場合だけ警告する (Wiki 側に未掲載の新キャラなど。
-    # 次回以降の週次更新で Wiki が追記されれば自動で埋まる)。ソース自体が落ちて
-    # release_dates が空の時はチャンピオン名を全部並べても無意味なので黙る
+    # Detect missing release dates. Warn only when release_dates was fetched (= the source
+    # is alive) but some champions still have no date (e.g. a new champion not yet on the
+    # Wiki; it fills in automatically once the Wiki is updated on a later weekly run). Stay
+    # silent when the source itself failed and release_dates is empty, since listing every
+    # champion name would be pointless.
     if release_dates:
         missing = [c["alias"] for c in out_champs if "release" not in c]
         if missing:
-            print(f"   [警告] リリース日 未取得: {missing}", flush=True)
+            print(f"   [WARN] release dates missing: {missing}", flush=True)
 
-    # 実際に使われた skin line のみを残す (data.json を小さく)
+    # Keep only skin lines actually used (to shrink data.json)
     used_line_ids: set[int] = set()
     for ch in out_champs:
         for sk in ch["skins"]:
@@ -699,8 +718,8 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
     filtered_lines = {str(lid): skin_lines[lid] for lid in used_line_ids if lid in skin_lines}
 
     print(
-        f"==> 完了: {len(out_champs)} チャンピオン, {total} スキン, "
-        f"{len(filtered_lines)} スキンライン",
+        f"==> Done: {len(out_champs)} champions, {total} skins, "
+        f"{len(filtered_lines)} skin lines",
         flush=True,
     )
 
@@ -710,9 +729,9 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         "skin_count": total,
         "skin_lines": filtered_lines,  # {"100": "PROJECT", ...}
         "champions": out_champs,
-        # locale 一覧と表示ラベルは data.json に同梱しておく。i18n/<locale>.json は
-        # ここに載っている locale だけが切替候補。ブラウザ側はファイルの存在を
-        # 仮定して fetch する (404 は静かにフォールバック)。
+        # Bundle the locale list and display labels into data.json. Only locales
+        # listed here are switchable; the browser fetches i18n/<locale>.json
+        # assuming the file exists (404s fall back silently).
         "locales": [{"code": "default", "label": LOCALE_LABELS["default"]}] + [
             {"code": code, "label": LOCALE_LABELS.get(code, code)} for code in LOCALES
         ],
@@ -725,37 +744,40 @@ def build_locale_index(
     align_meta: list[tuple[int, str, list, str]],
     keep_line_ids: set[str] | None = None,
 ) -> dict:
-    """1 locale ぶんの { champions, skins, lines } 辞書を作る。
+    """Build the { champions, skins, lines } dict for one locale.
 
-    各 champion JSON を取得して、default パス情報 (align_meta) と同じ index で
-    skins[] / questSkinInfo.tiers[] を辿り、locale の name だけ拾う。失敗は静かに
-    スキップして可能な範囲で辞書を返す (ブラウザ側は欠損キーを default 名で表示)。
+    Fetch each champion JSON and walk skins[] / questSkinInfo.tiers[] at the same
+    index as the default path info (align_meta), picking up only the locale name.
+    Failures are skipped silently and a best-effort dict is returned (the browser
+    shows missing keys with the default name).
 
-    `keep_line_ids` が渡された場合、`skinlines.json` のうちその ID 集合に含まれる
-    エントリだけを残す。CDragon の locale 別 `skinlines.json` は default より
-    多くのライン (どの実在スキンからも参照されていない孤児) を返すことがあり、
-    data.json 側の `skin_lines` と件数が食い違う原因になる。
+    When `keep_line_ids` is passed, keep only the `skinlines.json` entries in that
+    ID set. CDragon's per-locale `skinlines.json` can return more lines than
+    default (orphans referenced by no real skin), which causes a count mismatch
+    against data.json's `skin_lines`.
     """
     base = f"{CDRAGON}/latest/plugins/rcp-be-lol-game-data/global/{locale}/v1"
     champs_map: dict[str, str] = {}
     skins_map: dict[str, str] = {}
-    # スキンの説明文 (lore/flavor) の翻訳。default ファイル側に存在する説明文と
-    # 文字列一致した場合は「未訳」扱いで省略 — ブラウザは data.json 側の英語に
-    # 自動フォールバックするので i18n ファイルが小さくなる
+    # Translated skin descriptions (lore/flavor). If a string matches the
+    # description in the default file, treat it as "untranslated" and omit it —
+    # the browser auto-falls back to the English in data.json, keeping the i18n
+    # file smaller
     skin_descs_map: dict[str, str] = {}
-    # チャンピオン紹介文 (shortBio) の翻訳。skin_descs_map と同じく英語と一致なら省略。
-    # Classic スキンのライトボックスで desc が無いときのフォールバックに使う
+    # Translated champion bio (shortBio). Like skin_descs_map, omitted when it
+    # matches English. Used as the Classic-skin lightbox fallback when desc is absent
     champion_descs_map: dict[str, str] = {}
     lines_map: dict[str, str] = {}
-    # 地域名の locale 翻訳は js/i18n.js の REGION_LABELS に hardcode してるので
-    # i18n ファイルには含めない。ブラウザ側も state.i18n.regions は参照しない。
+    # Locale translations of region names are hardcoded in REGION_LABELS in
+    # js/i18n.js, so they aren't included in the i18n file (the browser never
+    # references state.i18n.regions either).
 
     try:
         lines_map = parse_skinlines(fetch_json(f"{base}/skinlines.json"), string_keys=True)
         if keep_line_ids is not None:
             lines_map = {k: v for k, v in lines_map.items() if k in keep_line_ids}
     except Exception as e:
-        print(f"   [警告] {locale} skinlines.json 失敗: {e}", flush=True)
+        print(f"   [WARN] {locale} skinlines.json failed: {e}", flush=True)
 
     def _fetch_champ(meta):
         cid, alias, paths, english_bio = meta
@@ -773,7 +795,8 @@ def build_locale_index(
             cname = d.get("name")
             if cname:
                 champs_map[alias] = cname
-            # 紹介文の翻訳。英語 bio と異なるときだけ載せる (未訳は英語に自動フォールバック)
+            # Translated bio. Include only when it differs from the English bio
+            # (untranslated auto-falls back to English)
             local_bio = clean_bio(d.get("shortBio"))
             if local_bio and local_bio != english_bio:
                 champion_descs_map[alias] = local_bio
@@ -789,8 +812,8 @@ def build_locale_index(
                     continue
                 local_name = obj.get("name")
                 if local_name and local_name != english_label:
-                    # english_label と一致するなら locale でも英語のまま (= 未訳)。
-                    # この場合エントリを省略すれば i18n ファイルが小さくなる
+                    # Matching english_label means the locale is still English
+                    # (= untranslated); omitting the entry shrinks the i18n file
                     skins_map[f"{alias}//{english_label}"] = local_name
                 local_desc = obj.get("description")
                 if (
@@ -801,7 +824,7 @@ def build_locale_index(
                     skin_descs_map[f"{alias}//{english_label}"] = local_desc.strip()
 
     if fail:
-        print(f"   [警告] {locale}: {fail} 体の champion JSON 取得に失敗", flush=True)
+        print(f"   [WARN] {locale}: failed to fetch {fail} champion JSON", flush=True)
     return {
         "locale": locale,
         "champions": champs_map,
@@ -814,14 +837,13 @@ def build_locale_index(
 
 def main() -> int:
     out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "data.json"
-    # i18n の出力先は data.json と同じディレクトリの `i18n/` 配下に固定。
-    # CLI 引数で data.json のパスを変えた場合も追従するので、custom path 指定時も
-    # 同階層に i18n/ ができる
+    # i18n output is fixed to an `i18n/` dir alongside data.json. It follows a
+    # custom data.json path given via CLI arg, so i18n/ lands in the same dir
     i18n_dir = out_path.parent / "i18n"
-    # locale だけを再生成したいケース (--only-i18n) も用意。default の
-    # data.json を変えずに翻訳だけ更新できると CI ジョブ分割しやすい
+    # Support regenerating only the locales (--only-i18n). Being able to refresh
+    # translations without touching the default data.json makes CI jobs easy to split
     only_i18n = "--only-i18n" in sys.argv[1:]
-    # locale を絞りたい時用 (例: `--locales ja_jp,ko_kr`)。デバッグ/ローカル試行用
+    # For narrowing locales (e.g. `--locales ja_jp,ko_kr`). For debugging / local trials
     locales_filter: list[str] | None = None
     for arg in sys.argv[1:]:
         if arg.startswith("--locales="):
@@ -830,11 +852,11 @@ def main() -> int:
     try:
         manifest, align_meta = build_manifest()
     except Exception as e:
-        print(f"エラー: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     if not only_i18n:
-        # コンパクトに書き出し (改行はスキン単位)
+        # Write compactly
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(
             json.dumps(manifest, ensure_ascii=False, separators=(",", ":")),
@@ -843,19 +865,19 @@ def main() -> int:
         size_kb = out_path.stat().st_size / 1024
         print(f"==> {out_path} ({size_kb:.1f} KB)")
 
-    # i18n: locale ごとに名前辞書を生成。1 locale が失敗しても他は続行する
+    # i18n: generate a name dict per locale. Continue even if one locale fails
     target_locales = LOCALES if locales_filter is None else [l for l in LOCALES if l in locales_filter]
     if target_locales:
         i18n_dir.mkdir(parents=True, exist_ok=True)
-        # data.json 側で実際に使われているライン ID 集合。locale 別 skinlines.json
-        # にはこれ以外の孤児エントリも混ざるので、ここに無い ID は捨てる
+        # The set of line IDs actually used in data.json. Per-locale skinlines.json
+        # also mixes in orphan entries beyond these, so drop any ID not present here
         keep_line_ids = set(manifest.get("skin_lines", {}).keys())
         for li, locale in enumerate(target_locales, 1):
-            print(f"==> [{li}/{len(target_locales)}] {locale} を生成中...", flush=True)
+            print(f"==> [{li}/{len(target_locales)}] generating {locale}...", flush=True)
             try:
                 idx = build_locale_index(locale, align_meta, keep_line_ids=keep_line_ids)
             except Exception as e:
-                print(f"   [警告] {locale} 全体失敗: {e}", flush=True)
+                print(f"   [WARN] {locale} failed entirely: {e}", flush=True)
                 continue
             fp = i18n_dir / f"{locale}.json"
             fp.write_text(
