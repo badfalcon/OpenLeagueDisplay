@@ -16,7 +16,7 @@ import {
 } from "./i18n.js";
 import {
   render, goHome, goBack, openLines, openSelected,
-  imgLoaded, imgErr, setRouteListener,
+  imgLoaded, imgErr, setRouteListener, setNavListener,
 } from "./render.js";
 import {
   hideProgress,
@@ -31,6 +31,11 @@ import {
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
 import { probeLocal, toast } from "./local.js";
+
+// Own scroll restoration ourselves (see applyRoute). The browser's default "auto" restoration
+// tries to re-apply a remembered scroll on a re-rendered SPA at the wrong time and would fight our
+// explicit restore. Set at module load, before the first render.
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
 // Handle grid image (the <img> inside champ/skin/line cards) load completion/failure via capture-phase
 // delegation on #root. load/error don't bubble, so we catch them in the capture phase.
@@ -193,8 +198,9 @@ function routeFromState() {
   }
 }
 
-// Parse the hash to decide state.view/currentChamp/currentLine. Since the search query is not put in
-// the URL, always clear it so going back returns to the bare view.
+// Parse the hash to decide state.view/currentChamp/currentLine. The search query is not in the URL;
+// instead it's restored from the per-entry history.state (`saved.searchQuery`) on the back/popstate
+// path, defaulting to "" (= bare view) for forward nav and the initial deep link (no saved state).
 // Invalid/unknown routes (a nonexistent alias etc.) fall back to home.
 // render is not called here, leaving it to the caller (to avoid a double render on the initial deep link).
 // decodeURIComponent throws a URIError on invalid %-encoding (#/champion/% etc.). To avoid crashing the
@@ -202,10 +208,11 @@ function routeFromState() {
 // "unknown route" (return null so the existence check fails).
 const safeDecode = (str) => { try { return decodeURIComponent(str); } catch (_) { return null; } };
 
-function setStateFromRoute(hash) {
-  state.searchQuery = "";
+function setStateFromRoute(hash, saved) {
+  const q = (saved && typeof saved.searchQuery === "string") ? saved.searchQuery : "";
+  state.searchQuery = q;
   const s = $("search");
-  if (s) s.value = "";
+  if (s) s.value = q;
   // Strip the leading "#" and "/" and split on "/" ("#/champion/Ahri" -> ["champion","Ahri"])
   const path = (hash || "").replace(/^#\/?/, "");
   const parts = path.split("/").filter(Boolean);
@@ -232,26 +239,94 @@ function setStateFromRoute(hash) {
   }
 }
 
+// "Latest navigation" token. Bumped by snapshotCurrentEntry (forward nav / search / in-place clear)
+// and by applyRoute. Only consumed by applyRoute's async document.fonts.ready re-scroll, so a forward
+// nav or search during a slow font load cancels a stale re-scroll.
+let navSeq = 0;
+
+// Save the current (outgoing) entry's scroll + search into its history.state so going Back restores
+// them. Called: (1) as render.js's onBeforeNav, before a forward nav clears search / scrolls to top
+// (captureScroll=true); (2) at the end of the search-input handler with captureScroll=false, and from
+// onBackButton's in-place clear, to keep the entry's saved searchQuery in sync with in-place changes.
+// The URL (2nd-arg title only, no 3rd url arg) is omitted so this never mutates the address bar.
+// The depth is preserved via the spread.
+//   captureScroll: re-read window.scrollY only at real navigation boundaries. A search keystroke is
+//   NOT one: re-capturing there would overwrite the saved scroll with a filter-clamped value (and, on
+//   a detail->list flip, with the detail view's leftover scroll), so it preserves the existing scrollY
+//   and lets onBeforeNav record the true position when the user actually navigates away.
+function snapshotCurrentEntry(captureScroll = true) {
+  navSeq++;
+  const next = { ...(history.state || {}), searchQuery: state.searchQuery };
+  if (captureScroll) next.scrollY = window.scrollY;
+  history.replaceState(next, "");
+}
+
 // Reflect the hash into state and re-render (the popstate / back path). render()'s trailing route
 // listener runs too, but since the hash already matches it won't pushState (= no infinite loop).
-// Scroll back to the top.
-function applyRoute(hash) {
-  setStateFromRoute(hash);
+// Restore the saved scroll position synchronously (aspect-ratio cards make the document's height final
+// right after innerHTML, so scrollTo lands without an rAF; doing it synchronously also avoids a queued
+// rAF racing other intentional scrolls like the "/" shortcut or to-top FAB). The only async fixup is
+// for a hard load where web fonts (display=swap) reflow the header/chip row after we scrolled: if we
+// were clamped short (landed < y) and the user hasn't moved since, re-apply y once fonts settle.
+function applyRoute(hash, saved) {
+  const my = ++navSeq;
+  setStateFromRoute(hash, saved);
   render();
-  window.scrollTo(0, 0);
+  const y = (saved && typeof saved.scrollY === "number") ? saved.scrollY : 0;
+  window.scrollTo(0, y);
+  const landed = window.scrollY;
+  if (y && landed < y && document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => {
+      if (my === navSeq && window.scrollY === landed) window.scrollTo(0, y);
+    });
+  }
 }
 
 // Called at the end of render(): push if the current state's route differs from location.hash.
 // Direct assignment to location.hash would re-fire hashchange/popstate and cause a double render, so
 // we use pushState. This lets the URL follow along without rewriting the navigation functions, search, or tabs.
+// Each pushed entry carries an incrementing `depth` so onBackButton knows whether there is an in-app
+// entry to history.back() into (vs. a deep-link root, where Back must not leave the site).
 function syncRouteFromState() {
   const want = routeFromState();
   const cur = location.hash || "#/";
-  if (want !== cur) history.pushState(null, "", want);
+  if (want !== cur) {
+    const depth = ((history.state && history.state.depth) || 0) + 1;
+    history.pushState({ depth }, "", want);
+  }
+}
+
+// In-app "Back" (the #back-btn and the Escape key). All history-API decisions live here so render.js's
+// goBack stays history-free.
+//  1. While searching a list, Back clears the filter in place (same view) and refreshes the entry's
+//     saved searchQuery (so it doesn't resurrect on a later forward/back).
+//  2. Otherwise, if there is an in-app entry to return to (depth > 0), delegate to history.back() so it
+//     flows through the same popstate restore path (scroll + search + chips come back).
+//  3. No in-app history (e.g. a deep link straight to a detail): fall back to goBack's synthesized
+//     navigation, which never touches history, so we never leave the site.
+// A rapid double Back/Escape simply maps to two history.back() steps (= go back twice), matching how a
+// browser's own Back button behaves; it causes no state corruption here, so we don't debounce it. (An
+// earlier guard flag was removed: history.back() can be a no-op on the session's bottom entry — e.g. a
+// detail deep link restored as the first entry with depth>0 — which fires no popstate, so a flag cleared
+// only by popstate would stick true and permanently kill Back.)
+function onBackButton() {
+  if (state.searchQuery) {
+    // Clearing an in-place filter is a Back too: return to the pre-search scroll the entry remembers
+    // (the snapshot(false) on each keystroke preserved it through the filtering), then sync
+    // searchQuery="" WITHOUT re-capturing scroll — capturing here would overwrite the saved pre-search
+    // position with the filter-clamped one (corrupting a later restore into this same entry).
+    const savedY = (history.state && typeof history.state.scrollY === "number") ? history.state.scrollY : 0;
+    goBack();
+    window.scrollTo(0, savedY);
+    snapshotCurrentEntry(false);
+    return;
+  }
+  if (((history.state && history.state.depth) || 0) > 0) { history.back(); return; }
+  goBack();
 }
 
 function wirePopstate() {
-  window.addEventListener("popstate", () => {
+  window.addEventListener("popstate", (e) => {
     // (1) If the lightbox is open, Back is spent on "close". By this point history has already
     // unwound (state.lb is gone), so closeLightbox's history.back() doesn't fire and there's no
     // double back. The check uses the DOM's .open class.
@@ -263,15 +338,17 @@ function wirePopstate() {
     // lightbox close (history.back inside closeLightbox), the URL already matches the view, so
     // re-render and scroll reset are wasted (= flicker / position jump). If they match, do nothing.
     if ((location.hash || "#/") === routeFromState()) return;
-    applyRoute(location.hash);
+    applyRoute(location.hash, e.state);
   });
-  // Register the URL sync hook that runs after render().
+  // Register the URL sync hook that runs after render(), and the snapshot hook that saves the
+  // outgoing list's scroll + search before a forward nav clears them.
   setRouteListener(syncRouteFromState);
+  setNavListener(snapshotCurrentEntry);
 }
 
 function wireEvents() {
   $("title").addEventListener("click", goHome);
-  $("back-btn").addEventListener("click", goBack);
+  $("back-btn").addEventListener("click", onBackButton);
   $("tab-home").addEventListener("click", goHome);
   $("nav-lines").addEventListener("click", openLines);
   // Slideshow button: if it can start, go to the global slideshow. If empty (no splash-bearing
@@ -346,11 +423,27 @@ function wireEvents() {
       // goHome etc. cleared the input while the timer was pending.
       const value = $("search").value.trim();
       if (value === state.searchQuery) return;
+      // A search from a detail view flips to the list. Like the other view-entering navs, show the
+      // filtered list from the top rather than leaving the detail view's leftover scroll in place.
+      const flipped = (state.view === "champion" || state.view === "line");
+      // Beginning a search on a list (empty -> non-empty, not a flip): persist the current pre-filter
+      // scroll into the entry NOW, before render() shrinks the list and the browser clamps the scroll.
+      // This is the only moment the pre-search position is still known; Back-to-clear restores it. The
+      // home entry on first load has history.state===null (no scrollY) until this runs, so without it a
+      // scrolled-then-searched home list would lose its position on clear.
+      if (!state.searchQuery && !flipped) snapshotCurrentEntry(true);
       state.searchQuery = value;
       // Acts as a filter for home/lines. Searching from a detail view returns to the list.
       if (state.view === "champion") state.view = "home";
       if (state.view === "line") state.view = "lines";
       render();
+      if (flipped) window.scrollTo(0, 0);
+      // Keep the current history entry's saved searchQuery in sync with this in-place change, so a
+      // later forward-then-back (or back-then-forward) doesn't resurrect a stale query. If render()
+      // just pushed a new entry (view flip), this lands on that new entry (depth preserved).
+      // captureScroll=false: a keystroke is not a navigation, so it must not overwrite the saved scroll
+      // (the pre-search snapshot above, or onBeforeNav on a real nav, owns scrollY).
+      snapshotCurrentEntry(false);
     }, 90);
   });
   $("sort-select").addEventListener("change", (e) => {
@@ -490,7 +583,7 @@ function wireEvents() {
       return;
     }
     if (!$("lightbox").classList.contains("open")) {
-      if (e.key === "Escape" && state.view !== "home") goBack();
+      if (e.key === "Escape" && state.view !== "home") onBackButton();
       // ? (Shift+/) reopens the tutorial anytime. Disabled while the search input is focused, since
       // the user may want to type ? as a character there.
       else if (e.key === "?" && document.activeElement !== $("search")) {
