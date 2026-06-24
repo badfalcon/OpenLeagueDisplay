@@ -315,7 +315,7 @@ function renderHome(root) {
   // about narrowing champions, so only role/region (champion attributes). rarity (a skin attribute)
   // was moved to the Lines view.
   const chips = filterChipsHTML(q, [ROLE_LABELS, REGION_LABELS]);
-  // Search matching ORs across axes (not AND): "keep it if it hits on any axis".
+  // Search matching is OR across axes (not AND): "keep it if it hits on any axis".
   // Champion-side axes: champion name (alias/English name/translated name), role (Mage etc.),
   // region (Demacia etc.). Skin-side axis: skin name (English/translated) only. rarity moved to the
   // Lines view, so it's not a home search axis. role/region translations are checked alongside the

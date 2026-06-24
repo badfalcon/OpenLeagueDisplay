@@ -250,7 +250,7 @@
   }
   /* Left to OS fonts (e.g. Segoe UI Emoji), flags render as a "two-letter region
      identifier" on Windows with uneven widths, so use fixed-size SVG images.
-     Images come from flagcdn.com (static SVGs served by ISO 3166-1 alpha-2) */
+     Images come from flagcdn.com (static SVGs served under ISO 3166-1 alpha-2 codes) */
   .lang-flag {
     display: inline-block;
     width: 22px; height: 16px;

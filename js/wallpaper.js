@@ -85,7 +85,7 @@ function closeModal() {
   _lastFocus = null;
 }
 
-// Post-success "Done! Enjoy~" modal. Separate from the confirm modal (used instead of a toast).
+// Post-success "Done! Enjoy" modal. Separate from the confirm modal (used instead of a toast).
 // Lazily created as its own small modal so it doesn't muddy the confirm modal's layout.
 function ensureDoneModal() {
   let el = $("wp-done-modal");
@@ -175,7 +175,7 @@ async function onApply() {
     const interval = parseInt($("wp-interval").value, 10) || WALLPAPER_INTERVAL_DEFAULT;
     const data = await applyWallpaper(urls, interval);
     showProgress(urls.length, urls.length);
-    // On success, celebrate with the "Done! Enjoy~" modal instead of a toast.
+    // On success, celebrate with the "Done! Enjoy" modal instead of a toast.
     // closeModal is guarded while _applying, so drop the flag first.
     _applying = false;
     closeModal();

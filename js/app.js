@@ -147,7 +147,7 @@ async function init() {
     // The header gallery button count is reflected by applyStaticUIStrings / render()
   }
 
-  // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility)
+  // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility state)
   await localProbe;
 
   // Deep link: if there's an initial hash, reflect it into state and render once

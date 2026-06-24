@@ -1985,7 +1985,7 @@ function localeShortCode(code) {
   return code.split("_")[0].toUpperCase();
 }
 
-// Syncs the language button (flag + language code) and the aria-current of the active language to the current locale
+// Syncs the language button (flag + language code) and the aria-current of the current language to the current locale
 export function setLangButton(code) {
   const img = $("lang-flag");
   const url = localeFlagURL(code);
@@ -2043,7 +2043,7 @@ export function syncPauseButton() {
   const btn = $("ss-pause");
   if (!btn) return;
   btn.textContent = state.lb.paused ? t("ss_resume") : t("ss_pause");
-  // The label changes with state (Pause/Resume), but the hover tip constantly says what the button is
+  // The label changes with state (Pause/Resume), but the hover tip always says what the button is
   btn.title = t("ss_pause_tip");
   btn.classList.toggle("active", !state.lb.paused);
 }

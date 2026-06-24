@@ -54,7 +54,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-HOST = "127.0.0.1"  # never exposed externally (first line of defense against SSRF / hijacking)
+HOST = "127.0.0.1"  # never exposed externally (first gate against SSRF / hijacking)
 
 # PyInstaller onefile extracts its payload to sys._MEIPASS. For a normal run it's
 # this file's directory. Using it as the static-serving root removes the cwd dependency.
@@ -689,8 +689,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # "currently displayed file" and keep only that. The OS-native slideshow
         # holds onto the displayed image path, so deleting it leaves the path
         # pointing at nothing and the screen goes black (verified on real Windows
-        # hardware). The displayed file survives until it rotates into the new set,
-        # then gets cleaned at the next apply (once it's no longer displayed).
+        # hardware). The displayed file survives until the slideshow rotates onward
+        # to the new set, then gets cleaned at the next apply (once it's no longer displayed).
         folder = current_set_dir()
         keep = live_wallpaper_names() | {safe_filename(u) for u in urls}
         prune_current_set(keep)
