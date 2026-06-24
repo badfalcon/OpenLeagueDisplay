@@ -284,6 +284,15 @@
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay" target="_blank" rel="noopener">Source</a>
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
     </div>
+    <!-- Policy basis + use scope. Kept in English (like footer-attribution above) rather than
+         localized: machine-translating legal text across 20 locales risks worse accuracy than the
+         English original (same reason region names aren't guess-translated). Surfaces on the live
+         site what the README's License/Disclaimer sections already state — that we only reference
+         Riot assets under their fan-content policy, for personal non-commercial use. No id, so
+         applyStaticUIStrings() leaves it untouched. -->
+    <p class="footer-disclaimer footer-policy">
+      Fan-made under Riot Games' <a href="https://www.riotgames.com/en/legal" target="_blank" rel="noopener">Legal Jibber Jabber</a> policy. For personal, non-commercial use only.
+    </p>
     <!-- Legal disclaimer: Riot's "Legal Jibber Jabber" policy requires explicitly stating this is
          not endorsed by Riot. applyStaticUIStrings() fills the text from the i18n table -->
     <p class="footer-disclaimer" id="footer-disclaimer"></p>
