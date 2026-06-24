@@ -635,9 +635,10 @@
   }
 
   /* === CHAMP / LINE HEADER ========================================= */
-  /* author .champ-header { display: grid } ties UA [hidden] { display: none } at
-     specificity (0,1,0) and wins. If the persistent #primary-header keeps its
-     hidden state before setPrimaryHeader, an empty header would occupy layout, so kill it explicitly */
+  /* .champ-header's `display: grid` ties the UA [hidden] rule at specificity (0,1,0)
+     and wins as author CSS, breaking the hidden attribute. If the persistent
+     #primary-header keeps its hidden state before setPrimaryHeader, an empty header
+     would occupy layout, so kill it explicitly */
   .champ-header[hidden] { display: none; }
   .champ-header {
     display: grid;
@@ -703,7 +704,7 @@
   .detail-nav-btn:hover {
     background: var(--gold); color: #1a1208; border-color: var(--gold);
   }
-  /* Kill the known issue where author display:flex beats UA [hidden]{display:none} */
+  /* .detail-nav-btn's `display: flex` wins over the UA [hidden]{display:none} as author CSS; kill it explicitly */
   .detail-nav-btn[hidden] { display: none; }
   /* List-view headers (champion list / skin-line list) show only a section label
      ("CHAMPIONS" / "SKIN LINES"), not a proper noun, so they don't need the huge
