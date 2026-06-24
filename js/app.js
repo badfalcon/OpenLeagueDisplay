@@ -56,8 +56,10 @@ async function init() {
   // value in localStorage we apply it first to reduce the initial flash.
   const savedLoc = lsGet(LS_LOCALE_KEY);
   if (savedLoc && UI_STRINGS[savedLoc]) state.locale = savedLoc;
-  // Restore the sort order on return visits too. If an unknown value comes in, ignore it and keep the default (name_asc).
-  // Map the old version's "default" (= release order) to the new "release" to preserve behavior.
+  // Restore the sort order on return visits too. If an unknown value comes in, ignore it and keep
+  // the default (name_asc). The old version saved this choice under the key "default" (the UI label
+  // was "by release date"). Map it to the new "release" key to carry the selection over (the behavior
+  // improved from id order to real release dates, but it's still the "by release date" the user chose).
   const savedSort = lsGet(LS_SORT_KEY);
   if (savedSort === "default") {
     state.sortOrder = "release";

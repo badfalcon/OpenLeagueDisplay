@@ -157,13 +157,81 @@ def fetch_json(url: str) -> dict | list:
     raise RuntimeError(f"Failed after {RETRY} retries: {url} :: {last_err}")
 
 
-# Regions (Demacia / Noxus, etc.) were originally meant to come from Riot's
-# universe-meeps API, but a probe confirmed the server-side S3 IAM config is
-# broken and permanently returns 403 (probe log: AccessDenied,
+# Release dates aren't in CDragon/DDragon's static data (neither champion-summary nor
+# the per-champion JSON has a date field). So the UI's "by release date" long reused
+# champion-summary's order (= ascending internal champion id), but id is reserved early
+# in development and drifts from the real release date (e.g. Naafiri is id=950, shipped
+# 2023-07, yet sorts after the later Hwei(910)/Smolder(901); Aurora is id=893, shipped
+# 2024-07, yet sorts toward the front). The real dates live machine-readable in the LoL
+# Wiki's Module:ChampionData/data as `["apiname"]` (= Riot internal name = CDragon alias)
+# and `["date"] = "YYYY-MM-DD"`, so we pull them from there and embed them in data.json.
+# **Match on apiname, not id**: we originally matched on `["id"]`, but the wiki's id is
+# sometimes wrong from copy-paste (a block templated off Ahri's) — e.g. Ambessa/Mel
+# carried Ahri's id=103, so id matching let Mel's date overwrite Ahri's. apiname is the
+# champion name, so editors always fix it = trustworthy. The weekly update.yml refreshes
+# it automatically, so no manual upkeep.
+#
+# Fetch path: the wiki's `?action=raw` 403s on both wikis. The official wiki
+# (wiki.leagueoflegends.com) also 403s the API to block bots. The only API that works is
+# the Fandom mirror (leagueoflegends.fandom.com) MediaWiki API
+# (`action=query&prop=revisions&rvprop=content`), which returns the Lua source as JSON.
+# Even if Fandom misses the newest champions, those fall to the end (newest side) as
+# missing dates, so ordering doesn't break. The structure tries multiple sources and takes
+# the one with the most entries (so another mirror can be added later). If every source
+# fails it returns {} and the front end falls back to the legacy data.json (id) order.
+RELEASE_API_URLS = (
+    "https://leagueoflegends.fandom.com/api.php"
+    "?action=query&prop=revisions&titles=Module:ChampionData/data"
+    "&rvslots=main&rvprop=content&format=json&formatversion=2",
+)
+# Pair each `["apiname"] = "X"` with its `["date"] = "YYYY-MM-DD"` without crossing another
+# `["apiname"]` in between. The negative lookahead stops a date from being grabbed across
+# "the next champion's ["apiname"]", so a new champion with no date is correctly left unset
+# (rather than picking up a wrong date). Keying on apiname rather than id is because the
+# wiki's id has copy-paste duplicates/errors (see above).
+_RELEASE_PAT = re.compile(
+    r'\["apiname"\]\s*=\s*"([^"]+)"'
+    r'(?:(?!\["apiname"\]\s*=)[\s\S])*?'
+    r'\["date"\]\s*=\s*["\'](\d{4}-\d{2}-\d{2})["\']'
+)
+
+
+def _parse_release_api(data: dict) -> dict[str, str]:
+    """Extract the Lua source from a MediaWiki API (formatversion=2) response and pull out
+    {apiname(lowercased): "YYYY-MM-DD"} (apiname = CDragon alias)."""
+    content = data["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+    return {name.lower(): d for name, d in _RELEASE_PAT.findall(content)}
+
+
+def fetch_release_dates() -> dict[str, str]:
+    """Fetch {apiname(lowercased): "YYYY-MM-DD"} from the LoL Wiki.
+
+    Hit multiple sources and adopt the one with the most entries (= not dragged down by a
+    stale mirror). If every source fails to fetch/parse, return an empty dict (= the caller
+    falls back to id order).
+    """
+    best: dict[str, str] = {}
+    for url in RELEASE_API_URLS:
+        try:
+            dates = _parse_release_api(fetch_json(url))
+        except Exception as e:
+            print(f"   [WARN] release-date source fetch failed ({type(e).__name__}): {url[:48]}...", flush=True)
+            continue
+        print(f"   {len(dates)} fetched: {url[:48]}...", flush=True)
+        if len(dates) > len(best):
+            best = dates
+    if not best:
+        print("   [WARN] could not fetch release dates; falling back to id order", flush=True)
+    return best
+
+
+# Regions (Demacia / Noxus, etc.) were originally meant to come from Riot's universe-meeps
+# API, but a probe confirmed the server-side S3 IAM config is broken and permanently returns
+# 403 (probe log: AccessDenied,
 # `arn:aws:iam::185905861734:user/meeps-cdn-akamai-access-user is not authori...`).
-# CDragon also has no champion->region mapping, so we hardcode it. When a new
-# champion is added, add one line here. For a new region, also add it to
-# REGION_NAMES (below) and REGION_LABELS in js/i18n.js.
+# CDragon also has no champion->region mapping, so we hardcode it. When a new champion is
+# added, add one line here. For a new region, also add it to REGION_NAMES (below) and
+# REGION_LABELS in js/i18n.js.
 REGION_NAMES: dict[str, str] = {
     "demacia": "Demacia",
     "noxus": "Noxus",
@@ -519,6 +587,11 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         print(f"   [WARN] failed to fetch skinlines.json: {e}", flush=True)
         skin_lines = {}
 
+    # Release dates (LoL Wiki). For the UI's "by release date" sort. Continue even if this fails.
+    print("==> Fetching release dates (LoL Wiki)...", flush=True)
+    release_dates = fetch_release_dates()
+    print(f"    release dates for {len(release_dates)} champions", flush=True)
+
     # Fetch all champion JSON in parallel. We want to preserve the original
     # champions order, so collect into an id->detail dict and reassemble in order
     print(f"==> Fetching {len(champions)} champion JSON in parallel (concurrency={FETCH_CONCURRENCY})...", flush=True)
@@ -613,12 +686,28 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
             entry["regions"] = regions
         if bio:
             entry["bio"] = bio
+        # Release date (YYYY-MM-DD), matched by apiname (= alias). Omitted when missing
+        # (e.g. a new champion not yet on the Wiki) so the front end sends it to the end
+        # (newest side). If release_dates is empty, nobody gets one and it falls back to id order.
+        release = release_dates.get(alias.lower())
+        if release:
+            entry["release"] = release
         out_champs.append(entry)
         # The 4th element carries the English bio, used to detect "untranslated =
         # same as English" when fetching per locale
         align_meta.append((cid, alias, paths_for_locale, bio))
 
     total = sum(len(c["skins"]) for c in out_champs)
+
+    # Detect missing release dates. Warn only when release_dates was fetched (= the source
+    # is alive) but some champions still have no date (e.g. a new champion not yet on the
+    # Wiki; it fills in automatically once the Wiki is updated on a later weekly run). Stay
+    # silent when the source itself failed and release_dates is empty, since listing every
+    # champion name would be pointless.
+    if release_dates:
+        missing = [c["alias"] for c in out_champs if "release" not in c]
+        if missing:
+            print(f"   [WARN] release dates missing: {missing}", flush=True)
 
     # Keep only skin lines actually used (to shrink data.json)
     used_line_ids: set[int] = set()

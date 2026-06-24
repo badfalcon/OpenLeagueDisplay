@@ -117,8 +117,10 @@ export const state = {
   searchQuery: "",
   // Champion sort order on the home screen. Default is "name_asc" (ascending by champion name).
   // "name_desc" is descending. Both localeCompare on the localized name, so switching locale
-  // recomputes the comparison basis in that same locale. "release" keeps the data.json order
-  // (CDragon release order, Annie first) as-is.
+  // recomputes the comparison basis in that same locale. "release" sorts ascending by each
+  // champion's real release date (data.json `release`, sourced from the LoL Wiki); missing dates
+  // go last (newest side). Old data.json (no `release`) leaves everyone missing, so it falls back
+  // to the legacy id order — backward compatible.
   sortOrder: "name_asc",
   // Selection keys (the contents of My Gallery): `${alias}//${skinLabel}` (label is unique per skin).
   // Selection is always on (no mode concept): the ＋ on each card toggles individually.

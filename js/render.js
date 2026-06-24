@@ -20,12 +20,21 @@ import { openWallpaperConfirm } from "./wallpaper.js";
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
+// Sort key for release-date sorting. Use data.json's `release` ("YYYY-MM-DD") as-is; missing
+// (old data.json / a new champion not yet on the Wiki) is treated as "9999-99-99", sending it to
+// the end = newest side. Lexicographic string compare doubles as chronological order. JS's
+// Array#sort is stable, so same-date and both-missing entries keep their original data.json order
+// (= internal champion id order).
+const relKey = (c) => c.release || "9999-99-99";
+const cmpRelease = (a, b) => { const ka = relKey(a), kb = relKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; };
+
 // Returns a new array of all champions ordered by state.sortOrder. Extracted so renderHome (the list)
 // and renderChampion (prev/next nav order) share the same ordering. "name_asc"/"name_desc" use
-// localeCompare on the localized name; "release" keeps data.json order (no-op).
+// localeCompare on the localized name; "release" sorts ascending by data.json's `release` date.
 function sortedChampions() {
-  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const arr = DATA.champions.slice();
+  if (state.sortOrder === "release") return arr.sort(cmpRelease);
+  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   if (sign) {
     const tag = cmpTag();
     arr.sort((a, b) => sign * champName(a).localeCompare(champName(b), tag, { sensitivity: "base" }));
@@ -328,16 +337,19 @@ function renderHome(root) {
 
   // Sorting: the default "name_asc"/"name_desc" use localeCompare on the localized name.
   // Using the Intl path for comparison gives the client's natural ordering even in Japanese/Korean/Chinese.
-  // "release" keeps data.json order (release order) as-is, so it does nothing (sortSign=0).
+  // "release" sorts ascending by the champion's release date (skins use their owning champion's date).
+  const isRelease = state.sortOrder === "release";
   const sortSign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const cmpLocale = cmpTag();
-  const sortChamps = (arr) => sortSign && arr.sort((a, b) =>
-    sortSign * champName(a).localeCompare(champName(b), cmpLocale, { sensitivity: "base" }));
-  const sortSkins = (arr) => sortSign && arr.sort((a, b) => {
-    const an = `${champName(a.c)} ${skinLabel(a.c, a.s)}`;
-    const bn = `${champName(b.c)} ${skinLabel(b.c, b.s)}`;
-    return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
-  });
+  const sortChamps = (arr) => isRelease ? arr.sort(cmpRelease)
+    : sortSign && arr.sort((a, b) =>
+        sortSign * champName(a).localeCompare(champName(b), cmpLocale, { sensitivity: "base" }));
+  const sortSkins = (arr) => isRelease ? arr.sort((a, b) => cmpRelease(a.c, b.c))
+    : sortSign && arr.sort((a, b) => {
+        const an = `${champName(a.c)} ${skinLabel(a.c, a.s)}`;
+        const bn = `${champName(b.c)} ${skinLabel(b.c, b.s)}`;
+        return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
+      });
 
   // No search: just the champion list as before (shares the same ordering as renderChampion's prev/next nav)
   if (!q) {
