@@ -1735,6 +1735,12 @@
        into 25% and ellipsize it, so let shorter labels' (e.g. SKIN LINES) leftover go to the longer ones */
     .header-secondary .view-tabs,
     .header-secondary .header-actions { flex: 1 1 auto; display: flex; gap: 6px; }
+    /* No internal gap inside the segmented view-tabs: Champions / Skin Lines stay flush
+       like the desktop segmented control, divided only by the .tab + .tab border-left.
+       With a gap, the container's bg-1 shows between them and reads as a visible slot
+       only next to the gold active tab (the inactive tab's transparent bg matches the
+       gap color), so the separation looked asymmetric depending on which tab was active */
+    .header-secondary .view-tabs { gap: 0; }
     .header-secondary .view-tabs .tab,
     .header-secondary .header-actions .btn {
       flex: 1 1 auto;
