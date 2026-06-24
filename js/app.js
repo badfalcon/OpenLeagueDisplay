@@ -333,15 +333,17 @@ function onBackButton() {
 // which reads as "Back not available". Called from the scroll listener and after each render().
 // Cache the flag so the DOM is touched only when crossing the threshold (same trick as the to-top FAB).
 let backFabShown = false;
+let _topbar;  // cached .topbar (the sticky bar covering the viewport top); resolved once, lazily
 function syncBackFab() {
   const fab = $("to-back");
   if (!fab) return;
   const realBack = $("back-btn");
   const rect = realBack ? realBack.getBoundingClientRect() : null;
   // The sticky topbar covers the top of the viewport, so "out of reach" means the real button's
-  // bottom edge has slipped above the topbar's bottom (not merely above y=0).
-  const topbar = document.querySelector(".topbar");
-  const coverBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
+  // bottom edge has slipped above the topbar's bottom (not merely above y=0). Cache the lookup
+  // (the topbar is never recreated) so a scroll burst doesn't re-query the DOM each frame.
+  if (_topbar === undefined) _topbar = document.querySelector(".topbar");
+  const coverBottom = _topbar ? _topbar.getBoundingClientRect().bottom : 0;
   const show = !!rect && rect.height > 0 && rect.bottom <= coverBottom;
   if (show === backFabShown) return;
   backFabShown = show;
@@ -546,10 +548,19 @@ function wireEvents() {
       toTopShown = show;
       toTopBtn.hidden = !show;
     };
-    // One passive scroll listener drives both FABs: top-right "Back to top" and bottom-left "Back".
-    const onScroll = () => { syncToTop(); syncBackFab(); };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+    // One passive listener drives both FABs: top-right "Back to top" and bottom-left "Back".
+    // syncBackFab() reads layout (getBoundingClientRect), so coalesce bursts into one rAF tick to
+    // avoid forcing a reflow on every scroll event. Also runs on resize, since the Back FAB's
+    // visibility depends on the back button's layout position (not just scrollY) — a resize that
+    // reflows the header without scrolling would otherwise leave it stale.
+    let scrollRaf = 0;
+    const syncFabs = () => {
+      if (scrollRaf) return;
+      scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; syncToTop(); syncBackFab(); });
+    };
+    window.addEventListener("scroll", syncFabs, { passive: true });
+    window.addEventListener("resize", syncFabs, { passive: true });
+    syncFabs();
     toTopBtn.addEventListener("click", () => {
       // Respect reduce-motion: jump instantly if the user wants animations disabled
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
