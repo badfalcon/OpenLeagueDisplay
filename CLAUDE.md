@@ -264,6 +264,30 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   スキンのときだけ** `championBio()` でフォールバック表示する。非 base で desc
   欠落のスキンは従来どおり空 (畳まれる)。フォールバック順は skin 翻訳 → skin 英語
   desc → champion 翻訳 bio → champion 英語 bio。
+- **リリース日順は LoL Wiki から取る (CDragon に無いため)**: UI の「リリース日順」
+  ソートは当初 CDragon の `champion-summary.json` の並び (= 内部 champion id 昇順) を
+  そのまま流用していたが、id は開発初期に予約されるため**実リリース日とズレる**
+  (例: Naafiri は id=950 で 2023-07 実装なのに後発の Hwei(910)/Smolder(901) より後ろ /
+  Aurora は id=893 で 2024-07 実装なのに前方)。CDragon/DDragon の静的データには
+  リリース日フィールド自体が無いので、`generate_data.py` の `fetch_release_dates()` が
+  LoL Wiki の `Module:ChampionData/data` から `{id: "YYYY-MM-DD"}` を取り、各
+  チャンピオンに `release` として埋める。取得は MediaWiki API
+  (`api.php?action=query&prop=revisions&rvprop=content`) 経由で Lua 本文を JSON で
+  受け取り、正規表現で `["apiname"]`↔`["date"]` をペア抽出する (wiki の `?action=raw`
+  は両 wiki とも 403、公式 wiki は API も 403 で bot を弾くため、唯一 API が通る Fandom
+  ミラー `leagueoflegends.fandom.com` を使う)。**突合は apiname (= Riot 内部名 =
+  CDragon alias) で行う**ので表示名ゆれ (Renata Glasc/Renata, K'Sante/KSante,
+  Wukong/MonkeyKing) を吸収できる。当初は `["id"]` で突合していたが、wiki の id は
+  Ahri のブロックをテンプレ流用したコピペミスで誤りがある (Ambessa/Mel が Ahri と同じ
+  id=103 を持ち、id 突合だと Mel の date "2025-01-23" が Ahri を上書きしていた) ため
+  apiname に切替えた。週次
+  `update.yml` が毎回叩くので**手動メンテ不要** (CHAMPION_REGIONS と違い新キャラ追加時の
+  追記も要らない)。多層フォールバック: ①取得/パース失敗時は `{}` を返し全員 `release`
+  無し → フロント (`relKey`/`cmpRelease` in render.js) が "9999-99-99" 扱いで従来の
+  id 順に倒れる (後方互換) ②個別の日付欠落 (Fandom が未掲載の最新キャラ等) は末尾=
+  最新側に置き、`[警告] リリース日 未取得` を出す (次回更新で Wiki が追記されれば自動で
+  埋まる。最新キャラが末尾に来るのは時系列的に正しいので順序は破綻しない)。`Array#sort`
+  は安定なので同日付・欠落どうしは id 順を保つ
 
 ## CDragon のパスマッピング (重要)
 

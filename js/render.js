@@ -20,12 +20,20 @@ import { openWallpaperConfirm } from "./wallpaper.js";
 // "xx_xx" を "xx-xx" に直す。名前順ソートが現在の locale で自然な並びになる。
 const cmpTag = () => state.locale === "default" ? "en" : state.locale.replace("_", "-");
 
+// リリース日ソート用キー。data.json の `release` ("YYYY-MM-DD") をそのまま使い、
+// 欠落 (古い data.json / Wiki 未掲載の新キャラ) は "9999-99-99" 扱いで末尾 = 最新側へ。
+// 文字列の辞書順比較がそのまま時系列順になる。JS の Array#sort は安定なので、同日付・
+// 日付欠落どうしは元の data.json 順 (= 内部 champion id 順) を保つ。
+const relKey = (c) => c.release || "9999-99-99";
+const cmpRelease = (a, b) => { const ka = relKey(a), kb = relKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; };
+
 // 全チャンピオンを state.sortOrder に従って並べた新規配列を返す。renderHome (一覧) と
 // renderChampion (前後ナビの順序) で同じ並びを共有するために抽出した。"name_asc"/"name_desc"
-// は localized name で localeCompare、"release" は data.json 順 (= 何もしない)。
+// は localized name で localeCompare、"release" は data.json の `release` 日付で昇順。
 function sortedChampions() {
-  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const arr = DATA.champions.slice();
+  if (state.sortOrder === "release") return arr.sort(cmpRelease);
+  const sign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   if (sign) {
     const tag = cmpTag();
     arr.sort((a, b) => sign * champName(a).localeCompare(champName(b), tag, { sensitivity: "base" }));
@@ -325,16 +333,19 @@ function renderHome(root) {
 
   // 並び替え: 既定の "name_asc"/"name_desc" は localized name で localeCompare。
   // 比較に Intl 経路を使うため、日本語/韓国語/中文 でもクライアントの自然な並びになる。
-  // "release" は data.json の順 (リリース順) をそのまま使うので何もしない (sortSign=0)
+  // "release" はチャンピオンのリリース日 (スキン側はその所属チャンピオンの日付) で昇順。
+  const isRelease = state.sortOrder === "release";
   const sortSign = state.sortOrder === "name_asc" ? 1 : state.sortOrder === "name_desc" ? -1 : 0;
   const cmpLocale = cmpTag();
-  const sortChamps = (arr) => sortSign && arr.sort((a, b) =>
-    sortSign * champName(a).localeCompare(champName(b), cmpLocale, { sensitivity: "base" }));
-  const sortSkins = (arr) => sortSign && arr.sort((a, b) => {
-    const an = `${champName(a.c)} ${skinLabel(a.c, a.s)}`;
-    const bn = `${champName(b.c)} ${skinLabel(b.c, b.s)}`;
-    return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
-  });
+  const sortChamps = (arr) => isRelease ? arr.sort(cmpRelease)
+    : sortSign && arr.sort((a, b) =>
+        sortSign * champName(a).localeCompare(champName(b), cmpLocale, { sensitivity: "base" }));
+  const sortSkins = (arr) => isRelease ? arr.sort((a, b) => cmpRelease(a.c, b.c))
+    : sortSign && arr.sort((a, b) => {
+        const an = `${champName(a.c)} ${skinLabel(a.c, a.s)}`;
+        const bn = `${champName(b.c)} ${skinLabel(b.c, b.s)}`;
+        return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
+      });
 
   // 検索なし: 従来通りチャンピオン一覧だけ (renderChampion の前後ナビと同じ並びを共有)
   if (!q) {

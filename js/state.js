@@ -115,8 +115,10 @@ export const state = {
   searchQuery: "",
   // ホーム画面のチャンピオン並び順。既定は "name_asc" (チャンピオン名の昇順)。
   // "name_desc" は降順。どちらも localized name で localeCompare するので、
-  // locale を切替えると比較基準も同じ locale で再計算される。"release" は
-  // data.json の順 (= CDragon のリリース順、Annie が先頭) をそのまま使う
+  // locale を切替えると比較基準も同じ locale で再計算される。"release" は各
+  // チャンピオンの実リリース日 (data.json の `release`、LoL Wiki 由来) で昇順。
+  // 日付欠落は末尾 (最新側)。旧 data.json (release 無し) では全員欠落 = 従来の
+  // id 順にフォールバックするので後方互換
   sortOrder: "name_asc",
   // 選択キー (= マイギャラリーの中身): `${alias}//${skinLabel}` (label はスキン側でユニーク)。
   // 選択は常時有効 (モード概念なし): 各カードの ＋ で個別 toggle する
