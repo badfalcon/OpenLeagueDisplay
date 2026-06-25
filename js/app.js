@@ -163,11 +163,11 @@ async function init() {
   // there was. Branch on "was there a link" (not just count > 0): an existing selection re-imported
   // via the link adds 0 keys, but we still want to land on the gallery and give feedback rather than
   // leave the stale #import= hash to fall through routing to home, silently.
+  // Rewrite the hash now (it must precede setStateFromRoute below), but defer the toast until after the
+  // first render so the feedback coincides with the gallery it describes (render is gated on localProbe,
+  // which can lag this synchronous import on the deep-link path).
   const imported = applyImportFromHash();
-  if (imported !== null) {
-    history.replaceState(null, "", "#/gallery");
-    toast(imported > 0 ? t("import_done", imported) : t("import_none"));
-  }
+  if (imported !== null) history.replaceState(null, "", "#/gallery");
 
   // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility state)
   await localProbe;
@@ -185,6 +185,9 @@ async function init() {
   }
 
   render();
+
+  // Now that the gallery is on screen, announce the hand-off result (see the deferral note above).
+  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("import_none"));
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();

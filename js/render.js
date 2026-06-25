@@ -733,7 +733,7 @@ function renderSelected(root) {
     $("view-content").innerHTML =
       `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
       `<div class="gallery-empty-actions">` +
-      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
+      `<button class="btn primary" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
       `<button class="btn" id="gallery-import">${t("import_selection")}</button>` +
       `</div></div>`;
     const browse = $("gallery-browse");
