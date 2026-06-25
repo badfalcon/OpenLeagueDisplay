@@ -34,7 +34,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── tutorial.js                  #   初回訪問チュートリアル (4ステップ。? ボタン / ? キーで再表示)
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
-│   └── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
+│   ├── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
+│   └── desktop.js                   #   デスクトップ版の訴求 + Web→ネイティブの選択受け渡し (Web のみ)
 ├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
@@ -88,6 +89,28 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   `applyWallpaper` で一括設定)。モーダル DOM は初回に遅延生成 (index.html を汚さない、
   toast と同手法)。import は state / i18n / local。1枚=静止、2枚以上=OS純正スライド
   ショー (サーバが枚数で振り分け)。ローカル実行時のみ render.js が起動ボタンを出す
+- **desktop.js**: **Web (Pages) 側でデスクトップ版を推す導線**専用。import は state /
+  i18n / local と zip (`saveBlob` のみ再利用) (**render.js は import しない** = グラフの葉。
+  zip.js も state/i18n しか import しないので循環しない。受け渡し後の画面遷移と
+  再描画は呼び出し側 app.js が持つ)。公開は4つ: ①`gateDownload(fn)` = 初回 ZIP DL 時に
+  「デスクトップ版を入手 / このまま ZIP」を1回だけ尋ね、選択を `LS_DL_PROMPT_SEEN` に記憶
+  (以降は素通し。ローカル実行時も素通し)。render.js の DL 3口を包む ②`openInDesktop()` =
+  My Gallery の選択を deep link `http://127.0.0.1:8000/#import=<JSON keys>` にして
+  デスクトップ版で開く。**選択は URL のフラグメントに載せる** (ローカルサーバに送られない
+  = リクエスト長制限なし)。localStorage はオリジン別 (github.io ≠ 127.0.0.1) で共有
+  できないための明示受け渡し ③`applyImportFromHash()` = 受け側。`#import=` を読んで
+  SKIN_BY_KEY に在るキーだけ選択へマージし件数を返す (app.js 起動時に buildIndexes 後・
+  ルーティング前に1回呼ぶ。終わったら hash を `#/gallery` に書換えて再取り込みを防ぐ)。
+  ローカル限定にはしない (手貼りリンクでも動くように) ④`mountFooterCTA()` = フッターに
+  デスクトップ版 CTA を1回注入 (ローカル時は no-op)。**別端末 (スマホ→PC) 向けに
+  `exportSelection()` / `pickSelectionFile()` = 選択を JSON ファイル (`{v,keys}`) で
+  書き出し/読み込み** (deep link が使えないクロスマシン経路。モード非依存で双方向)。
+  キーのマージは `mergeKeys()` に共通化し ③ファイル取り込み両方が使う (data に在る・
+  未選択のキーだけ採用)。汎用 2択モーダル (`choiceModal`) は
+  wp-* の CSS を流用して①②で共用。**フッター CTA だけは英語固定** (フッターの帰属・
+  ポリシー表記が意図的に非ローカライズなのに合わせる。①②③のUI文字列は i18n 済み)。
+  ライトボックスのワンクリック「壁紙にする」(`#lb-wallpaper`) は別系統で、表示制御は
+  lightbox.js (isLocalWallpaper)、クリック処理は app.js (`applyWallpaper([現在のsrc])`)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/

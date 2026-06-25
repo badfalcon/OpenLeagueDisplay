@@ -16,7 +16,7 @@ import {
 } from "./i18n.js";
 import {
   render, goHome, goBack, openLines, openSelected,
-  imgLoaded, imgErr, setRouteListener, setNavListener,
+  imgLoaded, imgErr, setRouteListener, setNavListener, closeTransferMenu,
 } from "./render.js";
 import {
   hideProgress,
@@ -30,7 +30,8 @@ import {
   renderTutorial, isTutorialOpen, maybeAutoOpenTutorial,
 } from "./tutorial.js";
 import { shareSite } from "./share.js";
-import { probeLocal, toast } from "./local.js";
+import { probeLocal, toast, applyWallpaper, isLocalWallpaper } from "./local.js";
+import { applyImportFromHash, mountFooterCTA } from "./desktop.js";
 
 // Own scroll restoration ourselves (see applyRoute). The browser's default "auto" restoration
 // tries to re-apply a remembered scroll on a re-rendered SPA at the wrong time and would fight our
@@ -154,8 +155,24 @@ async function init() {
     // The header gallery button count is reflected by applyStaticUIStrings / render()
   }
 
+  // Web → native hand-off: a #import=<keys> link (built by the desktop CTA on Pages) carries a
+  // selection across the origin boundary (github.io ≠ 127.0.0.1, so localStorage can't be shared).
+  // Merge it into the selection, then rewrite the hash to the gallery so a reload doesn't re-import.
+  // Must run after buildIndexes (SKIN_BY_KEY ready) and before routing (it rewrites the hash).
+  // applyImportFromHash returns null when there was no hand-off link, or a count (possibly 0) when
+  // there was. Branch on "was there a link" (not just count > 0): an existing selection re-imported
+  // via the link adds 0 keys, but we still want to land on the gallery and give feedback rather than
+  // leave the stale #import= hash to fall through routing to home, silently.
+  // Rewrite the hash now (it must precede setStateFromRoute below), but defer the toast until after the
+  // first render so the feedback coincides with the gallery it describes (render is gated on localProbe,
+  // which can lag this synchronous import on the deep-link path).
+  const imported = applyImportFromHash();
+  if (imported !== null) history.replaceState(null, "", "#/gallery");
+
   // Wait for the local-mode detection to settle before the first render (to reflect the wallpaper UI's visibility state)
   await localProbe;
+  // Promote the desktop app to web visitors (footer CTA). No-op in local mode (you already have it).
+  mountFooterCTA();
 
   // Deep link: if there's an initial hash, reflect it into state and render once
   // (applyRoute would call render twice, so here we only set state and leave render to below).
@@ -168,6 +185,11 @@ async function init() {
   }
 
   render();
+
+  // Now that the gallery is on screen, announce the hand-off result (see the deferral note above).
+  // A 0-count here means the link's picks were already in the gallery (re-imported your own selection),
+  // so use the reassuring "already up to date" message rather than the file path's "nothing new".
+  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
@@ -439,6 +461,16 @@ function wireEvents() {
       // This Escape is already consumed by "close the menu". Don't let it also fire the later
       // document keydown (goBack / lightbox).
       e.stopImmediatePropagation();
+      return;
+    }
+    // Same deal for the gallery "Transfer…" dropdown: close it on Esc and consume the key so it
+    // doesn't also fire goBack (the menu lives in the gallery view, where Esc would navigate away).
+    const tm = $("transfer-menu");
+    if (e.key === "Escape" && tm && !tm.hidden) {
+      closeTransferMenu();
+      const tb = $("transfer-btn");
+      if (tb) tb.focus();
+      e.stopImmediatePropagation();
     }
   });
   $("prog-cancel").addEventListener("click", () => {
@@ -532,6 +564,28 @@ function wireEvents() {
     lsSet(LS_LB_FIT_KEY, state.lb.fit);
     syncFitButton();
   });
+  // One-click "set as wallpaper" (local-run mode only — the button is hidden on Pages). Sets the
+  // splash currently shown in the lightbox as a static wallpaper. This is the philosophically core
+  // "see it → it's your wallpaper" gesture; the My Gallery multi-select / slideshow path is the
+  // browser-era compromise. Disabled while applying so a double-click can't fire two requests.
+  $("lb-wallpaper").addEventListener("click", async () => {
+    if (!isLocalWallpaper()) return;
+    const item = state.lb.list[state.lb.idx];
+    const url = item && item.src;
+    if (!url) { toast(t("wallpaper_no_image"), "err"); return; }  // defensive: a shown splash always has a src
+    const btn = $("lb-wallpaper");
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");  // there's no progress UI on this path, so announce the in-flight state
+    try {
+      await applyWallpaper([url]);
+      toast(t("wallpaper_set"));
+    } catch (err) {
+      toast(t("wallpaper_failed", err.message), "err");
+    } finally {
+      btn.disabled = false;
+      btn.removeAttribute("aria-busy");
+    }
+  });
   // Offline detection: CDragon splash images aren't cached, so offline they all fail to appear.
   // Announce the reason to avoid the "it's broken" misunderstanding.
   const offlineBanner = $("offline-banner");
@@ -576,10 +630,14 @@ function wireEvents() {
   let tStartX = 0, tStartY = 0;
   // A flag to ignore exactly one click that may fire right after a swipe completes. A completed swipe
   // normally suppresses the browser's click, but some devices leak it, so for reliability we decide
-  // "a stage click right after a swipe is not used for the chrome toggle".
+  // "a stage click right after a swipe is not used for the chrome toggle". Reset on every touchstart so
+  // it can only ever absorb the click of the immediately-preceding swipe — without this it would latch
+  // (most platforms emit no post-swipe click, so nothing clears it) and swallow the next genuine tap,
+  // even across a later lightbox session (the flag is closure state that outlives a single open).
   let swipeConsumedClick = false;
   const lbEl = $("lightbox");
   lbEl.addEventListener("touchstart", (e) => {
+    swipeConsumedClick = false;  // a new gesture starts clean (reset even for multi-touch, so it never latches)
     if (e.touches.length !== 1) return;
     tStartX = e.touches[0].clientX;
     tStartY = e.touches[0].clientY;
@@ -607,12 +665,12 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    // While a local wallpaper modal (confirm / done) is open, defer to the modal's own Esc handling
-    // and don't run any of the app's key handling (Esc=goBack / ? / etc.). Without this, pressing Esc
-    // in the gallery view (view!=="home") would close the modal and also fire goBack, navigating away
-    // underneath. Tab containment is handled by each modal's trapFocus.
-    const wp = $("wp-modal"), wpDone = $("wp-done-modal");
-    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden)) return;
+    // While a local wallpaper modal (confirm / done) or the desktop choice modal is open, defer to the
+    // modal's own Esc handling and don't run any of the app's key handling (Esc=goBack / ? / etc.).
+    // Without this, pressing Esc in the gallery view (view!=="home") would close the modal and also fire
+    // goBack, navigating away underneath. Tab containment is handled by each modal's trapFocus.
+    const wp = $("wp-modal"), wpDone = $("wp-done-modal"), choice = $("choice-modal");
+    if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden) || (choice && !choice.hidden)) return;
     // While the tutorial is shown, absorb keys with top priority (Esc/arrows/Enter only)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();

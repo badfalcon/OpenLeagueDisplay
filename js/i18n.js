@@ -54,6 +54,7 @@ export const UI_STRINGS = {
     zip_count_failed: "failed {0}",
     progress_cancel: "Cancel",
     lb_close_aria: "Close",
+    lb_wallpaper_aria: "Set as wallpaper",
     lb_prev_aria: "Previous",
     lb_next_aria: "Next",
     lb_aria: "Splash zoom view",
@@ -75,6 +76,7 @@ export const UI_STRINGS = {
     wallpaper_apply: "Set wallpaper",
     wallpaper_cancel: "Cancel",
     wallpaper_none: "Select at least one splash first.",
+    wallpaper_no_image: "No image to set as wallpaper.",
     wallpaper_note_single: "This image will be set as your desktop wallpaper.",
     wallpaper_note_slideshow: "These {0} images will rotate as a desktop slideshow — handled by the OS, so it keeps going after you close the app.",
     wallpaper_set: "Wallpaper set ✓",
@@ -84,6 +86,26 @@ export const UI_STRINGS = {
     wallpaper_done_title: "All set!",
     wallpaper_done_enjoy: "Enjoy the view.",
     wallpaper_done_ok: "Close",
+    // Desktop-app promotion (Web only). The download / hand-off moments are where a web user most
+    // wants the images locally, so that's where we surface the native app (which sets wallpaper directly).
+    dl_choice_title: "Set them as wallpaper directly?",
+    dl_choice_body: "The desktop app sets any splash as your wallpaper in one click — no ZIP, no extracting. Browsers are sandboxed and can't touch your wallpaper, so the web version hands you a ZIP instead.",
+    dl_choice_get: "🖥 Get the desktop app",
+    dl_choice_zip: "Download the ZIP",
+    transfer_menu: "Transfer…",
+    open_in_desktop: "🖥 Open in desktop app",
+    handoff_title: "Open your gallery in the desktop app",
+    handoff_body: "This sends your gallery to the OpenLeagueDisplay desktop app so you can set them as wallpaper in one click. The desktop app must already be running on this PC (default port 8000). Not running? Export to a file instead and import it there.",
+    handoff_open: "Send to desktop app",
+    handoff_export: "Export to a file instead",
+    handoff_uptodate: "Your gallery is already up to date ✓",
+    import_done: "Imported {0} skins from the web ✓",
+    import_done_file: "Imported {0} skins from the file ✓",
+    export_selection: "⬆ Export my gallery",
+    import_selection: "⬇ Import to gallery",
+    export_done: "Saved openleaguedisplay-selection.json ✓ — import it on your other device.",
+    import_none: "No new skins to import.",
+    import_invalid: "Couldn't read a selection from that file.",
     jszip_load_failed: "Failed to load JSZip CDN (10s).",
     offline_banner: "You are offline — splash images may not load.",
     slideshow_empty: "Add skins to My Gallery first to use the slideshow.",
@@ -109,13 +131,14 @@ export const UI_STRINGS = {
     tut_s2_title: "Build Your Gallery",
     tut_s2_body: "Click the <strong>+</strong> on any skin to add it to your gallery. On a champion card, the <strong>+</strong> adds <em>all</em> of its skins at once.<br><br>Open <strong>My Gallery</strong> in the header anytime to review your picks, play a slideshow, or download them all as a single ZIP. You can also grab a whole champion or skin line from its detail page.",
     tut_s3_title: "Set as wallpapers",
-    tut_s3_body: "Unzip the download and point your OS wallpaper slideshow at that folder (Windows: <code>Settings → Personalization → Background → Slideshow</code>) — your desktop rotates on its own.<br><br><strong>Slideshow</strong> at the top also plays your gallery in-browser, or click any splash to zoom. Press <code>?</code> anytime to reopen this guide.",
+    tut_s3_body: "Unzip the download and point your OS wallpaper slideshow at that folder (Windows: <code>Settings → Personalization → Background → Slideshow</code>) — your desktop rotates on its own.<br><br>Prefer one click? The free <a href=\"https://github.com/badfalcon/OpenLeagueDisplay/releases\" target=\"_blank\" rel=\"noopener\">desktop app</a> sets any splash as your wallpaper directly — no ZIP, no extracting.<br><br><strong>Slideshow</strong> at the top also plays your gallery in-browser, or click any splash to zoom. Press <code>?</code> anytime to reopen this guide.",
     tut_s4_title: "Shortcuts",
     tut_s4_body: "<code>/</code> jump to search<br><code>?</code> this guide<br><code>Esc</code> go back / close<br><code>←</code> <code>→</code> previous / next in the lightbox<br><code>Space</code> pause the slideshow<br><br>Tap any open image to toggle the controls.",
     disclaimer: "OpenLeagueDisplay isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.",
   },
   ja_jp: {
     filters_label: "フィルタ",
+    skip_to_content: "本文へスキップ",
     lb_fit_aria: "画像の表示サイズを切替",
     search_placeholder: "チャンピオン/スキン検索...",
     search_placeholder_global: "全チャンピオンから検索...",
@@ -159,6 +182,7 @@ export const UI_STRINGS = {
     zip_count_failed: "失敗 {0}",
     progress_cancel: "中止",
     lb_close_aria: "閉じる",
+    lb_wallpaper_aria: "壁紙にする",
     lb_prev_aria: "前へ",
     lb_next_aria: "次へ",
     lb_aria: "スプラッシュ拡大表示",
@@ -180,6 +204,7 @@ export const UI_STRINGS = {
     wallpaper_apply: "壁紙に設定する",
     wallpaper_cancel: "キャンセル",
     wallpaper_none: "先にスプラッシュを選択してください",
+    wallpaper_no_image: "壁紙に設定できる画像がありません",
     wallpaper_note_single: "この画像をデスクトップの壁紙に設定します。",
     wallpaper_note_slideshow: "選んだ {0} 枚をデスクトップのスライドショーとして順に表示します（OS 管理なのでアプリを閉じても継続します）。",
     wallpaper_set: "壁紙を設定しました ✓",
@@ -189,6 +214,24 @@ export const UI_STRINGS = {
     wallpaper_done_title: "完了！",
     wallpaper_done_enjoy: "良い眺めを。",
     wallpaper_done_ok: "閉じる",
+    dl_choice_title: "そのまま壁紙にしますか？",
+    dl_choice_body: "デスクトップ版なら、どのスプラッシュも1クリックでそのまま壁紙にできます（ZIP も解凍も不要）。ブラウザはサンドボックスで壁紙を触れないため、Web 版は代わりに ZIP を渡しています。",
+    dl_choice_get: "🖥 デスクトップ版を入手",
+    dl_choice_zip: "ZIP をダウンロード",
+    transfer_menu: "転送…",
+    open_in_desktop: "🖥 デスクトップ版で開く",
+    handoff_title: "ギャラリーをデスクトップ版で開く",
+    handoff_body: "ギャラリーを OpenLeagueDisplay デスクトップ版に送り、1クリックで壁紙にできます。このPCでデスクトップ版が起動している必要があります（既定ポート 8000）。起動していない場合は、代わりにファイルへ書き出して向こうで読み込んでください。",
+    handoff_open: "デスクトップ版に送る",
+    handoff_export: "代わりにファイルに書き出す",
+    handoff_uptodate: "ギャラリーはすでに最新の状態です ✓",
+    import_done: "Web から {0} 個のスキンを取り込みました ✓",
+    import_done_file: "ファイルから {0} 個のスキンを取り込みました ✓",
+    export_selection: "⬆ ギャラリーを書き出し",
+    import_selection: "⬇ ギャラリーに読み込み",
+    export_done: "openleaguedisplay-selection.json を保存しました ✓ — 他の端末で読み込んでください。",
+    import_none: "取り込む新しいスキンはありませんでした。",
+    import_invalid: "そのファイルから選択を読み込めませんでした。",
     jszip_load_failed: "JSZip CDN の読込に失敗しました (10秒)",
     offline_banner: "オフラインです — スプラッシュ画像は表示されないことがあります",
     slideshow_empty: "先にマイギャラリーにスキンを追加してください",
@@ -214,7 +257,7 @@ export const UI_STRINGS = {
     tut_s2_title: "マイギャラリーを作る",
     tut_s2_body: "スキンの <strong>＋</strong> を押すとギャラリーに追加。チャンピオンカードの <strong>＋</strong> なら<em>そのチャンピオンの全スキン</em>を一括追加できます。<br><br>ヘッダの <strong>マイギャラリー</strong> をいつでも開いて、選んだスキンの確認・スライドショー再生・まとめて ZIP ダウンロードができます。各チャンピオン/シリーズの詳細ページから一括 DL も可能です。",
     tut_s3_title: "壁紙として設定",
-    tut_s3_body: "ZIP を解凍したフォルダを OS の壁紙スライドショーに指定すれば、デスクトップ背景が自動でローテーション再生されます (Windows: <code>設定 → 個人用設定 → 背景 → スライドショー</code>)。<br><br>ヘッダの <strong>スライドショー</strong> はブラウザ内再生用。スプラッシュクリックで拡大表示、<code>?</code> キーでこのガイドを再表示。",
+    tut_s3_body: "ZIP を解凍したフォルダを OS の壁紙スライドショーに指定すれば、デスクトップ背景が自動でローテーション再生されます (Windows: <code>設定 → 個人用設定 → 背景 → スライドショー</code>)。<br><br>1クリックで済ませたいなら、無料の<a href=\"https://github.com/badfalcon/OpenLeagueDisplay/releases\" target=\"_blank\" rel=\"noopener\">デスクトップ版</a>がどのスプラッシュもそのまま壁紙に設定できます（ZIP も解凍も不要）。<br><br>ヘッダの <strong>スライドショー</strong> はブラウザ内再生用。スプラッシュクリックで拡大表示、<code>?</code> キーでこのガイドを再表示。",
     tut_s4_title: "ショートカット",
     tut_s4_body: "<code>/</code> 検索へジャンプ<br><code>?</code> このガイド<br><code>Esc</code> 戻る・閉じる<br><code>←</code> <code>→</code> ライトボックスの前後<br><code>Space</code> スライドショーの一時停止<br><br>拡大表示中は画像をタップで操作 UI の表示/非表示を切替。",
     disclaimer: "OpenLeagueDisplay は Riot Games が承認したものではなく、Riot Games または League of Legends の制作・運営に公式に関与する者の見解や意見を反映するものではありません。League of Legends および Riot Games は Riot Games, Inc. の商標または登録商標です。",
@@ -2122,6 +2165,12 @@ export function applyStaticUIStrings() {
   $("prog-cancel").textContent = t("progress_cancel");
   $("lightbox").setAttribute("aria-label", t("lb_aria"));
   $("lb-close").setAttribute("aria-label", t("lb_close_aria"));
+  // lb-wallpaper is local-run-only (hidden on Pages) but still in the static markup, so localize its
+  // accessible name here alongside the other lightbox icon buttons (its only content is an emoji glyph).
+  // Also set a visible hover tooltip (title) since the core "see it → it's your wallpaper" gesture is
+  // otherwise an unlabeled 🖥 among the other icon buttons.
+  $("lb-wallpaper").setAttribute("aria-label", t("lb_wallpaper_aria"));
+  $("lb-wallpaper").title = t("lb_wallpaper_aria");
   $("lb-prev").setAttribute("aria-label", t("lb_prev_aria"));
   $("lb-next").setAttribute("aria-label", t("lb_next_aria"));
   syncPauseButton();

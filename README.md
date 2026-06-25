@@ -13,11 +13,19 @@
 ![screenshot](./screenshot.png)
 
 Riot's official LeagueDisplays app has been sitting abandoned since 2021, and
-they're clearly not coming back to it. **OpenLeagueDisplay** is a community
-stand-in for the people who still want that experience — a League of Legends
-splash art viewer where you can browse every champion × every skin in the
-browser and bulk-download the ones you like as a ZIP for a local wallpaper
-slideshow.
+they're clearly not coming back to it. **OpenLeagueDisplay** is the community
+successor for the people who still want that experience: browse every League of
+Legends champion × every skin, find one you love, and **set it as your desktop
+wallpaper in one click** — exactly what LeagueDisplays did.
+
+That one-click wallpaper lives in the
+**[desktop app](#desktop-app-set-wallpaper-directly)** (browsers are sandboxed
+out of your wallpaper). The
+**[web version](https://badfalcon.github.io/OpenLeagueDisplay/)** is the
+no-install way to browse from anywhere — your phone included — and, since it
+can't touch your wallpaper, it hands you the skins you pick as a ZIP instead.
+You can even build up a selection in the browser and send it straight to the
+desktop app to set.
 
 It is a fully static site. Images are loaded directly from the
 **Community Dragon CDN** — none are stored in this repo. New skins are picked
@@ -52,14 +60,17 @@ Nothing to install — just open
 ### Features
 
 - **Browse every skin**: by champion, or by skin line (PROJECT, Star Guardian, K/DA, ...)
-- **Bulk ZIP download**: grab the skins you selected, every skin of a champion,
-  or every skin in a skin line in one shot. Extract locally and point Windows'
-  "Background → Slideshow" at the folder for a LeagueDisplays-style wallpaper
-  rotation.
-- **Desktop app (set wallpaper directly)**: an optional native build lets you
-  set any splash as your desktop wallpaper in one click — or rotate your gallery
-  on a timer — without downloading/extracting anything. See
+- **Set wallpaper directly (desktop app)** — *the headline feature*: in the
+  native build, click any splash in the viewer and it becomes your desktop
+  wallpaper instantly. Pick several in My Gallery for an OS-native slideshow, or
+  hand a selection over from the web version. The OS keeps any slideshow rotating
+  even after you close the app. See
   [Desktop app](#desktop-app-set-wallpaper-directly) below.
+- **Bulk ZIP download** (web fallback): browsers are sandboxed out of your
+  wallpaper, so the web version instead lets you grab the skins you selected,
+  every skin of a champion, or a whole skin line as one ZIP. Extract locally and
+  point Windows' "Background → Slideshow" at the folder for a LeagueDisplays-style
+  rotation. (The desktop app skips all of this.)
 - **Slideshow**: full-screen playback with Ken Burns + crossfade
 - **Search / filter**: cross-keyword search over champion name, skin name, role
   (Mage / Tank / ...), region of origin (Demacia / Noxus / ...) and rarity
@@ -85,6 +96,7 @@ Nothing to install — just open
 | Selection mode | tick skins, then header "⬇ ZIP selected" downloads them in one ZIP |
 | Champion page | "⬇ ZIP all skins" downloads every skin for that champion |
 | Skin-line page | "⬇ ZIP this line" downloads every skin in that skin line |
+| 🖥 in fullscreen | *(desktop app only)* set the splash you're viewing as wallpaper, instantly |
 
 ### About the ZIP download
 
@@ -99,18 +111,26 @@ Nothing to install — just open
 ### Desktop app (set wallpaper directly)
 
 The web version can't touch your wallpaper (browsers are sandboxed). For the
-full LeagueDisplays experience — pick splashes and make them your wallpaper — run
-the **local app**, which is the exact same UI wrapped in a native window plus a
+full LeagueDisplays experience — see a splash you like, make it your wallpaper —
+run the **desktop app**: the exact same UI wrapped in a native window, plus a
 tiny local helper that sets the wallpaper for you.
 
-- **Download a build** from the [Releases](../../releases) page and run it.
-  Select one or more splashes in **My Gallery**, click **🖥 Set as wallpaper**,
-  review them in the confirmation dialog, and apply. **One** image becomes a
-  static wallpaper; **two or more** become a desktop **slideshow** with a change
-  interval (1 / 5 / 15 / 30 / 60 min). The slideshow uses your OS's *native*
-  slideshow (Windows `IDesktopWallpaper`, macOS System Events, GNOME slideshow
-  XML), so it keeps rotating even after you close the app and shows up correctly
-  as a slideshow in your system settings.
+- **Download a build** from the [Releases](../../releases) page and run it. Then:
+  - **One-click from the viewer** *(the simple path)*: open any splash and click
+    the **🖥** button in the top bar — it's your wallpaper, instantly. This is the
+    whole idea: see it, set it.
+  - **Several at once (slideshow)**: tick splashes in **My Gallery**, click
+    **🖥 Set as wallpaper**, and apply. **One** image becomes a static wallpaper;
+    **two or more** become a desktop **slideshow** with a change interval
+    (1 / 5 / 15 / 30 / 60 min). The slideshow uses your OS's *native* slideshow
+    (Windows `IDesktopWallpaper`, macOS System Events, GNOME slideshow XML), so it
+    keeps rotating even after you close the app and shows up correctly as a
+    slideshow in your system settings.
+  - **Sent from the web**: browsing on the [web version](https://badfalcon.github.io/OpenLeagueDisplay/)?
+    Build a selection in My Gallery there and click **🖥 Open in desktop app** — it
+    opens your picks in the desktop app (running on this PC) ready to set. Picking
+    on a *different* device (phone → PC)? Use **⬆ Export selection** to save a small
+    file and **⬇ Import selection** to load it on the other end.
   - **Windows — installer (recommended):**
     `OpenLeagueDisplay-windows-setup.exe` installs per-user (no admin prompt),
     adds a **Start Menu** entry and an optional **desktop shortcut**, and
@@ -174,7 +194,8 @@ repo, why CDragon rather than Data Dragon, etc.), see [`CLAUDE.md`](./CLAUDE.md)
 │   ├── zip.js                       #   bulk ZIP download (JSZip)
 │   ├── lightbox.js                  #   fullscreen viewer + (in-app) slideshow
 │   ├── local.js                     #   local-app detection + wallpaper API client
-│   └── wallpaper.js                 #   wallpaper confirm modal (select → confirm → apply)
+│   ├── wallpaper.js                 #   wallpaper confirm modal (select → confirm → apply)
+│   └── desktop.js                   #   desktop-app promotion + web→native selection hand-off (Web only)
 ├── sw.js                            # Service Worker (app-shell cache)
 ├── manifest.webmanifest             # PWA manifest (install / add to home screen)
 ├── favicon.svg                      # Site icon (also the manifest "any" icon)

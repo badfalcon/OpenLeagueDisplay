@@ -98,10 +98,11 @@ export function toast(msg, kind = "ok") {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("show"), 2600);
 
-  // aria-live won't re-announce the same string, so clear it first and set it again next frame
-  // (same approach as share.js's copy-done notice). This guarantees repeated toasts (e.g.
-  // "slideshow is empty") still get read out each time.
-  const sr = $("sr-status");
+  // Mirror to a screen-reader live region. Errors go through the assertive #sr-alert (interrupt now),
+  // everything else through the polite #sr-status. aria-live won't re-announce the same string, so
+  // clear it first and set it again next frame (same approach as share.js's copy-done notice). This
+  // guarantees repeated toasts (e.g. "slideshow is empty") still get read out each time.
+  const sr = $(kind === "err" ? "sr-alert" : "sr-status");
   if (sr) {
     sr.textContent = "";
     requestAnimationFrame(() => { sr.textContent = msg; });

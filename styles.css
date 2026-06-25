@@ -271,23 +271,29 @@
     margin-left: 7px;
     vertical-align: middle;
   }
-  .lang-menu {
+  /* Dropdown popover shared by the language picker and the My Gallery "Transfer…" cluster (the latter
+     groups the occasional cross-device actions — Open in desktop / Export / Import — so the everyday
+     Download/Slideshow/Clear stay top-level). Both are disclosure menus: a toggle button driven by
+     aria-expanded over a <ul> of plain Tab-focusable buttons (no role=menu / arrow-key model). */
+  .menu-wrap { position: relative; }
+  .lang-menu, .toolbar-menu {
     position: absolute;
-    top: calc(100% + 6px); right: 0;
+    top: calc(100% + 6px);
     margin: 0; padding: 6px 0;
     list-style: none;
     background: var(--bg-1);
     border: 1px solid var(--rule-bold);
     min-width: 220px;
-    max-height: 60vh;
-    overflow-y: auto;
     z-index: 50;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
   }
-  .lang-menu[hidden] { display: none; }
-  .lang-menu li { margin: 0; }
-  .lang-menu button {
-    display: flex; align-items: center; gap: 12px;
+  /* The language picker anchors to the header's right edge and can overflow a long locale list (so it
+     scrolls); the toolbar menu anchors under its left-aligned button. */
+  .lang-menu { right: 0; max-height: 60vh; overflow-y: auto; }
+  .toolbar-menu { left: 0; }
+  .lang-menu[hidden], .toolbar-menu[hidden] { display: none; }
+  .lang-menu li, .toolbar-menu li { margin: 0; }
+  .lang-menu button, .toolbar-menu button {
     width: 100%; padding: 9px 14px;
     background: transparent; border: 0;
     color: var(--ink);
@@ -298,8 +304,11 @@
     text-align: left; cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
-  .lang-menu button:hover,
-  .lang-menu button:focus-visible {
+  /* lang items carry a flag + code (flex row); toolbar items are plain text blocks */
+  .lang-menu button { display: flex; align-items: center; gap: 12px; }
+  .toolbar-menu button { display: block; }
+  .lang-menu button:hover, .lang-menu button:focus-visible,
+  .toolbar-menu button:hover, .toolbar-menu button:focus-visible {
     background: rgba(212, 168, 87, 0.10);
     color: var(--gold-hi);
     outline: none;
@@ -1048,11 +1057,17 @@
     font-size: 10.5px; font-weight: 500;
     letter-spacing: 0.22em; text-transform: uppercase;
   }
+  /* Dimmed while disabled (e.g. #lb-wallpaper during an in-flight wallpaper apply), matching
+     .btn:disabled's values so the click visibly registers on a slow apply */
+  .ss-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   /* Hover lighting on mouse devices only (on touch, :hover sticks after a tap and
      the lit state lingers after toggling off, looking "stuck active"). Real active
      is handled by the .active class below */
   @media (hover: hover) {
-    .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+    /* :not(:disabled) so a disabled #lb-wallpaper (in-flight apply) stays dimmed instead of lighting
+       gold on hover — the hover rule comes after .ss-btn:disabled at equal specificity, so without
+       this exclusion it would win */
+    .ss-btn:not(:disabled):hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   }
   /* Gold lit = active (matches the app-wide active treatment = .tab.active etc.).
      ss-pause means "playing", lb-fit means "cover (full-screen) on". Unlit stays
@@ -1099,6 +1114,22 @@
     max-width: 60ch;
     margin: 4px auto 0;
   }
+  /* Desktop-app CTA (Web only, injected by desktop.js at the top of the footer). The rest of the
+     footer is small/dim source & legal text; this is a promotion, so give it a touch more presence —
+     a thin gold pill — without shouting. Normal casing (the footer is uppercase by default).
+     The background rgba mirrors --gold (#d4a857) at low alpha (can't rgba() a hex CSS var directly). */
+  .footer-cta {
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 auto 6px;
+    padding: 8px 14px;
+    max-width: 58ch;
+    border: 1px solid var(--gold-deep);
+    border-radius: 999px;
+    background: rgba(212, 168, 87, 0.08);
+  }
   footer::before {
     content: "✦";
     position: absolute; top: -8px; left: 50%;
@@ -1111,6 +1142,12 @@
     color: var(--gold-hi);
     text-decoration: underline; text-underline-offset: 4px;
     text-decoration-color: var(--gold-deep);
+  }
+  /* Footer links are plain <a>, so give them the same gold focus ring as .btn for keyboard parity */
+  footer a:focus-visible {
+    outline: none;
+    border-radius: 3px;
+    box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18);
   }
 
   /* === ZIP DL / SELECTION ========================================= */
@@ -1279,9 +1316,14 @@
     font-size: 13px;
     opacity: 0.7;
   }
-  /* "Browse champions" CTA shown below the empty-state hint (lives inside .loading, so only margin is handled here) */
-  .gallery-browse-cta {
+  /* Empty-gallery action row (Browse + Import selection) shown below the empty-state hint. Centered,
+     wraps on narrow screens; the row's own margin-top + gap handle all the spacing the buttons need. */
+  .gallery-empty-actions {
     margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
   }
 
   /* === FILTER CHIPS === one-tap role/rarity/region filter at the top of the home view ===

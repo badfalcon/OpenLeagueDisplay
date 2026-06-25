@@ -15,6 +15,7 @@ import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
+import { gateDownload, openInDesktop, exportSelection, pickSelectionFile } from "./desktop.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -541,7 +542,7 @@ function renderChampion(root) {
     title: champName(c),
     count: t("skins_count", c.skins.length),
     nav,
-    ...detailPrimary(keys, t("dl_champion"), () => downloadChampion(c)),
+    ...detailPrimary(keys, t("dl_champion"), () => gateDownload(() => downloadChampion(c))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
@@ -678,7 +679,7 @@ function renderLine(root) {
     title: lname,
     count: t("skins_count", items.length),
     nav,
-    ...detailPrimary(keys, t("dl_line"), () => downloadLine(lid, lname, items)),
+    ...detailPrimary(keys, t("dl_line"), () => gateDownload(() => downloadLine(lid, lname, items))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), items.map(it => toLightboxItem(it.champ, it.skin)));
@@ -691,6 +692,50 @@ function renderLine(root) {
 // A DL / Slideshow / Clear toolbar goes above the grid (the old pack-bar's role).
 // Clicking + on a card calls toggleSelected but doesn't remove it immediately, just dims it in place
 // (so it's undoable). It actually leaves the grid only the next time the gallery is reopened.
+
+// The "Transfer…" dropdown in the gallery toolbar. Per-render we wire the (freshly recreated) toggle
+// button + the menu's click-to-close; the document-level outside-click is wired ONCE (guarded) and
+// looks the menu up by id at event time, so re-rendering the toolbar never leaks listeners. Esc is
+// handled in app.js's keydown (it must preempt the global goBack), calling closeTransferMenu().
+let _transferDocWired = false;
+export function closeTransferMenu() {
+  const m = $("transfer-menu"), b = $("transfer-btn");
+  if (m) m.hidden = true;
+  if (b) b.setAttribute("aria-expanded", "false");
+}
+function wireTransferMenu() {
+  const btn = $("transfer-btn"), menu = $("transfer-menu");
+  if (!btn || !menu) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();  // don't trip the outside-click closer below
+    const open = menu.hidden;
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  menu.addEventListener("click", closeTransferMenu);  // close after a choice (the item handler still runs)
+  if (!_transferDocWired) {
+    _transferDocWired = true;
+    document.addEventListener("click", (e) => {
+      const m = $("transfer-menu");
+      if (m && !m.hidden && !e.target.closest(".menu-wrap")) closeTransferMenu();
+    });
+  }
+}
+
+// Wire an "Import selection" button: open the file picker, merge the keys, then refresh the gallery
+// so the imported cards appear (or are shown alongside the existing selection).
+function wireImportSelection(btn) {
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    pickSelectionFile().then((n) => {
+      if (n === null) return;                            // dialog cancelled — stay silent
+      if (n < 0) { toast(t("import_invalid"), "err"); }  // unreadable / not selection JSON
+      else if (n === 0) { toast(t("import_none")); }     // valid file, but nothing new (all already selected or stale keys)
+      else { toast(t("import_done_file", n)); render(); }
+    });
+  });
+}
+
 function renderSelected(root) {
   const items = [];
   for (const k of state.selected) {
@@ -712,11 +757,17 @@ function renderSelected(root) {
 
   if (items.length === 0) {
     // The empty state tends to be a dead end, so show a CTA back to home below the hint text
+    // Offer Import here too: a fresh desktop app (or a new device) starts with an empty gallery, and
+    // importing a file exported elsewhere is exactly the cross-machine hand-off path.
     $("view-content").innerHTML =
       `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
-      `<button class="btn primary gallery-browse-cta" id="gallery-browse">${t("gallery_empty_cta")}</button></div>`;
+      `<div class="gallery-empty-actions">` +
+      `<button class="btn primary" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
+      `<button class="btn" id="gallery-import">${t("import_selection")}</button>` +
+      `</div></div>`;
     const browse = $("gallery-browse");
     if (browse) browse.addEventListener("click", goHome);
+    wireImportSelection($("gallery-import"));
     return;
   }
 
@@ -731,16 +782,35 @@ function renderSelected(root) {
     : "";
   // ZIP DL is Web-only (the way to work around the browser sandbox). Hide it in local mode.
   const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
+  // The occasional cross-device actions (hand-off + Export/Import) are grouped under a single
+  // "Transfer…" menu so the everyday Download/Slideshow/Clear stay as top-level peers and the bar
+  // doesn't balloon to 6 buttons (crowds small screens). The deep-link hand-off is Web-only
+  // (localStorage is per-origin so it can't be shared automatically); Export/Import work in any mode.
+  const handoffItem = isLocal() ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       ${dlBtn}
       ${wpBtn}
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      <div class="menu-wrap">
+        <button class="btn" id="transfer-btn" type="button" aria-expanded="false">${t("transfer_menu")}</button>
+        <ul class="toolbar-menu" id="transfer-menu" hidden>
+          ${handoffItem}
+          <li><button id="menu-export">${t("export_selection")}</button></li>
+          <li><button id="menu-import">${t("import_selection")}</button></li>
+        </ul>
+      </div>
       <button class="btn" id="gallery-clear">${t("clear")}</button>
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
   const dl = $("gallery-dl");
-  if (dl) dl.addEventListener("click", downloadSelected);
+  if (dl) dl.addEventListener("click", () => gateDownload(downloadSelected));
+  const handoff = $("menu-handoff");
+  if (handoff) handoff.addEventListener("click", openInDesktop);
+  const ex = $("menu-export");
+  if (ex) ex.addEventListener("click", () => { if (exportSelection()) toast(t("export_done")); });
+  wireImportSelection($("menu-import"));
+  wireTransferMenu();
   // The gallery toolbar's Slideshow: normally only shown when there are items, but in the edge case
   // of selecting only skins without a splash, startGlobalSlideshow returns false (0 playable). We're
   // already in the gallery view here, so no extra navigation is needed, just toast the reason.

@@ -3,6 +3,7 @@
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+import { isLocalWallpaper } from "./local.js";
 
 // Focus-trap release function (installed on open, called on close). Even while chrome-hidden
 // (opacity:0), toolbar buttons keep their offsetParent (opacity doesn't affect offsetParent),
@@ -60,6 +61,15 @@ export function openLightbox(list, idx, mode) {
   // (paused was reset to false above, so sync to the playing state the instant it opens).
   syncPauseButton();
   syncCaptionButton();
+  // One-click "set as wallpaper" only makes sense in local-run mode (Pages can't touch the wallpaper).
+  // Shown in both viewer and slideshow modes; the click handler (app.js) applies the current splash.
+  // Reset the transient busy/disabled state too: it's a single shared button, so a still-settling
+  // apply from a previous open must not leave a freshly-opened lightbox showing a dead button (the
+  // old request's finally re-enabling an already-enabled button is harmless).
+  const lbWp = $("lb-wallpaper");
+  lbWp.style.display = isLocalWallpaper() ? "" : "none";
+  lbWp.disabled = false;
+  lbWp.removeAttribute("aria-busy");
   // The interval/caption ⚙ menu only exists during slideshow. Always collapse it on open.
   $("ss-options-wrap").style.display = mode === "slideshow" ? "" : "none";
   $("ss-menu").hidden = true;
