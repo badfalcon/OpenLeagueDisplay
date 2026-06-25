@@ -1055,7 +1055,10 @@
      the lit state lingers after toggling off, looking "stuck active"). Real active
      is handled by the .active class below */
   @media (hover: hover) {
-    .ss-btn:hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
+    /* :not(:disabled) so a disabled #lb-wallpaper (in-flight apply) stays dimmed instead of lighting
+       gold on hover — the hover rule comes after .ss-btn:disabled at equal specificity, so without
+       this exclusion it would win */
+    .ss-btn:not(:disabled):hover { background: var(--gold); color: #1a1208; border-color: var(--gold); }
   }
   /* Gold lit = active (matches the app-wide active treatment = .tab.active etc.).
      ss-pause means "playing", lb-fit means "cover (full-screen) on". Unlit stays
