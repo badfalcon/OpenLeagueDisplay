@@ -159,12 +159,12 @@ async function init() {
   // selection across the origin boundary (github.io ≠ 127.0.0.1, so localStorage can't be shared).
   // Merge it into the selection, then rewrite the hash to the gallery so a reload doesn't re-import.
   // Must run after buildIndexes (SKIN_BY_KEY ready) and before routing (it rewrites the hash).
-  // Branch on whether a hand-off link was actually present (not just on the merge count): an existing
-  // selection re-imported via the link adds 0 keys, but we still want to land on the gallery and give
-  // feedback rather than leave the stale #import= hash to fall through routing to home, silently.
-  const hadImport = /^#import=/.test(location.hash || "");
+  // applyImportFromHash returns null when there was no hand-off link, or a count (possibly 0) when
+  // there was. Branch on "was there a link" (not just count > 0): an existing selection re-imported
+  // via the link adds 0 keys, but we still want to land on the gallery and give feedback rather than
+  // leave the stale #import= hash to fall through routing to home, silently.
   const imported = applyImportFromHash();
-  if (hadImport) {
+  if (imported !== null) {
     history.replaceState(null, "", "#/gallery");
     toast(imported > 0 ? t("import_done", imported) : t("import_none"));
   }

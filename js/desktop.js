@@ -126,12 +126,15 @@ export function openInDesktop() {
 }
 
 // Native side of the hand-off: if the URL carries #import=<json keys>, merge the valid ones into the
-// current selection and return how many were newly added. Called once on startup (after
-// buildIndexes, so SKIN_BY_KEY is ready). Not gated on isLocal() — the link only ever points at
-// 127.0.0.1, but a manually pasted link should still work. The caller clears the hash afterward.
+// current selection. Returns null when there is NO #import= hash, or the number newly added (possibly
+// 0) when there is one — this lets the caller tell "no hand-off" from "hand-off that added nothing"
+// without re-parsing the fragment format (which is owned here), mirroring pickSelectionFile's tri-state.
+// Called once on startup (after buildIndexes, so SKIN_BY_KEY is ready). Not gated on isLocal() — the
+// link only ever points at 127.0.0.1, but a manually pasted link should still work. The caller clears
+// the hash afterward.
 export function applyImportFromHash() {
   const m = /^#import=(.*)$/.exec(location.hash || "");
-  if (!m) return 0;
+  if (!m) return null;
   let keys;
   try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return 0; }
   return Array.isArray(keys) ? mergeKeys(keys) : 0;
