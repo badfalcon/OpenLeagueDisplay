@@ -148,7 +148,14 @@
 <div class="dom-stash" id="dom-stash" hidden>
   <button class="btn" id="back-btn">← Back</button>
   <input type="search" id="search" placeholder="Search champion…">
-  <label class="sort-label" id="sort-label" for="sort-select">Sort order</label>
+  <!-- Icon-only sort affordance: a descending sort-amount glyph replaces the wordy
+       "SORT ORDER" eyebrow to save horizontal room next to search (esp. on mobile).
+       The <label for> still focuses the select on tap; the .sr-only text supplies the
+       accessible name (applyStaticUIStrings keeps it localized) while the SVG is decorative -->
+  <label class="sort-label" id="sort-label" for="sort-select">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h7M2.5 11.5h3.5"/></svg>
+    <span class="sr-only" id="sort-label-text">Sort order</span>
+  </label>
   <select class="ctrl-select" id="sort-select">
     <option value="name_asc">Name A → Z</option>
     <option value="name_desc">Name Z → A</option>
