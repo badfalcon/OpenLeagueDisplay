@@ -271,23 +271,29 @@
     margin-left: 7px;
     vertical-align: middle;
   }
-  .lang-menu {
+  /* Dropdown popover shared by the language picker and the My Gallery "Transfer…" cluster (the latter
+     groups the occasional cross-device actions — Open in desktop / Export / Import — so the everyday
+     Download/Slideshow/Clear stay top-level). Both are disclosure menus: a toggle button driven by
+     aria-expanded over a <ul> of plain Tab-focusable buttons (no role=menu / arrow-key model). */
+  .menu-wrap { position: relative; }
+  .lang-menu, .toolbar-menu {
     position: absolute;
-    top: calc(100% + 6px); right: 0;
+    top: calc(100% + 6px);
     margin: 0; padding: 6px 0;
     list-style: none;
     background: var(--bg-1);
     border: 1px solid var(--rule-bold);
     min-width: 220px;
-    max-height: 60vh;
-    overflow-y: auto;
     z-index: 50;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
   }
-  .lang-menu[hidden] { display: none; }
-  .lang-menu li { margin: 0; }
-  .lang-menu button {
-    display: flex; align-items: center; gap: 12px;
+  /* The language picker anchors to the header's right edge and can overflow a long locale list (so it
+     scrolls); the toolbar menu anchors under its left-aligned button. */
+  .lang-menu { right: 0; max-height: 60vh; overflow-y: auto; }
+  .toolbar-menu { left: 0; }
+  .lang-menu[hidden], .toolbar-menu[hidden] { display: none; }
+  .lang-menu li, .toolbar-menu li { margin: 0; }
+  .lang-menu button, .toolbar-menu button {
     width: 100%; padding: 9px 14px;
     background: transparent; border: 0;
     color: var(--ink);
@@ -298,8 +304,11 @@
     text-align: left; cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
-  .lang-menu button:hover,
-  .lang-menu button:focus-visible {
+  /* lang items carry a flag + code (flex row); toolbar items are plain text blocks */
+  .lang-menu button { display: flex; align-items: center; gap: 12px; }
+  .toolbar-menu button { display: block; }
+  .lang-menu button:hover, .lang-menu button:focus-visible,
+  .toolbar-menu button:hover, .toolbar-menu button:focus-visible {
     background: rgba(212, 168, 87, 0.10);
     color: var(--gold-hi);
     outline: none;
@@ -307,40 +316,6 @@
   .lang-menu button[aria-current="true"] {
     color: var(--gold-hi);
     background: rgba(212, 168, 87, 0.06);
-  }
-
-  /* Generic toolbar dropdown. The My Gallery "Transfer…" cluster groups the occasional cross-device
-     actions (Open in desktop / Export / Import) so the everyday Download/Slideshow/Clear stay at the
-     top level. Mirrors the .lang-menu popover pattern (absolute, anchored under its button). */
-  .menu-wrap { position: relative; }
-  .toolbar-menu {
-    position: absolute;
-    top: calc(100% + 6px); left: 0;
-    margin: 0; padding: 6px 0;
-    list-style: none;
-    background: var(--bg-1);
-    border: 1px solid var(--rule-bold);
-    min-width: 220px;
-    z-index: 50;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  }
-  .toolbar-menu[hidden] { display: none; }
-  .toolbar-menu li { margin: 0; }
-  .toolbar-menu button {
-    display: block; width: 100%; padding: 10px 16px;
-    background: transparent; border: 0;
-    color: var(--ink);
-    font-family: var(--font-eyebrow);
-    font-size: 10.5px; font-weight: 500;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    text-align: left; cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-  }
-  .toolbar-menu button:hover,
-  .toolbar-menu button:focus-visible {
-    background: rgba(212, 168, 87, 0.10);
-    color: var(--gold-hi);
-    outline: none;
   }
 
   .btn {

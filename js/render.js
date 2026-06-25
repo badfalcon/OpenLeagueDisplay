@@ -793,7 +793,7 @@ function renderSelected(root) {
       ${wpBtn}
       <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
       <div class="menu-wrap">
-        <button class="btn" id="transfer-btn" type="button" aria-haspopup="true" aria-expanded="false">${t("transfer_menu")}</button>
+        <button class="btn" id="transfer-btn" type="button" aria-expanded="false">${t("transfer_menu")}</button>
         <ul class="toolbar-menu" id="transfer-menu" hidden>
           ${handoffItem}
           <li><button id="menu-export">${t("export_selection")}</button></li>
