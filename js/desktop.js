@@ -11,7 +11,7 @@
 
 import {
   state, $, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert,
-  lsGet, lsSet, LS_DL_PROMPT_SEEN, saveSelected, SKIN_BY_KEY,
+  lsGet, lsSet, LS_DL_PROMPT_SEEN, saveSelected, SKIN_BY_KEY, isMobile,
 } from "./state.js";
 import { t } from "./i18n.js";
 import { isLocal, toast } from "./local.js";
@@ -105,9 +105,10 @@ function choiceModal({ title, body, primary, secondary, onDismiss, focus }) {
 // upsell, so run the download straight through. The user clicked Download, so dismissing the upsell
 // (Esc / backdrop) is treated as "yes, just give me the ZIP" — it downloads and marks the prompt seen
 // rather than silently doing nothing. The ZIP (secondary) is focused by default since it's the action
-// the user actually requested.
+// the user actually requested. On mobile we skip the upsell entirely (and don't burn the "seen" flag):
+// the desktop app can't run on the phone, so interrupting a ZIP download to pitch it only gets in the way.
 export function gateDownload(runDownload) {
-  if (isLocal() || lsGet(LS_DL_PROMPT_SEEN)) { runDownload(); return; }
+  if (isLocal() || isMobile() || lsGet(LS_DL_PROMPT_SEEN)) { runDownload(); return; }
   const proceedWithZip = () => { lsSet(LS_DL_PROMPT_SEEN, "1"); runDownload(); };
   choiceModal({
     title: t("dl_choice_title"),
@@ -130,6 +131,10 @@ export function gateDownload(runDownload) {
 export function openInDesktop() {
   const keys = [...state.selected];
   if (!keys.length) return;
+  // On mobile the deep link can't work — there's no desktop app (and so no 127.0.0.1 server) on the
+  // phone. Skip the "open in desktop app" choice and go straight to the file export, which is the
+  // path that actually makes sense here: write the selection out and import it on the PC.
+  if (isMobile()) { if (exportSelection()) toast(t("export_done")); return; }
   const link = `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
   // The page can't reliably preflight 127.0.0.1 from an https origin (mixed-content / CORS), so instead
   // of a dead connection-error tab when the app isn't running, the secondary offers the file Export —
