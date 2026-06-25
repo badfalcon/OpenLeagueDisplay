@@ -136,6 +136,7 @@ export const UI_STRINGS = {
   },
   ja_jp: {
     filters_label: "フィルタ",
+    skip_to_content: "本文へスキップ",
     lb_fit_aria: "画像の表示サイズを切替",
     search_placeholder: "チャンピオン/スキン検索...",
     search_placeholder_global: "全チャンピオンから検索...",
