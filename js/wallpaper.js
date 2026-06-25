@@ -37,7 +37,7 @@ function ensureModal() {
   el.hidden = true;
   el.innerHTML = `
     <div class="wp-backdrop" id="wp-backdrop"></div>
-    <div class="wp-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-title">
+    <div class="wp-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-title" aria-describedby="wp-note">
       <h2 class="wp-title" id="wp-title">${esc(t("wallpaper_confirm_title"))}</h2>
       <div class="wp-grid" id="wp-grid"></div>
       <div class="wp-footer">
@@ -96,7 +96,7 @@ function ensureDoneModal() {
   el.hidden = true;
   el.innerHTML = `
     <div class="wp-backdrop" id="wp-done-backdrop"></div>
-    <div class="wp-dialog wp-done-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-done-title">
+    <div class="wp-dialog wp-done-dialog" role="dialog" aria-modal="true" aria-labelledby="wp-done-title" aria-describedby="wp-done-detail">
       <div class="wp-done-emoji" aria-hidden="true">🎉</div>
       <h2 class="wp-title" id="wp-done-title">${esc(t("wallpaper_done_title"))}</h2>
       <p class="wp-done-detail" id="wp-done-detail"></p>

@@ -16,7 +16,7 @@ import {
 } from "./i18n.js";
 import {
   render, goHome, goBack, openLines, openSelected,
-  imgLoaded, imgErr, setRouteListener, setNavListener,
+  imgLoaded, imgErr, setRouteListener, setNavListener, closeTransferMenu,
 } from "./render.js";
 import {
   hideProgress,
@@ -187,7 +187,9 @@ async function init() {
   render();
 
   // Now that the gallery is on screen, announce the hand-off result (see the deferral note above).
-  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("import_none"));
+  // A 0-count here means the link's picks were already in the gallery (re-imported your own selection),
+  // so use the reassuring "already up to date" message rather than the file path's "nothing new".
+  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
@@ -459,6 +461,16 @@ function wireEvents() {
       // This Escape is already consumed by "close the menu". Don't let it also fire the later
       // document keydown (goBack / lightbox).
       e.stopImmediatePropagation();
+      return;
+    }
+    // Same deal for the gallery "Transfer…" dropdown: close it on Esc and consume the key so it
+    // doesn't also fire goBack (the menu lives in the gallery view, where Esc would navigate away).
+    const tm = $("transfer-menu");
+    if (e.key === "Escape" && tm && !tm.hidden) {
+      closeTransferMenu();
+      const tb = $("transfer-btn");
+      if (tb) tb.focus();
+      e.stopImmediatePropagation();
     }
   });
   $("prog-cancel").addEventListener("click", () => {
@@ -563,6 +575,7 @@ function wireEvents() {
     if (!url) { toast(t("wallpaper_no_image"), "err"); return; }  // defensive: a shown splash always has a src
     const btn = $("lb-wallpaper");
     btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");  // there's no progress UI on this path, so announce the in-flight state
     try {
       await applyWallpaper([url]);
       toast(t("wallpaper_set"));
@@ -570,6 +583,7 @@ function wireEvents() {
       toast(t("wallpaper_failed", err.message), "err");
     } finally {
       btn.disabled = false;
+      btn.removeAttribute("aria-busy");
     }
   });
   // Offline detection: CDragon splash images aren't cached, so offline they all fail to appear.

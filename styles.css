@@ -309,6 +309,40 @@
     background: rgba(212, 168, 87, 0.06);
   }
 
+  /* Generic toolbar dropdown. The My Gallery "Transfer…" cluster groups the occasional cross-device
+     actions (Open in desktop / Export / Import) so the everyday Download/Slideshow/Clear stay at the
+     top level. Mirrors the .lang-menu popover pattern (absolute, anchored under its button). */
+  .menu-wrap { position: relative; }
+  .toolbar-menu {
+    position: absolute;
+    top: calc(100% + 6px); left: 0;
+    margin: 0; padding: 6px 0;
+    list-style: none;
+    background: var(--bg-1);
+    border: 1px solid var(--rule-bold);
+    min-width: 220px;
+    z-index: 50;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
+  .toolbar-menu[hidden] { display: none; }
+  .toolbar-menu li { margin: 0; }
+  .toolbar-menu button {
+    display: block; width: 100%; padding: 10px 16px;
+    background: transparent; border: 0;
+    color: var(--ink);
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    text-align: left; cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .toolbar-menu button:hover,
+  .toolbar-menu button:focus-visible {
+    background: rgba(212, 168, 87, 0.10);
+    color: var(--gold-hi);
+    outline: none;
+  }
+
   .btn {
     height: var(--ctrl-h);
     padding: 0 18px;
@@ -1133,6 +1167,12 @@
     color: var(--gold-hi);
     text-decoration: underline; text-underline-offset: 4px;
     text-decoration-color: var(--gold-deep);
+  }
+  /* Footer links are plain <a>, so give them the same gold focus ring as .btn for keyboard parity */
+  footer a:focus-visible {
+    outline: none;
+    border-radius: 3px;
+    box-shadow: 0 0 0 3px rgba(212, 168, 87, 0.18);
   }
 
   /* === ZIP DL / SELECTION ========================================= */

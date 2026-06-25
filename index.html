@@ -274,6 +274,9 @@
      into a checkmark, but rewriting aria-label alone isn't announced, so copy-complete is
      reported by updating this live region's text -->
 <div class="sr-only" id="sr-status" role="status" aria-live="polite"></div>
+<!-- Errors (toast kind="err") go through this assertive region so failures interrupt rather than
+     queue behind polite speech and get missed while the visible toast auto-dismisses -->
+<div class="sr-only" id="sr-alert" role="alert" aria-live="assertive"></div>
 
 <footer>
   <div class="footer-inner">

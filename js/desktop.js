@@ -14,7 +14,7 @@ import {
   lsGet, lsSet, LS_DL_PROMPT_SEEN, saveSelected, SKIN_BY_KEY,
 } from "./state.js";
 import { t } from "./i18n.js";
-import { isLocal } from "./local.js";
+import { isLocal, toast } from "./local.js";
 import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper (zip.js imports only state/i18n, no cycle)
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
@@ -27,6 +27,8 @@ const NATIVE_URL = "http://127.0.0.1:8000";
 // ---- generic two-choice modal (reuses the wp-* modal CSS for styling) --------
 let _releaseTrap = null;  // focus-trap release fn (set on open, called on close)
 let _lastFocus = null;    // focus just before opening (restored on close)
+let _onDismiss = null;    // optional callback when closed WITHOUT picking a button (Esc / backdrop)
+let _choiceMade = false;  // set true by a button so closeChoice can tell a pick from a dismissal
 
 function ensureChoiceModal() {
   let el = $("choice-modal");
@@ -37,7 +39,7 @@ function ensureChoiceModal() {
   el.hidden = true;
   el.innerHTML = `
     <div class="wp-backdrop" id="choice-backdrop"></div>
-    <div class="wp-dialog" role="dialog" aria-modal="true" aria-labelledby="choice-title">
+    <div class="wp-dialog" role="dialog" aria-modal="true" aria-labelledby="choice-title" aria-describedby="choice-body">
       <h2 class="wp-title" id="choice-title"></h2>
       <p class="wp-note" id="choice-body"></p>
       <div class="wp-actions">
@@ -65,36 +67,48 @@ function closeChoice() {
     try { _lastFocus.focus(); } catch (_) {}
   }
   _lastFocus = null;
+  // Esc / backdrop closed it without a button pick → run the caller's dismissal action (if any).
+  const dismissed = !_choiceMade, cb = _onDismiss;
+  _choiceMade = false; _onDismiss = null;
+  if (dismissed && cb) cb();
 }
 
 // title/body: strings. primary/secondary: { label, onClick }. Same modal isolation model as the
 // others (lock scroll, inert background, trap Tab, focus the main action).
-function choiceModal({ title, body, primary, secondary }) {
+function choiceModal({ title, body, primary, secondary, onDismiss, focus }) {
   const el = ensureChoiceModal();
   $("choice-title").textContent = title;
   $("choice-body").textContent = body;
   const p = $("choice-primary"), s = $("choice-secondary");
   p.textContent = primary.label;
   s.textContent = secondary.label;
-  // Re-bind per open since the handlers differ each call. Close first, then act.
-  p.onclick = () => { closeChoice(); primary.onClick(); };
-  s.onclick = () => { closeChoice(); secondary.onClick(); };
+  // Re-bind per open since the handlers differ each call. Mark a real pick (so closeChoice doesn't
+  // also fire onDismiss), close first, then act.
+  p.onclick = () => { _choiceMade = true; closeChoice(); primary.onClick(); };
+  s.onclick = () => { _choiceMade = true; closeChoice(); secondary.onClick(); };
+  _onDismiss = onDismiss || null;
+  _choiceMade = false;
   _lastFocus = document.activeElement;
   el.hidden = false;
   lockScroll();
   setBackgroundInert();
   if (_releaseTrap) _releaseTrap();
   _releaseTrap = trapFocus(el);
-  p.focus();
+  // Default focus to the primary action, but let callers focus the secondary when IT is the action the
+  // user actually asked for (e.g. the download upsell, where secondary = "Download the ZIP").
+  (focus === "secondary" ? s : p).focus();
 }
 
 // ---- 1. first-download upsell -------------------------------------------------
 // Wrap a ZIP download so the first time (Web only) we offer the desktop app instead. After the
 // user's first explicit choice we never interrupt again. In local mode there's no ZIP path to
-// upsell, so run the download straight through. Cancelling (Esc / backdrop) neither downloads nor
-// marks the prompt seen — the next attempt asks again.
+// upsell, so run the download straight through. The user clicked Download, so dismissing the upsell
+// (Esc / backdrop) is treated as "yes, just give me the ZIP" — it downloads and marks the prompt seen
+// rather than silently doing nothing. The ZIP (secondary) is focused by default since it's the action
+// the user actually requested.
 export function gateDownload(runDownload) {
   if (isLocal() || lsGet(LS_DL_PROMPT_SEEN)) { runDownload(); return; }
+  const proceedWithZip = () => { lsSet(LS_DL_PROMPT_SEEN, "1"); runDownload(); };
   choiceModal({
     title: t("dl_choice_title"),
     body: t("dl_choice_body"),
@@ -102,10 +116,9 @@ export function gateDownload(runDownload) {
       label: t("dl_choice_get"),
       onClick: () => { lsSet(LS_DL_PROMPT_SEEN, "1"); window.open(RELEASES_URL, "_blank", "noopener"); },
     },
-    secondary: {
-      label: t("dl_choice_zip"),
-      onClick: () => { lsSet(LS_DL_PROMPT_SEEN, "1"); runDownload(); },
-    },
+    secondary: { label: t("dl_choice_zip"), onClick: proceedWithZip },
+    onDismiss: proceedWithZip,
+    focus: "secondary",
   });
 }
 
@@ -118,11 +131,14 @@ export function openInDesktop() {
   const keys = [...state.selected];
   if (!keys.length) return;
   const link = `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
+  // The page can't reliably preflight 127.0.0.1 from an https origin (mixed-content / CORS), so instead
+  // of a dead connection-error tab when the app isn't running, the secondary offers the file Export —
+  // the reliable fallback that works regardless of whether the desktop app is up.
   choiceModal({
     title: t("handoff_title"),
     body: t("handoff_body"),
     primary: { label: t("handoff_open"), onClick: () => window.open(link, "_blank", "noopener") },
-    secondary: { label: t("handoff_get"), onClick: () => window.open(RELEASES_URL, "_blank", "noopener") },
+    secondary: { label: t("handoff_export"), onClick: () => { if (exportSelection()) toast(t("export_done")); } },
   });
 }
 
