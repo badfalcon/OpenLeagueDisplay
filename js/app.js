@@ -616,10 +616,14 @@ function wireEvents() {
   let tStartX = 0, tStartY = 0;
   // A flag to ignore exactly one click that may fire right after a swipe completes. A completed swipe
   // normally suppresses the browser's click, but some devices leak it, so for reliability we decide
-  // "a stage click right after a swipe is not used for the chrome toggle".
+  // "a stage click right after a swipe is not used for the chrome toggle". Reset on every touchstart so
+  // it can only ever absorb the click of the immediately-preceding swipe — without this it would latch
+  // (most platforms emit no post-swipe click, so nothing clears it) and swallow the next genuine tap,
+  // even across a later lightbox session (the flag is closure state that outlives a single open).
   let swipeConsumedClick = false;
   const lbEl = $("lightbox");
   lbEl.addEventListener("touchstart", (e) => {
+    swipeConsumedClick = false;  // a new gesture starts clean (reset even for multi-touch, so it never latches)
     if (e.touches.length !== 1) return;
     tStartX = e.touches[0].clientX;
     tStartY = e.touches[0].clientY;
