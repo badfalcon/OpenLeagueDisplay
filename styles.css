@@ -430,19 +430,27 @@
      readable in the dark UI. Some OSes ignore it (Win Chromium), which is fine */
   .ctrl-select option { background: var(--bg-1); color: var(--ink); }
   .ctrl-select[hidden] { display: none; }
-  /* Sort affordance: an icon-only sort glyph to the left of the select (the wordy
-     "SORT ORDER" eyebrow it replaced ate horizontal room next to search). The hidden
+  /* Sort affordance: an icon-only sort glyph in its own square box, so it reads as a
+     sibling control of the select/search (the wordy "SORT ORDER" eyebrow it replaced ate
+     horizontal room next to search). The frame/height/hover mirror .ctrl-select. The hidden
      <label for> .sr-only text doubles as the SR accessible name (no aria-label on the
-     select). Muted to sit quietly; clicking it focuses/opens the select */
+     select); clicking it focuses/opens the select */
   .sort-label {
     display: inline-flex; align-items: center; justify-content: center;
+    width: var(--ctrl-h); height: var(--ctrl-h);
+    border: 1px solid var(--rule-bold);
+    background-color: transparent;
     color: var(--ink-soft);
     cursor: pointer; user-select: none;
     flex: 0 0 auto;
-    transition: color 0.18s ease;
+    transition: all 0.18s ease;
   }
   .sort-label svg { width: 18px; height: 18px; display: block; }
-  .sort-label:hover { color: var(--gold); }
+  .sort-label:hover {
+    color: var(--gold);
+    border-color: var(--gold);
+    background-color: rgba(212, 168, 87, 0.10);
+  }
   .sort-label[hidden] { display: none; }
   /* A modest min-width stabilizes the footprint so the chosen value doesn't make
      it jump around (reset to 0 in a later media query on mobile to avoid wrap conflicts with search) */
