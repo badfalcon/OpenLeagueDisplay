@@ -304,18 +304,40 @@ function applyRoute(hash, saved) {
   }
 }
 
+// Both detail views with ‹ › arrows (#/champion/<alias> and #/line/<id>). A step between two of these
+// of the SAME kind is the prev/next "scrub" — see syncRouteFromState. Returns the kind ("champion" /
+// "line") only for a fully-formed detail route; list/home/gallery (no 2nd segment) return null and so
+// never count as a scrub (entering or leaving a detail still pushes/restores normally).
+function detailKind(hash) {
+  const m = (hash || "").match(/^#\/(champion|line)\/[^/]+$/);
+  return m ? m[1] : null;
+}
+
 // Called at the end of render(): push if the current state's route differs from location.hash.
 // Direct assignment to location.hash would re-fire hashchange/popstate and cause a double render, so
 // we use pushState. This lets the URL follow along without rewriting the navigation functions, search, or tabs.
 // Each pushed entry carries an incrementing `depth` so onBackButton knows whether there is an in-app
 // entry to history.back() into (vs. a deep-link root, where Back must not leave the site).
+//
+// EXCEPTION — sibling scrub: the ‹ › arrows step champion<->champion / line<->line. Those are an
+// in-place move within one logical "browse a detail" session, NOT a new destination, so we REPLACE the
+// current entry instead of pushing. Otherwise N arrow presses bury the originating list under N entries
+// and Back rewinds them one by one instead of returning to the list. (This mirrors the lightbox, which
+// likewise keeps its slideshow stepping out of the history stack.) The depth is preserved (spread) so
+// Back still targets the same originating entry / deep-link root; scroll+search are reset because a
+// detail always lands at top with no filter (the snapshot onBeforeNav just wrote was the *previous*
+// sibling's, which would be wrong to keep on this entry).
 function syncRouteFromState() {
   const want = routeFromState();
   const cur = location.hash || "#/";
-  if (want !== cur) {
-    const depth = ((history.state && history.state.depth) || 0) + 1;
-    history.pushState({ depth }, "", want);
+  if (want === cur) return;
+  const kind = detailKind(want);
+  if (kind && kind === detailKind(cur)) {
+    history.replaceState({ ...(history.state || {}), searchQuery: "", scrollY: 0 }, "", want);
+    return;
   }
+  const depth = ((history.state && history.state.depth) || 0) + 1;
+  history.pushState({ depth }, "", want);
 }
 
 // In-app "Back" (the #back-btn and the Escape key). All history-API decisions live here so render.js's
