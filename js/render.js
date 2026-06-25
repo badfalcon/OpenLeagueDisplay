@@ -99,7 +99,7 @@ export function renderStats(champCount, skinCount) {
 
 // The persistent champ-header that sits above view-content. h2 / count / primary are
 // rewritten by renderXxx via setPrimaryHeader(). .champ-header-controls
-// (back-btn / search / sort-label / sort-select) live here once and never move again.
+// (back-btn / search / sort-group [sort-label + sort-select]) live here once and never move again.
 // This keeps the search input's parent from being torn down on every render(), so
 // focus, cursor position, and IME composition survive mid-typing.
 export function ensureLayout(root) {
@@ -119,8 +119,7 @@ export function ensureLayout(root) {
   const slot = root.querySelector(".champ-header-controls");
   slot.appendChild($("back-btn"));
   slot.appendChild($("search"));
-  slot.appendChild($("sort-label"));
-  slot.appendChild($("sort-select"));
+  slot.appendChild($("sort-group"));
 }
 
 // The single entry point for updating the contents of the persistent champ-header. renderXxx
@@ -205,9 +204,7 @@ export function render() {
   else if (state.view === "selected") renderSelected(root);
   // Visibility: back only when showBack, sort only on home (the label follows the same condition)
   $("back-btn").style.display = showBack ? "" : "none";
-  const sortVis = state.view === "home" ? "" : "none";
-  $("sort-label").style.display = sortVis;
-  $("sort-select").style.display = sortVis;
+  $("sort-group").style.display = state.view === "home" ? "" : "none";
   // Search placeholder: in detail views (champion / line), swap in wording that signals search is
   // not view-local but spans all champions (= implicitly returns to the list).
   // It overrides the initial value applyStaticUIStrings sets, keyed on the view, so it keeps

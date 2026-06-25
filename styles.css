@@ -736,8 +736,13 @@
     min-width: 0;
   }
   .champ-header-controls > #back-btn,
-  .champ-header-controls > .sort-label,
-  .champ-header-controls > .ctrl-select { flex: 0 0 auto; }
+  .champ-header-controls > .sort-group { flex: 0 0 auto; }
+  /* sort-label + sort-select travel together as one wrap unit (see index.html). Lay
+     them out inline with the same gap the controls slot uses between its items */
+  .sort-group {
+    display: inline-flex; align-items: center; gap: 10px;
+    min-width: 0;
+  }
   .champ-header .count {
     grid-column: 1; grid-row: 2;
     color: var(--ink-soft);
@@ -1867,8 +1872,8 @@
 
     /* Lay out the controls slot as one horizontal row (search grows + sort compact)
        to halve the vertical footprint. On home (back hidden) search+sort is always
-       one row. While searching it's back+search+sort, and only on narrow devices
-       (~under 330px) does flex-wrap push sort to the next line (graceful wrap, no breakage) */
+       one row. While searching it's back+search+sort, and when there isn't room the
+       sort-group wraps to the next line as a whole (label stays glued to its select) */
     .champ-header-controls {
       flex-direction: row;
       flex-wrap: wrap;
@@ -1878,10 +1883,13 @@
       flex: 1 1 140px;
       min-width: 0;
     }
-    .champ-header-controls > .ctrl-select {
+    .champ-header-controls > .sort-group {
       flex: 0 0 auto;
-      min-width: 0; /* avoid wrap conflicts with search (release the desktop 7em min-width) */
+      min-width: 0;
     }
+    /* Release the desktop 7em min-width so the select can stay compact and not force the
+       sort-group too wide (avoids needless wrap conflicts with search) */
+    .champ-header-controls .sort-group > #sort-select { min-width: 0; }
     /* Fit the back button to its content width to free up space (a small left-aligned arrow button) */
     .champ-header-controls > #back-btn {
       flex: 0 0 auto;

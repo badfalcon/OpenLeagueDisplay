@@ -148,12 +148,17 @@
 <div class="dom-stash" id="dom-stash" hidden>
   <button class="btn" id="back-btn">← Back</button>
   <input type="search" id="search" placeholder="Search champion…">
-  <label class="sort-label" id="sort-label" for="sort-select">Sort order</label>
-  <select class="ctrl-select" id="sort-select">
-    <option value="name_asc">Name A → Z</option>
-    <option value="name_desc">Name Z → A</option>
-    <option value="release">Release date</option>
-  </select>
+  <!-- Label + select share one wrapper so flex-wrap never splits the label from its
+       select onto separate lines (on narrow mobile the back button + search push the
+       sort controls to a second row; they must travel together) -->
+  <span class="sort-group" id="sort-group">
+    <label class="sort-label" id="sort-label" for="sort-select">Sort order</label>
+    <select class="ctrl-select" id="sort-select">
+      <option value="name_asc">Name A → Z</option>
+      <option value="name_desc">Name Z → A</option>
+      <option value="release">Release date</option>
+    </select>
+  </span>
 </div>
 
 <!-- tabindex="-1" lets this be the skip link's landing target (programmatic focus) -->
