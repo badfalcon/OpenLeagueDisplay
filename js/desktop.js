@@ -126,12 +126,13 @@ export function openInDesktop() {
 }
 
 // Native side of the hand-off: if the URL carries #import=<json keys>, merge the valid ones into the
-// current selection. Returns null when there is NO #import= hash, or the number newly added (possibly
-// 0) when there is one — this lets the caller tell "no hand-off" from "hand-off that added nothing"
-// without re-parsing the fragment format (which is owned here), mirroring pickSelectionFile's tri-state.
-// Called once on startup (after buildIndexes, so SKIN_BY_KEY is ready). Not gated on isLocal() — the
-// link only ever points at 127.0.0.1, but a manually pasted link should still work. The caller clears
-// the hash afterward.
+// current selection. Returns null when there is NO #import= hash, or a count >= 0 when there is one
+// (a corrupt/unparseable fragment is folded into 0 = nothing imported — these links are normally
+// machine-generated, so a rare hand-pasted broken one just reads as "nothing new" rather than an
+// error). This lets the caller tell "no hand-off" from "hand-off that added nothing" without
+// re-parsing the fragment format, which is owned here. Called once on startup (after buildIndexes, so
+// SKIN_BY_KEY is ready). Not gated on isLocal() — the link only ever points at 127.0.0.1, but a
+// manually pasted link should still work. The caller clears the hash afterward.
 export function applyImportFromHash() {
   const m = /^#import=(.*)$/.exec(location.hash || "");
   if (!m) return null;

@@ -557,7 +557,7 @@ function wireEvents() {
     if (!isLocalWallpaper()) return;
     const item = state.lb.list[state.lb.idx];
     const url = item && item.src;
-    if (!url) { toast(t("wallpaper_none"), "err"); return; }
+    if (!url) { toast(t("wallpaper_no_image"), "err"); return; }  // defensive: a shown splash always has a src
     const btn = $("lb-wallpaper");
     btn.disabled = true;
     try {
