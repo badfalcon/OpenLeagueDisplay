@@ -701,7 +701,7 @@ function wireImportSelection(btn) {
     pickSelectionFile().then((n) => {
       if (n === null) return;                            // dialog cancelled — stay silent
       if (n < 0) { toast(t("import_invalid"), "err"); }  // unreadable / not selection JSON
-      else if (n === 0) { toast(t("import_none")); }     // valid file, but nothing new (already selected)
+      else if (n === 0) { toast(t("import_none")); }     // valid file, but nothing new (all already selected or stale keys)
       else { toast(t("import_done_file", n)); render(); }
     });
   });
