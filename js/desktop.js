@@ -17,11 +17,11 @@ import { t } from "./i18n.js";
 import { isLocal } from "./local.js";
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
-export const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
+const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
 // Default address the desktop app serves on (local_app.py binds 127.0.0.1:8000 unless a port is
 // passed). The hand-off deep-links here; if the user ran it on another port this won't reach it
 // (acceptable for v1 — 8000 is the documented default).
-export const NATIVE_URL = "http://127.0.0.1:8000";
+const NATIVE_URL = "http://127.0.0.1:8000";
 
 // ---- generic two-choice modal (reuses the wp-* modal CSS for styling) --------
 let _releaseTrap = null;  // focus-trap release fn (set on open, called on close)
