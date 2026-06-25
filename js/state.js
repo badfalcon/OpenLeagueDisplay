@@ -108,6 +108,15 @@ export function trapFocus(root) {
   return () => document.removeEventListener("keydown", onKey, true);
 }
 
+// Rough "this device can't run the desktop app" probe (phone / tablet). The desktop build needs a
+// localhost server, so the right signal isn't viewport width (a small laptop window would false-positive)
+// but a touch-primary device: a coarse pointer with no hover. Used to suppress the "use the desktop app
+// right now" prompts (the 127.0.0.1 hand-off / the download upsell) where they can only mislead — the
+// passive footer CTA and the file-export path still show, since a phone user may want it on their PC later.
+export function isMobile() {
+  return !!(window.matchMedia && window.matchMedia("(pointer: coarse) and (hover: none)").matches);
+}
+
 export let DATA = null;
 export function setData(d) { DATA = d; }
 

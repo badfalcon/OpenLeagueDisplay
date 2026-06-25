@@ -58,7 +58,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   更新)、SKIN_BY_KEY / LINE_INDEX、localStorage I/O、`$` / `esc` の汎用関数。
   他モジュールを import しない (依存される側専用)。`trapFocus` (依存ゼロの DOM
   ユーティリティ。モーダル/ライトボックス表示中に Tab で背景へフォーカスが抜けるのを
-  防ぎ、解除関数を返す) もここに置く
+  防ぎ、解除関数を返す) もここに置く。`isMobile()` (タッチ主体端末の簡易判定:
+  `(pointer: coarse) and (hover: none)`。ビューポート幅ではなく「localhost でデスク
+  トップ版を立てられない端末か」のシグナルとして使う。`@media (max-width:600px)` だと
+  小窓のノートPCを誤検知するため幅は使わない) もここに置く
 - **i18n.js**: UI 文字列テーブル / `t()` / ROLE_LABELS / RARITY_LABELS /
   REGION_LABELS / 言語ピッカー描画と loadLocale。`applyStaticUIStrings`
   だけ render.js の `renderStats` を呼ぶので render.js への循環 import が
@@ -110,7 +113,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   wp-* の CSS を流用して①②で共用。**フッター CTA だけは英語固定** (フッターの帰属・
   ポリシー表記が意図的に非ローカライズなのに合わせる。①②③のUI文字列は i18n 済み)。
   ライトボックスのワンクリック「壁紙にする」(`#lb-wallpaper`) は別系統で、表示制御は
-  lightbox.js (isLocalWallpaper)、クリック処理は app.js (`applyWallpaper([現在のsrc])`)
+  lightbox.js (isLocalWallpaper)、クリック処理は app.js (`applyWallpaper([現在のsrc])`)。
+  **モバイル (`isMobile()`) では「その端末で今すぐデスクトップ版を使え」と促す割り込み導線を
+  抑制する**: ①`gateDownload` はモーダルを挟まず素通し (スマホにデスクトップ版は入れられない /
+  `LS_DL_PROMPT_SEEN` も汚さない) ②`openInDesktop` の deep link は localhost が立たないスマホでは
+  必ず失敗するので、render.js が「Open in desktop app」メニュー項目自体を mobile で隠す (すぐ下の
+  Export 項目がスマホ→PC 経路を担う。`openInDesktop` 内にも mobile→Export フォールバックの保険
+  あり)。**受動的な ④`mountFooterCTA` と Export はモバイルでも残す** (スマホで見て後で PC で使う
+  動機になる / 割り込まない)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/

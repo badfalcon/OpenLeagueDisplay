@@ -5,7 +5,7 @@
 import {
   state, DATA, $, esc, announce,
   SELECT_KEY, SKIN_BY_KEY, LINE_INDEX,
-  saveSelected,
+  saveSelected, isMobile,
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
@@ -786,7 +786,9 @@ function renderSelected(root) {
   // "Transfer…" menu so the everyday Download/Slideshow/Clear stay as top-level peers and the bar
   // doesn't balloon to 6 buttons (crowds small screens). The deep-link hand-off is Web-only
   // (localStorage is per-origin so it can't be shared automatically); Export/Import work in any mode.
-  const handoffItem = isLocal() ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
+  // "Open in desktop app" deep-links 127.0.0.1, which can't work on a phone (no local server there) —
+  // and the Export item right below already covers the phone → PC path — so hide it on mobile too.
+  const handoffItem = (isLocal() || isMobile()) ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
       ${dlBtn}
