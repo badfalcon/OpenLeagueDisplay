@@ -90,7 +90,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   toast と同手法)。import は state / i18n / local。1枚=静止、2枚以上=OS純正スライド
   ショー (サーバが枚数で振り分け)。ローカル実行時のみ render.js が起動ボタンを出す
 - **desktop.js**: **Web (Pages) 側でデスクトップ版を推す導線**専用。import は state /
-  i18n / local の3つ (**render.js は import しない** = グラフの葉。受け渡し後の画面遷移と
+  i18n / local と zip (`saveBlob` のみ再利用) (**render.js は import しない** = グラフの葉。
+  zip.js も state/i18n しか import しないので循環しない。受け渡し後の画面遷移と
   再描画は呼び出し側 app.js が持つ)。公開は4つ: ①`gateDownload(fn)` = 初回 ZIP DL 時に
   「デスクトップ版を入手 / このまま ZIP」を1回だけ尋ね、選択を `LS_DL_PROMPT_SEEN` に記憶
   (以降は素通し。ローカル実行時も素通し)。render.js の DL 3口を包む ②`openInDesktop()` =

@@ -15,6 +15,7 @@ import {
 } from "./state.js";
 import { t } from "./i18n.js";
 import { isLocal } from "./local.js";
+import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper (zip.js imports only state/i18n, no cycle)
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
 const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
@@ -167,14 +168,7 @@ export function exportSelection() {
   const keys = [...state.selected];
   if (!keys.length) return false;
   const blob = new Blob([JSON.stringify({ v: 1, keys })], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = SELECTION_FILE;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);  // revoke once the download has grabbed the blob
+  saveBlob(blob, SELECTION_FILE);  // shared helper (objectURL → <a download> → click → delayed revoke)
   return true;
 }
 
