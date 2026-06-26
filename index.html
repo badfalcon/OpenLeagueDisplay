@@ -148,7 +148,11 @@
 <div class="dom-stash" id="dom-stash" hidden>
   <button class="btn" id="back-btn">← Back</button>
   <input type="search" id="search" placeholder="Search champion…">
-  <label class="sort-label" id="sort-label" for="sort-select">Sort order</label>
+  <!-- Sort label, visually hidden: the sort glyph now lives inside the select box as a
+       left background-image (like the search field's magnifier), so the only thing this
+       <label> carries is the SR accessible name (applyStaticUIStrings keeps #sort-label-text
+       localized). Kept as a <label for> so it still associates with the select -->
+  <label class="sort-label" id="sort-label" for="sort-select"><span id="sort-label-text">Sort order</span></label>
   <select class="ctrl-select" id="sort-select">
     <option value="name_asc">Name A → Z</option>
     <option value="name_desc">Name Z → A</option>

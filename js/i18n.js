@@ -2141,10 +2141,12 @@ export function applyStaticUIStrings() {
   $("back-btn").textContent = t("back");
   const sortSel = $("sort-select");
   if (sortSel) {
-    // Prefix label (follows the locale). The visible <label for="sort-select"> supplies
-    // the SR accessible name, so the select gets no aria-label (avoid double-naming)
-    const lbl = $("sort-label");
-    if (lbl) lbl.textContent = t("sort_aria");
+    // The visually-hidden <label> supplies the select's SR accessible name (follows the
+    // locale), so the select gets no aria-label (avoid double-naming). Write the inner
+    // #sort-label-text span, not label.textContent — the latter would replace the span
+    // element itself, so the next locale switch couldn't find #sort-label-text to update
+    const lblText = $("sort-label-text");
+    if (lblText) lblText.textContent = t("sort_aria");
     // option labels are static and always abbreviated. For name, drop the leading token
     // and keep only the direction ("Name A → Z" → "A → Z" / "이름 ㄱ → ㅎ" → "ㄱ → ㅎ");
     // release uses the per-locale short form (or this locale's full text if none).

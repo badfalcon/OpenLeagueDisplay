@@ -430,22 +430,35 @@
      readable in the dark UI. Some OSes ignore it (Win Chromium), which is fine */
   .ctrl-select option { background: var(--bg-1); color: var(--ink); }
   .ctrl-select[hidden] { display: none; }
-  /* Sort prefix label: a static eyebrow label to the left of the select. The
-     visible <label for> doubles as the SR accessible name (no aria-label on the
-     select). Muted text so it sets off the gold value. Clicking it focuses/opens the select */
+  /* The sort glyph lives inside the select box (see #sort-select below), so the <label>
+     itself is visually hidden and only supplies the SR accessible name. Same recipe as
+     .sr-only; kept under .sort-label so the existing slot/visibility selectors still apply */
   .sort-label {
-    font-family: var(--font-eyebrow);
-    font-size: 10.5px; font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    white-space: nowrap; line-height: 1;
-    cursor: pointer; user-select: none;
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
   .sort-label[hidden] { display: none; }
-  /* A modest min-width stabilizes the footprint so the chosen value doesn't make
-     it jump around (reset to 0 in a later media query on mobile to avoid wrap conflicts with search) */
-  #sort-select { min-width: 7em; }
+  /* The sort select carries its own left-edge sort glyph (muted, like the search
+     magnifier) in addition to the inherited right chevron, so the icon and value read as
+     one boxed control. A modest min-width stabilizes the desktop footprint so the chosen
+     value doesn't make it jump around; on mobile the glyph's left padding + the value
+     already exceed 7em, so min-width never forces extra width (no wrap conflict to fix) */
+  #sort-select {
+    min-width: 7em;
+    padding-left: 36px;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a89c80' stroke-width='1.5' stroke-linecap='round'><path d='M4 7h16M4 12h10M4 17h5'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23f0e6d2' stroke-width='1.4'><path d='M1 1l4 4 4-4'/></svg>");
+    background-repeat: no-repeat;
+    background-position: 12px center, right 12px center;
+    background-size: 16px 16px, 10px 6px;
+  }
 
   /* Segmented tabs: Champions / Skin Lines. Active is gold ground; inactive keeps
      the ghost coloring. Height matched to .btn (--ctrl-h) */
@@ -2089,7 +2102,6 @@
       padding: 0 3px;
     }
     .champ-header-controls .ctrl-select { padding-right: 20px; }
-    .champ-header-controls .sort-label { letter-spacing: 0; font-size: 9.5px; }
     header .view-tabs .tab { max-width: 36vw; }
   }
 
