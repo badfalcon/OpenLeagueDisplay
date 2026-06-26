@@ -446,9 +446,9 @@
   .sort-label[hidden] { display: none; }
   /* The sort select carries its own left-edge sort glyph (muted, like the search
      magnifier) in addition to the inherited right chevron, so the icon and value read as
-     one boxed control. A modest min-width stabilizes the footprint so the chosen value
-     doesn't make it jump around (reset to 0 in a later media query on mobile to avoid
-     wrap conflicts with search) */
+     one boxed control. A modest min-width stabilizes the desktop footprint so the chosen
+     value doesn't make it jump around; on mobile the glyph's left padding + the value
+     already exceed 7em, so min-width never forces extra width (no wrap conflict to fix) */
   #sort-select {
     min-width: 7em;
     padding-left: 36px;

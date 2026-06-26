@@ -2141,9 +2141,10 @@ export function applyStaticUIStrings() {
   $("back-btn").textContent = t("back");
   const sortSel = $("sort-select");
   if (sortSel) {
-    // The icon label's .sr-only text supplies the SR accessible name (follows the locale),
-    // so the select gets no aria-label (avoid double-naming). Set the span only — not the
-    // label's textContent — so the decorative SVG glyph isn't wiped out
+    // The visually-hidden <label> supplies the select's SR accessible name (follows the
+    // locale), so the select gets no aria-label (avoid double-naming). Write the inner
+    // #sort-label-text span, not label.textContent — the latter would replace the span
+    // element itself, so the next locale switch couldn't find #sort-label-text to update
     const lblText = $("sort-label-text");
     if (lblText) lblText.textContent = t("sort_aria");
     // option labels are static and always abbreviated. For name, drop the leading token
