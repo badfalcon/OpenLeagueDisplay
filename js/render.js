@@ -203,9 +203,11 @@ export function render() {
   else if (state.view === "lines") renderLines(root);
   else if (state.view === "line") renderLine(root);
   else if (state.view === "selected") renderSelected(root);
-  // Visibility: back only when showBack, sort only on home (the label follows the same condition)
+  // Visibility: back only when showBack. Sort is a "browse the full list" control, so it shows
+  // only on the home list AND not while searching: filtered results don't need re-sorting, and
+  // hiding it frees the cramped mobile header so back + search sit on one row (no wrap/breakage).
   $("back-btn").style.display = showBack ? "" : "none";
-  const sortVis = state.view === "home" ? "" : "none";
+  const sortVis = (state.view === "home" && !hasSearch) ? "" : "none";
   $("sort-label").style.display = sortVis;
   $("sort-select").style.display = sortVis;
   // Search placeholder: in detail views (champion / line), swap in wording that signals search is
