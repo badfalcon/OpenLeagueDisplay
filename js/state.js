@@ -164,6 +164,13 @@ export const state = {
 
 export const SELECT_KEY = (alias, label) => `${alias}//${label}`;
 
+// Image to use on GRID CARDS (skin/line tiles, wallpaper-confirm thumbs): the square `tile`
+// (~30-60KB) instead of the full splash (~150-400KB) — the single biggest bandwidth lever on
+// mobile, and the same asset the LoL client's collection grid uses. Old data.json without
+// `tile` falls back to the splash (fully backward compatible). The lightbox / ZIP / wallpaper
+// paths keep the full `splash`; to revert the grids to splashes, change only this helper.
+export const cardThumb = (s) => s.tile || s.splash;
+
 // localStorage key for carrying selection state across revisits. Value is a JSON array.
 // The "old." namespace prefix is short for OpenLeagueDisplay (avoids collisions when other keys are added later).
 export const LS_SELECTED_KEY = "old.selected";
@@ -212,8 +219,9 @@ export function buildIndexes() {
         }
         bucket.count++;
         bucket.members.push({ c, s });
-        // Representative thumbnail = the first skin found that has a splash (deterministic since champion order is fixed)
-        if (!bucket.thumb && s.splash) bucket.thumb = s.splash;
+        // Representative thumbnail = the first skin found that has a splash (deterministic since
+        // champion order is fixed). Displayed at card size, so prefer the lightweight tile.
+        if (!bucket.thumb && s.splash) bucket.thumb = cardThumb(s);
       }
     }
   }

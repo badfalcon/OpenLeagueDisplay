@@ -5,7 +5,7 @@
 // The modal DOM is lazily created on first use (keeps it out of index.html, same trick
 // as toast). Wiring also happens once; each open just swaps the target (_items) and display.
 
-import { state, $, esc, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert, LS_WP_INTERVAL_KEY, lsGet, lsSet } from "./state.js";
+import { state, $, esc, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert, LS_WP_INTERVAL_KEY, lsGet, lsSet, cardThumb } from "./state.js";
 import { t, champName, skinLabel } from "./i18n.js";
 import { applyWallpaper, fetchWallpaperProgress, toast, WALLPAPER_INTERVAL_DEFAULT } from "./local.js";
 
@@ -200,10 +200,11 @@ export function openWallpaperConfirm(items) {
   }
   ensureModal();
   hideProgress();  // clear any leftover progress display from a previous apply
-  // Thumbnail list (straight from CDragon. Wallpaper setting fetches server-side, so this is display-only)
+  // Thumbnail list (straight from CDragon. Wallpaper setting fetches server-side, so this is
+  // display-only — the lightweight tile is plenty; what gets APPLIED is still the full splash)
   $("wp-grid").innerHTML = _items.map((it) => {
     const alt = `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`;
-    return `<img class="wp-thumb" loading="lazy" src="${esc(it.skin.splash)}" alt="${esc(alt)}">`;
+    return `<img class="wp-thumb" loading="lazy" src="${esc(cardThumb(it.skin))}" alt="${esc(alt)}">`;
   }).join("");
 
   // Show the interval picker only for two or more (one image is a static wallpaper, so interval is meaningless).

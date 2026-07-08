@@ -5,7 +5,7 @@
 import {
   state, DATA, $, esc, announce,
   SELECT_KEY, SKIN_BY_KEY, LINE_INDEX,
-  saveSelected, isMobile,
+  saveSelected, isMobile, cardThumb,
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
@@ -510,7 +510,7 @@ function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }
     <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
       ${openBtn(label)}
       <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
-      <img loading="lazy" decoding="async" src="${esc(s.splash)}" alt="">
+      <img loading="lazy" decoding="async" src="${esc(cardThumb(s))}" alt="">
       <div class="label" aria-hidden="true">${esc(label)}</div>
     </div>`;
 }

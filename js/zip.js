@@ -205,8 +205,12 @@ async function downloadAsZip(items, zipName, opts = {}) {
   hideProgress();
   // Partial failure: report via the app's normal error toast (assertive live region for SR)
   // instead of the old blocking alert(). The ZIP itself was still saved with what succeeded.
+  // Full success gets a confirmation too — the browser's own download UI is easy to miss, and
+  // the wallpaper flow already celebrates completion, so silence here read as "did it work?".
   if (failed > 0) {
     toast(t("zip_failed", failed), "err");
+  } else {
+    toast(t("zip_saved"));
   }
 }
 
