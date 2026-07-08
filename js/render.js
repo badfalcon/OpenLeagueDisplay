@@ -15,7 +15,7 @@ import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
-import { gateDownload, openInDesktop, exportSelection, pickSelectionFile } from "./desktop.js";
+import { gateDownload, openInDesktop, exportSelection, pickSelectionFile, choiceModal } from "./desktop.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -328,6 +328,23 @@ function rarityKeyFromQuery(q) {
   return null;
 }
 
+// ===== search text matching =====
+// Normalize both sides of a match so punctuation / diacritic spelling differences don't hide
+// results: "reksai" hits "Rek'Sai", "project vayne" hits "PROJECT: Vayne", "kda" hits "K/DA".
+// NFKD + stripping combining marks folds Latin accents (the U+0300 range doesn't touch kana
+// dakuten, which live at U+3099, so CJK locales are unaffected); joiner punctuation is removed
+// entirely (not turned into spaces) so apostrophe-less typing still matches; "_" becomes a space
+// so base-skin labels like "Aatrox_Classic" match "aatrox classic".
+const searchNorm = (s) => String(s).toLowerCase()
+  .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/['’.:!,/]/g, "")
+  .replace(/_/g, " ");
+// Split the query on whitespace: EVERY token must hit somewhere in the haystack (AND), so a
+// multi-word query like "dark star khazix" narrows the results instead of failing outright
+// (the old single-substring match required the words to be adjacent and punctuation-exact).
+const searchTokens = (q) => searchNorm(q).split(/\s+/).filter(Boolean);
+const matchesTokens = (tokens, hay) => tokens.every((tok) => hay.includes(tok));
+
 function renderHome(root) {
   const q = state.searchQuery.toLowerCase();
   // The filter chip row pinned at the top of the home view (shown regardless of search). home is
@@ -343,7 +360,18 @@ function renderHome(root) {
   // from Garen-style skins on other champions (if any).
   const localeRoles = ROLE_LABELS[state.locale] || {};
   const localeRegions = REGION_LABELS[state.locale] || {};
-  const hit = (s) => typeof s === "string" && s.toLowerCase().includes(q);
+  // AND-match over normalized tokens (see searchNorm/searchTokens above). All of a champion's
+  // searchable axes are folded into ONE haystack so tokens may hit across axes ("demacia tank").
+  const tokens = searchTokens(state.searchQuery);
+  const champHay = (c) => searchNorm([
+    c.name, c.alias, champName(c),
+    ...(c.roles || []).flatMap(r => [r, localeRoles[r], ROLE_LABELS.default[r]]),
+    ...(c.regions || []).flatMap(slug => [slug, localeRegions[slug], REGION_LABELS.default[slug]]),
+  ].filter(Boolean).join(" "));
+  // The skin haystack includes the owning champion's names so "khazix dark star" finds the skin
+  // (most labels embed the champion name anyway; this also covers base "_Classic" labels).
+  const skinHay = (c, s) => searchNorm(
+    [c.name, c.alias, champName(c), s.label, skinLabel(c, s)].filter(Boolean).join(" "));
 
   // Sorting: the default "name_asc"/"name_desc" use localeCompare on the localized name.
   // Using the Intl path for comparison gives the client's natural ordering even in Japanese/Korean/Chinese.
@@ -361,8 +389,10 @@ function renderHome(root) {
         return sortSign * an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
       });
 
-  // No search: just the champion list as before (shares the same ordering as renderChampion's prev/next nav)
-  if (!q) {
+  // No search: just the champion list as before (shares the same ordering as renderChampion's
+  // prev/next nav). Keyed on tokens (not q) so a punctuation-only query — which normalizes to no
+  // tokens and would vacuously match everything — also lands here instead of dumping every skin.
+  if (!tokens.length) {
     const list = sortedChampions();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
     $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
@@ -372,19 +402,14 @@ function renderHome(root) {
   }
 
   // With search: collect champion-side hits and skin-side hits separately
-  const champMatches = DATA.champions.filter(c => {
-    if (hit(c.name) || hit(c.alias) || hit(champName(c))) return true;
-    if ((c.roles || []).some(r => hit(r) || hit(localeRoles[r]) || hit(ROLE_LABELS.default[r]))) return true;
-    if ((c.regions || []).some(slug => hit(slug) || hit(localeRegions[slug]) || hit(REGION_LABELS.default[slug]))) return true;
-    return false;
-  });
+  const champMatches = DATA.champions.filter(c => matchesTokens(tokens, champHay(c)));
   const skinMatches = [];
   for (const c of DATA.champions) {
     for (const s of c.skins) {
       if (!s.splash) continue;
-      // Skin-side hits are skin name only. rarity moved to its dedicated chips in the Lines view, so
-      // it's excluded from home's search axes (rarity is per-skin = doesn't fit narrowing champions).
-      if (hit(s.label) || hit(skinLabel(c, s))) skinMatches.push({ c, s });
+      // Skin-side axes are names only (own + champion). rarity moved to its dedicated chips in the
+      // Lines view, so it's excluded here (rarity is per-skin = doesn't fit narrowing champions).
+      if (matchesTokens(tokens, skinHay(c, s))) skinMatches.push({ c, s });
     }
   }
   sortChamps(champMatches);
@@ -589,9 +614,11 @@ function renderLines(root) {
     }
   }
   // Ordering/counts are consolidated in sortedLineEntries (shared with renderLine's prev/next nav). Display uses
-  // the translated name, but search matches on (translated name + English name), so the filter is applied here.
+  // the translated name, but search matches on (translated name + English name), with the same
+  // normalized token-AND matching as home (so "kda" finds "K/DA" and multi-word queries narrow).
+  const tokens = searchTokens(state.searchQuery);
   const entries = sortedLineEntries()
-    .filter(e => !q || e.name.toLowerCase().includes(q) || e._en.toLowerCase().includes(q));
+    .filter(e => !tokens.length || matchesTokens(tokens, searchNorm(e.name + " " + e._en)));
   if (entries.length === 0) {
     setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
@@ -951,7 +978,20 @@ function bulkToggleLine(lid) {
   if (!idx) return;
   bulkToggleKeys(idx.members.map(m => SELECT_KEY(m.c.alias, m.s.label)));
 }
+// Clear is the one selection operation with no undo path: individual toggles can be pressed again
+// (the card stays in the grid, dimmed), but Clear wipes the Set AND localStorage in one go. So it
+// alone gets a confirm dialog (the shared choiceModal). Cancel is focused: the safe default for a
+// destructive action, and Esc/backdrop also fall through to "keep them" (no onDismiss).
 function clearSelected() {
+  choiceModal({
+    title: t("clear_confirm_title"),
+    body: t("clear_confirm_body", state.selected.size),
+    primary: { label: t("clear_confirm_ok"), onClick: doClearSelected },
+    secondary: { label: t("wallpaper_cancel"), onClick: () => {} },
+    focus: "secondary",
+  });
+}
+function doClearSelected() {
   state.selected.clear();
   saveSelected();
   render();
@@ -1016,7 +1056,11 @@ export function imgLoaded(img) {
 }
 // When a thumbnail 404s at the CDN, fill it faintly so the card doesn't look empty.
 // On failure too, add img-loaded since not stopping the shimmer would make it look "stuck loading".
+// The failed URL is stashed in data-src so the online-recovery path (app.js's retryFailedImages)
+// can re-attempt it when connectivity returns — otherwise a grid opened in a dead spot stays
+// permanently blank until the user happens to navigate away and back.
 export function imgErr(img) {
+  if (img.src) img.dataset.src = img.src;
   img.style.opacity = "0.15";
   img.removeAttribute("src");
   const card = img.parentElement;

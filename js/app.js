@@ -100,7 +100,13 @@ async function init() {
     const hint = is404
       ? `<p style="margin-top:18px;font-size:13px;color:var(--ink-soft);line-height:1.7">${t("hint_no_data")}</p>`
       : "";
-    $("root").innerHTML = `<div class="loading"><h2>${t("error_title")}</h2><p>${t("error_load_data", esc(e.message))}</p>${hint}</div>`;
+    // Always offer a Retry: a transient network drop (common on mobile) would otherwise dead-end
+    // here with a manual full reload as the only way out. A reload (rather than re-running init)
+    // keeps the recovery path trivial — nothing user-entered exists yet at this point to lose.
+    // It also helps the 404 case: after running generate_data.py the user reloads anyway.
+    const retry = `<div class="gallery-empty-actions"><button class="btn primary" id="retry-load">${t("retry_load")}</button></div>`;
+    $("root").innerHTML = `<div class="loading"><h2>${t("error_title")}</h2><p>${t("error_load_data", esc(e.message))}</p>${hint}${retry}</div>`;
+    $("retry-load").addEventListener("click", () => location.reload());
     return;
   }
 
@@ -615,6 +621,23 @@ function wireEvents() {
   window.addEventListener("online", syncOnlineState);
   window.addEventListener("offline", syncOnlineState);
   syncOnlineState();
+
+  // Recover grid images that failed while offline. imgErr (render.js) strips src but stashes the
+  // URL in data-src; without this, a grid opened in a dead spot stays faint/blank until the next
+  // full re-render. Restore the shimmer and clear the olSettled flag so the delegated load/error
+  // listener (wireImgDelegation) treats the retry like a fresh image. Genuinely missing images
+  // (a real CDN 404) just fail again and settle back into the same faint state — no loop.
+  window.addEventListener("online", () => {
+    document.querySelectorAll("#root img[data-src]:not([src])").forEach((img) => {
+      const src = img.dataset.src;
+      delete img.dataset.src;
+      delete img.dataset.olSettled;
+      img.style.opacity = "";
+      const card = img.closest(".champ-card, .skin-card, .line-card");
+      if (card) card.classList.remove("img-loaded");
+      img.src = src;
+    });
+  });
 
   // "Back to top" FAB: show it after scrolling a certain amount. A passive listener avoids blocking
   // scroll, and the visibility is cached in a flag so classList isn't touched on every scroll

@@ -48,7 +48,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
 ├── .github/workflows/release.yml    # タグ push で各 OS のデスクトップバイナリを build & Release
 ├── .github/release.yml              # 自動生成リリースノート (changelog) の分類設定
-├── docs/usability_improvements.md   # ユーザビリティ改善候補の網羅的インベントリ (優先度付き、実装は未着手)
+├── docs/usability_improvements.md   # ユーザビリティ改善候補の網羅的インベントリ (優先度付き。高優先度 H1〜H7 は実装済み)
 ├── README.md
 └── .gitignore
 ```
