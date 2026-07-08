@@ -4,6 +4,9 @@
 
 import { state, $, SKIN_BY_KEY, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t, champName } from "./i18n.js";
+// toast for failure reporting (local.js imports only state.js, so no cycle). The old alert()s
+// broke the app's toast+live-region feedback convention and blocked the thread mid-flow.
+import { toast } from "./local.js";
 
 // Focus-trap release function for the progress overlay (installed in showProgress, released in hideProgress).
 let releaseTrap = null;
@@ -100,7 +103,9 @@ export function updateProgress(done, total, failed) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   $("prog-fill").style.width = pct + "%";
   $("prog-count").textContent = `${done} / ${total}`;
-  if (failed) $("prog-fail").textContent = t("zip_count_failed", failed);
+  // Always assign (not just when failed > 0): the retry pass can bring the count back DOWN,
+  // and a stale "N failed" left on screen would contradict the final result.
+  $("prog-fail").textContent = failed ? t("zip_count_failed", failed) : "";
 }
 export function hideProgress() {
   const ov = $("progress-overlay");
@@ -126,31 +131,58 @@ export function ensureJSZip() {
   });
 }
 
+// Fetch one splash into the ZIP. cache mode is caller-chosen: the first pass uses "force-cache"
+// (JPEGs are immutable, reuse anything already cached), the retry pass uses "reload" so a cached
+// error response can't sabotage the retry.
+async function fetchIntoZip(zip, it, cacheMode) {
+  const res = await fetch(it.url, { mode: "cors", cache: cacheMode });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  zip.file(it.path, await res.blob());
+}
+
 async function downloadAsZip(items, zipName, opts = {}) {
   if (!items.length) return;
   try {
     await ensureJSZip();
   } catch (e) {
-    alert(e.message);
+    toast(e.message, "err");
     return;
   }
   showProgress(t("zip_creating"), opts.desc || t("zip_pack_desc_selected", items.length));
   const zip = new JSZip();
   let done = 0, failed = 0;
+  const failedItems = [];
 
   await pMap(items, async (it) => {
     if (state.packAbort) return;
     try {
-      const res = await fetch(it.url, { mode: "cors", cache: "force-cache" });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const blob = await res.blob();
-      zip.file(it.path, blob);
+      await fetchIntoZip(zip, it, "force-cache");
     } catch (e) {
       failed++;
+      failedItems.push(it);
     }
     done++;
     updateProgress(done, items.length, failed);
   }, 6);
+
+  if (state.packAbort) { hideProgress(); return; }
+
+  // One silent retry pass over the failures before finalizing. Transient network hiccups (radio
+  // handover, a dropped connection in a burst of 6 parallel fetches) are the common failure mode
+  // and usually succeed seconds later; a genuine CDragon 404 just fails again and stays counted.
+  // Lower concurrency: if the network is struggling, hammering it again with 6 won't help.
+  if (failedItems.length) {
+    await pMap(failedItems.splice(0), async (it) => {
+      if (state.packAbort) return;
+      try {
+        await fetchIntoZip(zip, it, "reload");
+        failed--;
+        updateProgress(done, items.length, failed);
+      } catch (e) {
+        failedItems.push(it);  // still failed — keep it counted
+      }
+    }, 3);
+  }
 
   if (state.packAbort) { hideProgress(); return; }
   // Bundle the legal/usage notice alongside the images (locale-independent, fixed name).
@@ -171,8 +203,14 @@ async function downloadAsZip(items, zipName, opts = {}) {
   if (state.packAbort) { hideProgress(); return; }
   saveBlob(blob, zipName);
   hideProgress();
+  // Partial failure: report via the app's normal error toast (assertive live region for SR)
+  // instead of the old blocking alert(). The ZIP itself was still saved with what succeeded.
+  // Full success gets a confirmation too — the browser's own download UI is easy to miss, and
+  // the wallpaper flow already celebrates completion, so silence here read as "did it work?".
   if (failed > 0) {
-    setTimeout(() => alert(t("zip_failed", failed)), 100);
+    toast(t("zip_failed", failed), "err");
+  } else {
+    toast(t("zip_saved"));
   }
 }
 

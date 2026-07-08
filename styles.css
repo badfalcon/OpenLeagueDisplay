@@ -797,6 +797,11 @@
      (defined above in `.champ-card::after, .skin-card::after, .line-card::after`) */
   .skin-card img {
     width: 100%; height: 100%; object-fit: cover;
+    /* Cards now show the square CDragon tile (see state.js cardThumb) inside a 16:9 box, so
+       cover crops the square's top/bottom. Tiles are portrait-framed with the face in the
+       upper-center, so bias the visible band upward (30% keeps heads in frame). Harmless for
+       the old-data splash fallback: a 16:9 source in a 16:9 box has nothing to crop. */
+    object-position: center 30%;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s;
     position: relative; z-index: 1;
   }
@@ -1304,6 +1309,37 @@
     font-size: 20px; font-weight: 700; line-height: 1;
   }
 
+  /* Touch devices: widen the ＋ tap target to 44px (Apple HIG / Material) WITHOUT growing the
+     visible chip — everything around the ＋ is the card-open overlay, so a near-miss doesn't just
+     fail, it opens/navigates. A transparent border extends the hit box while background-clip keeps
+     the fill inside the padding box, and the 1px chip outline moves to an inset shadow (a border
+     can't be transparent and visible at once). top/left shrink by the border width so the chip
+     doesn't move. Placed after the state rules above so the selected/partial border-color:gold
+     (which would otherwise paint the whole 44px frame) is re-expressed as the inset shadow. */
+  @media (hover: none) {
+    .sel-checkbox {
+      top: 4px; left: 4px;
+      min-width: 44px; max-width: 44px;
+      min-height: 44px; max-height: 44px;
+      border-width: 8px; border-color: transparent;
+      background-clip: padding-box;
+      box-shadow: inset 0 0 0 1px var(--gold-deep);
+    }
+    .skin-card.selected .sel-checkbox,
+    .champ-card.selected .sel-checkbox,
+    .line-card.selected .sel-checkbox,
+    .champ-card.partial .sel-checkbox,
+    .line-card.partial .sel-checkbox {
+      border-color: transparent;
+      box-shadow: inset 0 0 0 1px var(--gold);
+    }
+    .champ-card.partial .sel-checkbox,
+    .line-card.partial .sel-checkbox { min-width: 44px; }
+    /* Keyboard focus (rare on touch, but possible): keep the widened border invisible; the
+       focus ring itself comes from the outset double-ring box-shadow rule above */
+    .sel-checkbox:focus-visible { border-color: transparent; }
+  }
+
   /* In the gallery, a card whose ✓ is removed stays in place rather than vanishing
      immediately (so it's undoable). Faded + ＋ visualizes "removed / press again to
      restore". It actually leaves the grid the next time the gallery is reopened. Scoped to .gallery-grid so it doesn't affect other views */
@@ -1415,6 +1451,8 @@
   }
   .line-card img {
     width: 100%; height: 100%; object-fit: cover;
+    /* Square tile in a 16:9 box — same upward bias as .skin-card img (see comment there) */
+    object-position: center 30%;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s, filter 0.5s;
     position: relative; z-index: 1;
     filter: saturate(0.88) contrast(1.04);
@@ -1891,6 +1929,10 @@
       flex: 1 1 140px;
       min-width: 0;
     }
+    /* iOS Safari force-zooms the page when a focused input's font-size is under 16px, and we
+       deliberately keep pinch-zoom enabled (no maximum-scale — see index.html), so the desktop
+       14px would trigger a jarring zoom-in on every search. 16px suppresses it. */
+    #search { font-size: 16px; }
     .champ-header-controls > .ctrl-select {
       flex: 0 0 auto;
       min-width: 0; /* avoid wrap conflicts with search (release the desktop 7em min-width) */
@@ -1943,9 +1985,9 @@
     .skin-card .label { font-size: 13.5px; }
     .line-card .name  { font-size: 16px; }
 
-    /* ＋ button: 44px is visually oversized against a 96px grid. The card body tap is
-       expand/detail and adding is the ＋ tap, so we don't need to strictly follow the
-       Material/Apple minimum tap guidelines. Compress to 32px (touch devices have no hover, so ＋ stays always opaque) */
+    /* ＋ button: a 44px VISIBLE chip is oversized against a 96px grid, so the chip is
+       compressed to 32px. The tap guideline is met invisibly instead — see the nested
+       touch rule below, which re-bases the transparent-border hit-box trick on 32px */
     .sel-checkbox {
       width: 32px; height: 32px; padding: 0;
       min-width: 32px; max-width: 32px;
@@ -1957,6 +1999,20 @@
     .skin-card.selected .sel-checkbox::before,
     .champ-card.selected .sel-checkbox::before,
     .line-card.selected .sel-checkbox::before { font-size: 22px; }
+    /* Phone + touch: same 44px hit-box widening as the global (hover:none) rule (which this
+       inherits border-color:transparent / background-clip / the inset chip outline from),
+       re-based on the compressed 32px chip: 6px transparent border, chip stays at 8px/8px */
+    @media (hover: none) {
+      .sel-checkbox {
+        width: 44px; height: 44px;
+        min-width: 44px; max-width: 44px;
+        min-height: 44px; max-height: 44px;
+        top: 2px; left: 2px;
+        border-width: 6px;
+      }
+      .champ-card.partial .sel-checkbox,
+      .line-card.partial .sel-checkbox { width: auto; min-width: 44px; max-width: none; }
+    }
 
     /* lightbox: prioritize the image area; enlarge nav arrows to 48px and move them
        toward the bottom within one-thumb reach. Close/pause/fit/⚙ are already consolidated into the top toolbar's row */
@@ -2179,6 +2235,8 @@
   }
   .wp-thumb {
     width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+    /* Square tile in a 16:9 box — same upward bias as .skin-card img */
+    object-position: center 30%;
     border: 1px solid var(--rule-bold);
     background: var(--bg);
   }

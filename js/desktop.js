@@ -75,7 +75,9 @@ function closeChoice() {
 
 // title/body: strings. primary/secondary: { label, onClick }. Same modal isolation model as the
 // others (lock scroll, inert background, trap Tab, focus the main action).
-function choiceModal({ title, body, primary, secondary, onDismiss, focus }) {
+// Exported: render.js reuses it as the app's generic confirm dialog (gallery Clear).
+// render.js already imports this module, so the import graph stays acyclic.
+export function choiceModal({ title, body, primary, secondary, onDismiss, focus }) {
   const el = ensureChoiceModal();
   $("choice-title").textContent = title;
   $("choice-body").textContent = body;
