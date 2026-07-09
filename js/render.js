@@ -481,25 +481,7 @@ function renderHome(root) {
     // reading order matches the mock: hero → slim "CHAMPIONS" row → chips → grid
     $("view-content").innerHTML =
       chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
-    const heroEl = $("hero");
-    heroEl.hidden = false;
-    mountHero(heroEl, {
-      // View Splash opens the lightbox IN PLACE over the home view — the list is the
-      // "new splashes" pool itself (‹ › steps through the six), and closing it lands
-      // right back where the user was (no navigation, scroll intact)
-      onView: (pool, i) =>
-        openLightbox(pool.map(p => toLightboxItem(p.c, p.s)), i, "manual"),
-      onWallpaper: (src) => {
-        if (isLocalWallpaper()) {
-          applyWallpaper([src])
-            .then(() => toast(t("wallpaper_set")))
-            .catch((err) => toast(t("wallpaper_failed", err.message), "err"));
-        } else {
-          // On the Web the button is a soft desktop-app pitch (same as the mock)
-          toast(t("hero_wallpaper_web"));
-        }
-      },
-    });
+    mountFeaturedHero();
     wireChampCards(root);
     wireFilterChips(root);
     return;
@@ -728,6 +710,32 @@ function sectionRuleHTML(label) {
   return `<div class="section-rule" aria-hidden="true"><h3>${esc(label)}</h3><span></span></div>`;
 }
 
+// Unhide + fill the persistent hero band (the "new splashes" rotation). Shared by the
+// unfiltered home and Skin Lines lists — render() hides it again on every pass, so
+// each list view opts back in explicitly.
+function mountFeaturedHero() {
+  const heroEl = $("hero");
+  if (!heroEl) return;
+  heroEl.hidden = false;
+  mountHero(heroEl, {
+    // View Splash opens the lightbox IN PLACE over the current view — the list is
+    // the "new splashes" pool itself (‹ › steps through the six), and closing it
+    // lands right back where the user was (no navigation, scroll intact)
+    onView: (pool, i) =>
+      openLightbox(pool.map(p => toLightboxItem(p.c, p.s)), i, "manual"),
+    onWallpaper: (src) => {
+      if (isLocalWallpaper()) {
+        applyWallpaper([src])
+          .then(() => toast(t("wallpaper_set")))
+          .catch((err) => toast(t("wallpaper_failed", err.message), "err"));
+      } else {
+        // On the Web the button is a soft desktop-app pitch (same as the mock)
+        toast(t("hero_wallpaper_web"));
+      }
+    },
+  });
+}
+
 // Builds the { prevLabel, nextLabel, onPrev, onNext } for a detail view's prev/next nav.
 // order: the sorted array, i: current index, labelOf: the neighbor's display name, go: the function to move to a neighbor.
 // Both ends wrap around (circular).
@@ -773,7 +781,7 @@ function renderLines(root) {
   const entries = sortedLineEntries()
     .filter(e => !tokens.length || matchesTokens(tokens, searchNorm(e.name + " " + e._en)));
   if (entries.length === 0) {
-    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "", compact: true });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
     wireFilterChips(root);
     // WCAG 4.1.3: announce to screen readers only when the search filter yields 0 (stay silent for the plain list)
@@ -799,7 +807,11 @@ function renderLines(root) {
       </div>
     </div>`;
   }).join("");
-  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length), eyebrow: t("lines_page_eyebrow") });
+  // Same layout grammar as home: the featured hero is the page's headline on the
+  // pristine list, and the header stays a slim compact strip (searching hides the
+  // hero, exactly like home)
+  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length), compact: true });
+  if (!tokens.length) mountFeaturedHero();
   $("view-content").innerHTML = chips + `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.querySelector(".card-open").addEventListener("click", () => openLine(el.dataset.line));
@@ -829,7 +841,7 @@ function renderRaritySkins(root, chips, rarityKey) {
     return an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
   const label = (RARITY_LABELS[state.locale] || {})[rarityKey] || RARITY_LABELS.default[rarityKey];
-  setPrimaryHeader({ isList: true, title: label, count: t("skins_count", matches.length) });
+  setPrimaryHeader({ isList: true, title: label, count: t("skins_count", matches.length), compact: true });
   if (matches.length === 0) {
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(label))}</p></div>`;
     wireFilterChips(root);
