@@ -9,13 +9,14 @@ import {
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
-  champName, skinLabel, lineName, toLightboxItem,
+  champName, skinLabel, lineName, toLightboxItem, championBio,
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
-import { isLocal, isLocalWallpaper, toast } from "./local.js";
+import { isLocal, isLocalWallpaper, toast, applyWallpaper } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
 import { gateDownload, openInDesktop, exportSelection, pickSelectionFile, choiceModal } from "./desktop.js";
+import { mountHero, destroyHero } from "./hero.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -104,31 +105,61 @@ export function renderStats(champCount, skinCount) {
 // focus, cursor position, and IME composition survive mid-typing.
 export function ensureLayout(root) {
   if ($("view-content")) return;
+  // The banner nodes (img + scrim / eyebrow / bio) are created ONCE here;
+  // setPrimaryHeader only swaps src/textContent and toggles [hidden] per view —
+  // it's re-invoked on every render (prev/next nav, locale switch), so a
+  // create-per-call approach would stack duplicate imgs.
   root.innerHTML = `
     <div class="champ-header" id="primary-header" hidden>
+      <div class="header-banner" id="header-banner" hidden aria-hidden="true">
+        <img id="banner-img" alt="" decoding="async">
+        <div class="banner-scrim"></div>
+      </div>
+      <div class="banner-eyebrow" id="banner-eyebrow" hidden></div>
       <h2 class="primary-title-row">
         <button class="detail-nav-btn" id="detail-prev" type="button" hidden>‹</button>
         <span id="primary-title"></span>
         <button class="detail-nav-btn" id="detail-next" type="button" hidden>›</button>
       </h2>
       <div class="champ-header-controls"></div>
-      <span class="count" id="primary-count"></span>
+      <div class="meta-row"><span class="count" id="primary-count"></span></div>
+      <p class="banner-bio" id="banner-bio" hidden></p>
       <button class="btn primary" id="primary-action" hidden></button>
     </div>
     <div id="view-content"></div>`;
   const slot = root.querySelector(".champ-header-controls");
   slot.appendChild($("back-btn"));
-  slot.appendChild($("search"));
   slot.appendChild($("sort-label"));
   slot.appendChild($("sort-select"));
+  // The global stats counter joins the per-view count in the meta row (search
+  // stayed in the static header; stats took its place in the dom-stash)
+  root.querySelector(".meta-row").appendChild($("stats"));
 }
 
 // The single entry point for updating the contents of the persistent champ-header. renderXxx
 // never touches its innerHTML, it just passes values here.
-function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null }) {
+// banner (a splash URL) turns the header into the detail hero band (is-banner);
+// eyebrow / bio fill the once-created nodes and hide when empty.
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null, banner = "", eyebrow = "", bio = "" }) {
   const ph = $("primary-header");
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
+  ph.classList.toggle("is-banner", !!banner);
+  const bWrap = $("header-banner");
+  const bImg = $("banner-img");
+  bWrap.hidden = !banner;
+  if (banner) {
+    if (bImg.getAttribute("src") !== banner) bImg.src = banner;
+  } else if (bImg.getAttribute("src")) {
+    // Drop the stale splash so a later detail view doesn't flash the previous one
+    bImg.removeAttribute("src");
+  }
+  const eb = $("banner-eyebrow");
+  eb.hidden = !eyebrow;
+  eb.textContent = eyebrow;
+  const bioEl = $("banner-bio");
+  bioEl.hidden = !bio;
+  bioEl.textContent = bio;
   $("primary-title").textContent = title;
   $("primary-count").textContent = count;
   const btn = $("primary-action");
@@ -184,6 +215,9 @@ export function setNavListener(fn) { onBeforeNav = fn; }
 export function render() {
   const root = $("root");
   ensureLayout(root);
+  // The hero (home only) is rebuilt by renderHome when applicable; kill its timer
+  // unconditionally first so no rotation survives a view switch
+  destroyHero();
   // Tabs are top-level switches. back-btn shows in detail views (champion / line / selected) or while searching.
   // "selected" (My Gallery) is an intermediate view opened via its own path, so neither tab is active.
   const isLines = (state.view === "lines" || state.view === "line");
@@ -263,6 +297,43 @@ export function refreshGalleryBtn() {
   // My Gallery (app.js) stays alive.
   const ssBtn = $("slideshow-btn");
   if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
+  // The floating selection bar rides the same sync point: visible while something is
+  // selected outside the gallery view (clear/import reach here via render()).
+  const bar = $("selection-bar");
+  if (bar) {
+    const show = n > 0 && state.view !== "selected";
+    bar.hidden = !show;
+    if (show) {
+      $("selbar-count").textContent = t("selbar_selected", n);
+      $("selbar-hint").textContent = t("selbar_hint");
+      $("selbar-gallery").textContent = t("select_mode");
+      $("selbar-clear").textContent = t("clear");
+      // Primary mirrors the gallery toolbar's main action per mode
+      $("selbar-primary").textContent = isLocalWallpaper() ? t("wallpaper_set_btn") : t("dl_selected");
+    }
+  }
+}
+
+// One-time wiring for the floating selection bar (static DOM in index.html). Lives here
+// rather than app.js because the actions (ZIP / wallpaper / clear-confirm) are already
+// imported by render.js. Called once from app.js bootstrap.
+export function initSelectionBar() {
+  const bar = $("selection-bar");
+  if (!bar) return;
+  $("selbar-gallery").addEventListener("click", openSelected);
+  $("selbar-clear").addEventListener("click", clearSelected);
+  $("selbar-primary").addEventListener("click", () => {
+    if (isLocalWallpaper()) {
+      const items = [];
+      for (const k of state.selected) {
+        const hit = SKIN_BY_KEY.get(k);
+        if (hit && hit.s.splash) items.push({ key: k, champ: hit.c, skin: hit.s });
+      }
+      openWallpaperConfirm(items);
+    } else {
+      gateDownload(downloadSelected);
+    }
+  });
 }
 
 // Filter chips: one tap injects a localized term from the given LABELS maps into the search query.
@@ -395,7 +466,26 @@ function renderHome(root) {
   if (!tokens.length) {
     const list = sortedChampions();
     setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
-    $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    // The hero band goes above the section head visually, but #primary-header is a
+    // persistent sibling ABOVE #view-content — so the hero leads view-content and
+    // CSS pulls the plain section head styling in line. Empty container first,
+    // mountHero fills + wires it after the innerHTML swap.
+    $("view-content").innerHTML =
+      `<section class="hero" id="hero" aria-label="${esc(t("hero_eyebrow"))}"></section>`
+      + chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    mountHero($("hero"), {
+      onView: openChampion,
+      onWallpaper: (src) => {
+        if (isLocalWallpaper()) {
+          applyWallpaper([src])
+            .then(() => toast(t("wallpaper_set")))
+            .catch((err) => toast(t("wallpaper_failed", err.message), "err"));
+        } else {
+          // On the Web the button is a soft desktop-app pitch (same as the mock)
+          toast(t("hero_wallpaper_web"));
+        }
+      },
+    });
     wireChampCards(root);
     wireFilterChips(root);
     return;
@@ -474,6 +564,7 @@ function openBtn(label) {
 }
 
 function renderChampCards(list) {
+  const localeRoles = ROLE_LABELS[state.locale] || {};
   return list.map(c => {
     // Tally the selected count among the champion's skins to distinguish partial/selected.
     // state.selected is per-skin, so this is just derived info (the source of truth is the Set).
@@ -487,12 +578,22 @@ function renderChampCards(list) {
     // are decorative (alt="" / aria-hidden) to prevent double reading. + is a sibling button reachable
     // individually via Tab.
     const name = champName(c);
+    // Role eyebrow (translated, "Mage / Support"). Guarded: roles is optional in the data
+    const roles = (c.roles || [])
+      .map(r => localeRoles[r] || ROLE_LABELS.default[r])
+      .filter(Boolean);
+    const eyebrow = roles.length
+      ? `<span class="card-eyebrow">${esc(roles.join(" / "))}</span>` : "";
+    // Skin count badge only when there's a collection to open (mock's "N ◇")
+    const badge = c.skins.length > 1
+      ? `<span class="skin-count-badge" aria-hidden="true">${c.skins.length} ◇</span>` : "";
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
       ${openBtn(name)}
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
       <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="">
-      <div class="label" aria-hidden="true">${esc(name)}</div>
+      ${badge}
+      <div class="label" aria-hidden="true">${eyebrow}<span class="card-name">${esc(name)}</span></div>
     </div>`;
   }).join("");
 }
@@ -501,23 +602,37 @@ function renderChampCards(list) {
 // with only minor differences (presence of data-alias, a champ-name prefix on the label, always-selected),
 // so it's consolidated here. With video, overlay a ▶ badge so it's clear "this one moves" before
 // opening the lightbox.
-function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }) {
+// `eyebrow` (optional) is the champion-name kicker shown above the skin label on cards
+// outside a champion context (line detail / search results / gallery); `label` stays the
+// full accessible name for the cover button.
+function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false, eyebrow = "", text = "" }) {
   const k = SELECT_KEY(c.alias, s.label);
   const selected = forceSelected || state.selected.has(k);
   const aliasAttr = alias ? ` data-alias="${esc(c.alias)}"` : "";
-  const badge = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+  // Top-right badge cluster: ▶ for animated splashes + the rarity chip (translated)
+  const play = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+  const rarity = s.rarity
+    ? `<span class="rarity-badge">${esc((RARITY_LABELS[state.locale] || {})[s.rarity] || RARITY_LABELS.default[s.rarity] || "")}</span>`
+    : "";
+  const badges = (play || rarity) ? `<span class="card-badges" aria-hidden="true">${play}${rarity}</span>` : "";
+  const kicker = eyebrow ? `<span class="card-eyebrow">${esc(eyebrow)}</span>` : "";
   return `
     <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
       ${openBtn(label)}
-      <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
+      <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badges}
       <img loading="lazy" decoding="async" src="${esc(cardThumb(s))}" alt="">
-      <div class="label" aria-hidden="true">${esc(label)}</div>
+      <div class="label" aria-hidden="true">${kicker}${esc(text || label)}</div>
     </div>`;
 }
 
 function renderSkinCards(matches) {
   return matches.map((m, i) =>
-    skinCardHTML({ c: m.c, s: m.s, idx: i, label: `${champName(m.c)} — ${skinLabel(m.c, m.s)}`, alias: true })
+    skinCardHTML({
+      c: m.c, s: m.s, idx: i,
+      label: `${champName(m.c)} — ${skinLabel(m.c, m.s)}`,
+      eyebrow: champName(m.c), text: skinLabel(m.c, m.s),
+      alias: true,
+    })
   ).join("");
 }
 
@@ -565,14 +680,38 @@ function renderChampion(root) {
   const order = sortedChampions();
   const i = order.findIndex(x => x.alias === c.alias);
   const nav = order.length > 1 && i >= 0 ? makeDetailNav(order, i, x => champName(x), x => openChampion(x.alias)) : null;
+  // Banner hero: Classic splash behind the header. Region eyebrow is guarded — some
+  // champions have no region (Locke), and an unregistered slug must not surface raw.
+  const classic = c.skins.find(s => s.label.endsWith("_Classic")) || c.skins[0];
+  const localeRegions = REGION_LABELS[state.locale] || {};
+  const regionSlug = (c.regions || [])[0];
+  const eyebrow = regionSlug
+    ? (localeRegions[regionSlug] || REGION_LABELS.default[regionSlug] || "") : "";
+  // Meta line mirrors the mock: "MAGE · SUPPORT — 18 SKINS" (roles guarded the same way)
+  const localeRoles = ROLE_LABELS[state.locale] || {};
+  const roles = (c.roles || [])
+    .map(r => localeRoles[r] || ROLE_LABELS.default[r])
+    .filter(Boolean);
+  const count = roles.length
+    ? `${roles.join(" · ")}  ·  ${t("skins_count", c.skins.length)}`
+    : t("skins_count", c.skins.length);
   setPrimaryHeader({
     title: champName(c),
-    count: t("skins_count", c.skins.length),
+    count,
     nav,
+    banner: (classic && classic.splash) || "",
+    eyebrow,
+    bio: championBio(c),
     ...detailPrimary(keys, t("dl_champion"), () => gateDownload(() => downloadChampion(c))),
   });
-  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
+  $("view-content").innerHTML =
+    sectionRuleHTML(t("collection_heading")) + `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
+}
+
+// Thin rule-line section heading ("THE COLLECTION ————"), used above detail grids
+function sectionRuleHTML(label) {
+  return `<div class="section-rule" aria-hidden="true"><h3>${esc(label)}</h3><span></span></div>`;
 }
 
 // Builds the { prevLabel, nextLabel, onPrev, onNext } for a detail view's prev/next nav.
@@ -646,7 +785,7 @@ function renderLines(root) {
       </div>
     </div>`;
   }).join("");
-  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
+  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length), eyebrow: t("lines_page_eyebrow") });
   $("view-content").innerHTML = chips + `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.querySelector(".card-open").addEventListener("click", () => openLine(el.dataset.line));
@@ -696,7 +835,11 @@ function renderLine(root) {
   const items = idx ? idx.members.map(m => ({ champ: m.c, skin: m.s })) : [];
   if (items.length === 0) { state.view = "lines"; render(); return; }
   const cards = items.map((it, i) =>
-    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
+    skinCardHTML({
+      c: it.champ, s: it.skin, idx: i,
+      label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`,
+      eyebrow: champName(it.champ), text: skinLabel(it.champ, it.skin),
+    })
   ).join("");
   const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
   // Prev/next nav: find the current id's index within sortedLineEntries' ordering (ignoring the search
@@ -708,6 +851,8 @@ function renderLine(root) {
     title: lname,
     count: t("skins_count", items.length),
     nav,
+    banner: (idx && idx.members[0] && idx.members[0].s.splash) || "",
+    eyebrow: t("skin_lines_header"),
     ...detailPrimary(keys, t("dl_line"), () => gateDownload(() => downloadLine(lid, lname, items))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
@@ -782,6 +927,7 @@ function renderSelected(root) {
     isList: true,
     title: t("select_mode"),
     count: items.length ? t("skins_count", items.length) : "",
+    eyebrow: t("gallery_eyebrow"),
   });
 
   if (items.length === 0) {
@@ -789,7 +935,8 @@ function renderSelected(root) {
     // Offer Import here too: a fresh desktop app (or a new device) starts with an empty gallery, and
     // importing a file exported elsewhere is exactly the cross-machine hand-off path.
     $("view-content").innerHTML =
-      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
+      `<div class="loading gallery-empty"><div class="gallery-empty-mark" aria-hidden="true">◇</div>` +
+      `<p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
       `<div class="gallery-empty-actions">` +
       `<button class="btn primary" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
       `<button class="btn" id="gallery-import">${t("import_selection")}</button>` +
@@ -801,7 +948,12 @@ function renderSelected(root) {
   }
 
   const cards = items.map((it, i) =>
-    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`, forceSelected: true })
+    skinCardHTML({
+      c: it.champ, s: it.skin, idx: i,
+      label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`,
+      eyebrow: champName(it.champ), text: skinLabel(it.champ, it.skin),
+      forceSelected: true,
+    })
   ).join("");
   // Only in local-run mode, show "Set as wallpaper" (select -> confirm modal -> bulk apply).
   // One image = static wallpaper, two or more = the OS's native slideshow (handled by wallpaper.js + the server).
@@ -810,7 +962,7 @@ function renderSelected(root) {
     ? `<button class="btn primary" id="gallery-wp">${t("wallpaper_set_btn")}</button>`
     : "";
   // ZIP DL is Web-only (the way to work around the browser sandbox). Hide it in local mode.
-  const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
+  const dlBtn = isLocal() ? "" : `<button class="btn" id="gallery-dl">${t("dl_selected")}</button>`;
   // The occasional cross-device actions (hand-off + Export/Import) are grouped under a single
   // "Transfer…" menu so the everyday Download/Slideshow/Clear stay as top-level peers and the bar
   // doesn't balloon to 6 buttons (crowds small screens). The deep-link hand-off is Web-only
@@ -818,11 +970,14 @@ function renderSelected(root) {
   // "Open in desktop app" deep-links 127.0.0.1, which can't work on a phone (no local server there) —
   // and the Export item right below already covers the phone → PC path — so hide it on mobile too.
   const handoffItem = (isLocal() || isMobile()) ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
+  // Button ranks follow the mock on the Web (Slideshow gold-primary, ZIP ghost);
+  // in local mode wallpaper stays the primary (it IS the product there)
+  const ssClass = isLocalWallpaper() ? "btn" : "btn primary";
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
-      ${dlBtn}
+      <button class="${ssClass}" id="gallery-ss">▶ ${t("nav_slideshow")}</button>
       ${wpBtn}
-      <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      ${dlBtn}
       <div class="menu-wrap">
         <button class="btn" id="transfer-btn" type="button" aria-expanded="false">${t("transfer_menu")}</button>
         <ul class="toolbar-menu" id="transfer-menu" hidden>

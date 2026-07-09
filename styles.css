@@ -23,22 +23,11 @@
                    "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
     --font-mono:   "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-    --frame-cut: 12px;  /* corner-cut size on card clip-path frames */
-    /* Card frames (shared by champ / skin / line), in three tiers
-       default / hover / selected: each is "vignette + 1px inner border" (subdued
-       gold for default, bright gold for hover/selected). The vignette is held at
-       0.45 (down from champ's original 0.55) so it doesn't flatten skin/line splash art */
-    --card-frame-shadow:
-      inset 0 0 60px rgba(7, 6, 11, 0.45),
-      inset 0 0 0 1px rgba(212, 168, 87, 0.18);
-    --card-frame-shadow-hover:
-      inset 0 0 60px rgba(7, 6, 11, 0.45),
-      inset 0 0 0 1px var(--gold),
-      inset 0 0 30px rgba(212, 168, 87, 0.22);
-    --card-frame-shadow-selected:
-      inset 0 0 60px rgba(7, 6, 11, 0.45),
-      inset 0 0 0 3px var(--gold),
-      inset 0 0 50px rgba(212, 168, 87, 0.22);
+    /* Flat card frame (shared by champ / skin / line): the clip-path corner-cut +
+       inset-vignette system is gone; cards are square-cornered with a subdued
+       1px gold edge that brightens on hover/selection */
+    --card-outline: rgba(212, 168, 87, 0.12);
+    --tile-min: 186px;  /* champion tile track minimum (fluid auto-fill grid) */
     --ctrl-h: 40px;     /* shared height for all controls (btn/search/lang/tab) */
     /* Site content width. The topbar's sticky background and footer rule stay
        full-bleed; the "content" of header / main / footer is centered at this width */
@@ -128,15 +117,15 @@
     opacity: 0.55; pointer-events: none;
   }
 
-  /* Two-row layout. The header is a vertical flex stacking two rows:
-       row 1 (.header-primary):   [brand] (auto-spacer) [.header-utils = ? + lang]
-       row 2 (.header-secondary): [view-tabs] [.header-actions = gallery + slideshow]
-     Row 1 holds identity + persistent utilities, row 2 holds browsing controls.
-     gallery-btn and slideshow-btn are grouped into one flex set (.header-actions)
-     so they wrap together at narrow widths */
+  /* Single-row layout: both groups share one flex row on wide screens and wrap
+     below ~1100px (header flex-wrap). Keep the two group divs — the ≤600px block
+     turns .header-secondary into the fixed bottom nav.
+       group 1 (.header-primary):   [brand] (spacer) [search] [.header-utils = ? + share + lang]
+       group 2 (.header-secondary): [view-tabs] [.header-actions = gallery + slideshow] */
   header {
-    display: flex; flex-direction: column;
-    gap: 10px;
+    display: flex; align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 18px;
     padding: 12px var(--container-pad);
     border-bottom: 1px solid var(--rule);
     max-width: var(--container-max);
@@ -147,17 +136,17 @@
     display: flex; align-items: center;
     gap: 12px;
   }
-  /* Row 2 wraps only when view-tabs and action buttons can't fit at narrow widths */
-  .header-secondary { flex-wrap: wrap; }
-  /* Utility group pushing ? and the language picker to row 1's right edge */
+  /* Group 1 absorbs the leftover width so group 2 hugs the right edge; the spacer
+     between brand and search is #search's margin-left:auto below */
+  .header-primary { flex: 1 1 auto; min-width: 0; }
+  .header-secondary { flex: 0 0 auto; flex-wrap: wrap; margin-left: auto; }
   .header-utils {
     display: flex; align-items: center; gap: 12px;
-    margin-left: auto;
+    flex: 0 0 auto;
   }
   .header-actions {
     display: flex; align-items: center; gap: 12px;
   }
-  /* header-brand is a thin wrapper around info (h1+stats stacked). Sits at row 1's left edge */
   .header-brand {
     display: flex; align-items: center;
     gap: 18px;
@@ -205,16 +194,26 @@
     font-variation-settings: normal;
     transform: translateY(-2px);
   }
-  /* Place stats small, directly under h1. Acts as a magazine "kicker" and doesn't crowd the action buttons on the right */
-  .header-brand #stats {
-    padding-left: 24px;  /* align with ✦ + gap */
-    font-size: 9.5px;
-    letter-spacing: 0.22em;
+  /* "Archive" tag after the wordmark: mono small caps behind a hairline divider
+     (an untranslated brand mark, aria-hidden) */
+  .brand-tag {
+    font-family: var(--font-mono);
+    font-size: 9px; font-style: normal;
+    font-variation-settings: normal;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    padding-left: 10px;
+    border-left: 1px solid var(--rule);
+    align-self: center;
   }
 
-
+  /* Search lives in the header's single row: brand-left, search pushed toward the
+     utils cluster by margin-left:auto. Width yields first when the row tightens */
   #search {
-    width: 100%; max-width: 520px;
+    margin-left: auto;
+    flex: 0 1 clamp(160px, 18vw, 260px);
+    min-width: 0;
     height: var(--ctrl-h);
     padding: 0 18px 0 42px;
     background: var(--bg-1);
@@ -494,6 +493,10 @@
     font-weight: 600;
   }
   .view-tabs .tab:focus-visible { box-shadow: inset 0 0 0 2px rgba(212, 168, 87, 0.5); }
+  /* Global counter ("172 CHAMPIONS · 2100 SKINS"). Lives in the section head's
+     meta row (#primary-header .meta-row) next to the per-view count — ensureLayout
+     transplants it there from the dom-stash. Shown on list views only; detail
+     views (is-banner / no is-list) have their own meta and hide it */
   #stats {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -502,6 +505,7 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
+  #primary-header:not(.is-list) #stats { display: none; }
   /* Reserve the final digit count (data-target's digits) as a min-width in ch so
      surrounding text doesn't shift while the count-up adds digits */
   #stats .stat-num {
@@ -549,51 +553,137 @@
     letter-spacing: 0;
   }
 
+  /* === HERO (home "New Splash" band) ===============================
+     Full-bleed-feel featured splash at the top of the home view. DOM is built by
+     js/hero.js into the #hero container renderHome puts first in #view-content.
+     Two stacked imgs crossfade (A/B, .show toggles) and the visible one runs a
+     slow Ken Burns zoom; dual scrims keep the caption legible */
+  .hero {
+    position: relative;
+    height: clamp(360px, 48vh, 540px);
+    overflow: hidden;
+    margin-bottom: 28px;
+    border: 1px solid var(--card-outline);
+    background: #000;
+  }
+  .hero-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 18%;
+    opacity: 0; transition: opacity 0.9s ease;
+    background: var(--bg-1);
+  }
+  .hero-img.show { opacity: 1; }
+  .hero .kb-on.show {
+    animation: heroKb 26s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes heroKb {
+    from { transform: scale(1.04); }
+    to   { transform: scale(1.17); }
+  }
+  .hero-scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(7, 6, 11, 0.95) 0%, rgba(7, 6, 11, 0.68) 30%, rgba(7, 6, 11, 0.08) 60%, rgba(7, 6, 11, 0.5) 100%),
+      linear-gradient(0deg, rgba(7, 6, 11, 0.94) 0%, transparent 44%);
+    pointer-events: none;
+  }
+  .hero-content {
+    position: relative; z-index: 2;
+    height: 100%;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 clamp(20px, 3vw, 48px) 36px;
+    max-width: 760px;
+  }
+  .hero-eyebrow {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .hero-name {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 70, "wght" 500;
+    font-weight: 500;
+    font-size: clamp(38px, 5.6vw, 72px);
+    color: var(--gold-hi);
+    line-height: 0.94;
+    letter-spacing: -0.02em;
+    text-shadow: 0 4px 22px rgba(0, 0, 0, 0.75);
+  }
+  .hero-meta {
+    display: flex; align-items: center; gap: 13px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .hero-skin {
+    font-family: var(--font-eyebrow);
+    font-size: 12.5px; font-weight: 500;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+  }
+  .hero-meta .rarity-badge { font-size: 8.5px; padding: 3px 8px; }
+  .hero-actions { display: flex; gap: 11px; flex-wrap: wrap; }
+  /* Ghost variant over the splash: blurred dark ground instead of transparent */
+  .hero-actions .btn.ghost {
+    background: rgba(7, 6, 11, 0.4);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .hero-actions .btn.ghost:hover { background: rgba(212, 168, 87, 0.12); }
+  /* Dot indicators bottom-right: active stretches into a gold bar */
+  .hero-dots {
+    position: absolute; right: clamp(20px, 3vw, 48px); bottom: 34px;
+    z-index: 3;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hero-dots button {
+    width: 8px; height: 8px;
+    padding: 0; border: 0; cursor: pointer;
+    background: rgba(237, 229, 211, 0.38);
+    transition: width 0.4s, background 0.4s;
+  }
+  .hero-dots button.active { width: 24px; background: var(--gold); }
+  .hero-dots button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);
+  }
+
   /* === CHAMPION GRID =============================================== */
-  /* auto-fill + fixed track width. Stretching with 1fr makes thumbnails grow and
-     shrink continuously with window width, so tracks stay at this fixed width and
-     the leftover is split evenly left and right */
+  /* Fluid auto-fill: 4/5 portrait tiles that stretch between --tile-min and the
+     available width (the mock's grid). The square CDragon tile is cover-cropped
+     to 4:5 with the bust biased upward */
   .champ-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 168px);
-    justify-content: center;
-    gap: 22px;
-    counter-reset: champ;
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min), 1fr));
+    gap: 14px;
+  }
+  /* Flat card frame shared by all three card kinds: square corners, 1px subdued
+     gold border that turns solid gold on hover (with a slight lift). The old
+     clip-path notch + inset-vignette ::after system is gone; ::after is freed up
+     (the line-card uses it for its corner number) */
+  .champ-card, .skin-card, .line-card {
+    border: 1px solid var(--card-outline);
+    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.3s;
+  }
+  .champ-card:hover, .skin-card:hover, .line-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-4px);
   }
   .champ-card {
     position: relative;
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 5;
     cursor: pointer;
     overflow: hidden;
     background: var(--bg-1);
-    border: 1px solid transparent;
-    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-    /* Codex-style notched frame. clip-path drops the edge box-shadow, so the inner
-       glow is done with an inset shadow on ::after */
-    clip-path: polygon(
-      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
-      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
-      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
-      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
-    );
-    counter-increment: champ;
-  }
-  /* Unify the card frame (::after) to one style across all three (champ / skin / line):
-     - inset vignette for a "picture set in a frame" feel
-     - 1px gold inner border guaranteeing a minimal edge on every card
-     Previously champ-card was 0.55/0.12 ("thick but nearly invisible gold line"),
-     skin-card was 0.10 only, and line-card had no border. Consolidated into shared
-     variables (--card-frame-shadow / -hover / -selected) so the tone can be tuned in one place */
-  .champ-card::after,
-  .skin-card::after,
-  .line-card::after {
-    content: ""; position: absolute; inset: 0; z-index: 3;
-    box-shadow: var(--card-frame-shadow);
-    pointer-events: none;
-    transition: box-shadow 0.35s;
   }
   .champ-card img {
     width: 100%; height: 100%; object-fit: cover;
+    object-position: 50% 18%;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s, filter 0.5s;
     position: relative; z-index: 1;
     filter: saturate(0.92) contrast(1.05);
@@ -620,40 +710,50 @@
     0%   { background-position: 120% 0; }
     100% { background-position: -120% 0; }
   }
-  .champ-card:hover { transform: translateY(-4px); }
-  .champ-card:hover img { transform: scale(1.10); filter: saturate(1.1) contrast(1.08); }
-  .champ-card:hover::after,
-  .skin-card:hover::after,
-  .line-card:hover::after {
-    box-shadow: var(--card-frame-shadow-hover);
-  }
+  .champ-card:hover img { transform: scale(1.08); filter: saturate(1.1) contrast(1.08); }
+  /* Card caption: role eyebrow (Cinzel small caps) above the name (Fraunces italic)
+     over a bottom gradient. The eyebrow span is optional (a champion with no roles
+     just shows the name) */
   .champ-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 22px 14px 14px;
+    padding: 34px 13px 13px;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.6) 55%, rgba(7, 6, 11, 0) 100%);
+    z-index: 2;
+  }
+  .champ-card .card-eyebrow {
+    display: block;
+    font-family: var(--font-eyebrow);
+    font-size: 8.5px; font-weight: 600;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 3px;
+    opacity: 0.88;
+  }
+  .champ-card .card-name {
+    display: block;
     font-family: var(--font-display);
     font-style: italic;
-    font-variation-settings: "opsz" 14, "SOFT" 50, "wght" 500;
-    font-size: 14.5px;
+    font-variation-settings: "opsz" 72, "SOFT" 60, "wght" 500;
+    font-size: 17px;
     letter-spacing: 0;
-    line-height: 1.15;
-    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.7) 50%, rgba(7, 6, 11, 0) 100%);
-    color: var(--gold-hi);
-    z-index: 2;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    line-height: 1.08;
+    color: var(--ink);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
   }
-  /* Card numbers (01, 02, ...) — printed on each card like magazine page numbers.
-     CSS counters do the numbering purely in CSS, so JS isn't touched */
-  .champ-card .label::before {
-    content: counter(champ, decimal-leading-zero);
-    display: block;
+  /* Skin-count badge ("14 ◇") top-right, mono over blurred dark ground. Rendered
+     only for champions with more than one skin */
+  .skin-count-badge {
+    position: absolute; top: 9px; right: 9px; z-index: 5;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-style: normal;
-    font-weight: 500;
-    letter-spacing: 0.2em;
-    color: var(--gold);
-    margin-bottom: 4px;
-    opacity: 0.8;
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--gold-hi);
+    background: rgba(7, 6, 11, 0.72);
+    border: 1px solid var(--rule);
+    padding: 2px 6px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    pointer-events: none;
   }
 
   /* === CHAMP / LINE HEADER ========================================= */
@@ -686,7 +786,7 @@
   }
   .champ-header h2 {
     margin: 0;
-    grid-column: 1;   /* always pin to col 1; col 2 is for the controls slot */
+    grid-column: 1; grid-row: 2;   /* always pin to col 1; col 2 is for the controls slot */
     font-family: var(--font-display);
     font-size: clamp(48px, 7vw, 96px);
     font-weight: 400; font-style: italic;
@@ -739,43 +839,119 @@
      [back?][search][sort?] from the dom-stash lay out horizontally with flex.
      align-self: end aligns them to the bottom edge of the huge h2 (96px) */
   .champ-header-controls {
-    grid-column: 2; grid-row: 1;
+    grid-column: 2; grid-row: 2;
     justify-self: end; align-self: end;
     display: flex; align-items: center; gap: 10px;
-    min-width: 0;
-  }
-  .champ-header-controls > #search {
-    flex: 0 1 clamp(280px, 28vw, 480px);
     min-width: 0;
   }
   .champ-header-controls > #back-btn,
   .champ-header-controls > .sort-label,
   .champ-header-controls > .ctrl-select { flex: 0 0 auto; }
-  .champ-header .count {
+  /* Meta row under the heading: per-view count + (list views only) the global
+     #stats counter transplanted here by ensureLayout */
+  .champ-header .meta-row {
     grid-column: 1; grid-row: 2;
+    display: flex; align-items: baseline; gap: 18px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .champ-header .count {
     color: var(--ink-soft);
     font-family: var(--font-eyebrow);
     font-size: 11px; font-weight: 500;
     letter-spacing: 0.32em;
     text-transform: uppercase;
   }
+  /* Eyebrow above the heading (region on champion detail, "Browse by Theme" on the
+     lines list, "Your Selection" in the gallery). Hidden per-view via [hidden];
+     row 1 collapses to 0 height when absent.
+     Header grid rows: 1 eyebrow / 2 h2 + controls / 3 meta + primary action / 4 bio */
+  .banner-eyebrow {
+    grid-column: 1 / -1; grid-row: 1;
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .banner-eyebrow[hidden] { display: none; }
+  /* Champion bio paragraph (detail banner only). Kept readable-width like the mock */
+  .banner-bio {
+    grid-column: 1 / -1; grid-row: 4;
+    margin: 0;
+    max-width: 620px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  }
+  .banner-bio[hidden] { display: none; }
   /* The primary download button is a direct child of .champ-header (generated by
      the renderChampion / renderLine templates). Scoping to the child selector
      keeps this from applying to #back-btn (which carries .btn) inside the controls slot */
   .champ-header > .btn,
   .champ-header > .btn.primary {
-    grid-column: 2; grid-row: 2;
+    grid-column: 2; grid-row: 3;
     justify-self: end; align-self: end;
     margin-left: 0 !important;
   }
 
+  /* Detail banner mode (champion / line): the header becomes a full-bleed-feel hero
+     band — Classic splash at half opacity behind dual scrims, content pushed to the
+     bottom. The banner nodes are created once by ensureLayout; setPrimaryHeader
+     swaps the img src / toggles [hidden] per view */
+  .header-banner {
+    position: absolute; inset: 0; z-index: 0;
+    overflow: hidden;
+    background: #000;
+    pointer-events: none;
+  }
+  .header-banner[hidden] { display: none; }
+  .header-banner img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 16%;
+    opacity: 0.5;
+    background: var(--bg-1);
+  }
+  .header-banner .banner-scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.72) 40%, rgba(7, 6, 11, 0.42) 100%),
+      linear-gradient(0deg, rgba(7, 6, 11, 0.95) 0%, transparent 55%);
+  }
+  .champ-header.is-banner {
+    min-height: clamp(280px, 36vh, 400px);
+    align-content: end;
+    padding: 24px clamp(18px, 2.5vw, 40px) 30px;
+    margin-bottom: 34px;
+    border-bottom: 1px solid var(--rule);
+    /* The banner img is clipped by the header box */
+    overflow: hidden;
+  }
+  /* All direct content sits above the banner layers */
+  .champ-header.is-banner > :not(.header-banner) { position: relative; z-index: 1; }
+  /* The editorial gold half-line + ◆ ornament belong to the plain section head;
+     the banner has its own bottom edge */
+  .champ-header.is-banner::before,
+  .champ-header.is-banner::after { display: none; }
+  .champ-header.is-banner .count {
+    font-family: var(--font-mono);
+    letter-spacing: 0.14em;
+    color: var(--gold-hi);
+  }
+  .champ-header.is-banner h2 {
+    text-shadow: 0 4px 22px rgba(0, 0, 0, 0.7);
+  }
+
   /* === SKIN GRID =================================================== */
+  /* Fluid 16:9 cards (the mock's clamp-based tracks): stretch between the clamp
+     minimum and the row width */
   .skin-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 340px);
-    justify-content: center;
-    gap: 18px;
-    counter-reset: skin;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(240px, 26vw, 320px), 1fr));
+    gap: 16px;
   }
   .skin-card {
     position: relative;
@@ -783,18 +959,7 @@
     cursor: pointer;
     overflow: hidden;
     background: var(--bg-1);
-    border: 1px solid transparent;
-    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-    clip-path: polygon(
-      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
-      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
-      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
-      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
-    );
-    counter-increment: skin;
   }
-  /* skin-card / line-card share the ::after frame with champ-card
-     (defined above in `.champ-card::after, .skin-card::after, .line-card::after`) */
   .skin-card img {
     width: 100%; height: 100%; object-fit: cover;
     /* Cards now show the square CDragon tile (see state.js cardThumb) inside a 16:9 box, so
@@ -805,14 +970,18 @@
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s;
     position: relative; z-index: 1;
   }
-  .skin-card:hover { transform: translateY(-3px); }
-  .skin-card:hover img { transform: scale(1.06); }
-  /* Play glyph at the top-right of skins with an animated splash (splashVideoPath).
-     Signals at the grid stage that the lightbox will play video. The sel-checkbox
-     is top-left, so it doesn't conflict during selection */
+  .skin-card:hover img { transform: scale(1.05); }
+  /* Top-right badge cluster: [▶ video] [RARITY]. Both are optional; when both are
+     present they sit in one row. pointer-events pass through to the card */
+  .card-badges {
+    position: absolute; top: 9px; right: 9px; z-index: 5;
+    display: flex; align-items: center; gap: 6px;
+    pointer-events: none;
+  }
+  /* Play glyph for skins with an animated splash (splashVideoPath). Signals at the
+     grid stage that the lightbox will play video */
   .anim-badge {
-    position: absolute; top: 12px; right: 12px; z-index: 5;
-    width: 26px; height: 26px;
+    width: 24px; height: 24px;
     box-sizing: border-box;
     display: flex; align-items: center; justify-content: center;
     background: rgba(7, 6, 11, 0.82);
@@ -821,35 +990,47 @@
     color: var(--gold-hi);
     font-size: 10px;
     padding-left: 2px; /* nudge the ▶ glyph's optical center toward the box center */
-    pointer-events: none;
+  }
+  /* Rarity chip (EPIC / LEGENDARY / MYTHIC / ULTIMATE) — mono small caps on
+     blurred dark ground, matching the mock */
+  .rarity-badge {
+    font-family: var(--font-mono);
+    font-size: 8px; font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(7, 6, 11, 0.72);
+    border: 1px solid var(--rule);
+    padding: 3px 6px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   }
   .skin-card .label {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 24px 18px 16px;
+    padding: 26px 14px 13px;
     font-family: var(--font-display);
     font-style: italic;
     font-variation-settings: "opsz" 18, "SOFT" 60, "wght" 500;
-    font-size: 15.5px;
+    font-size: 16px;
     letter-spacing: 0;
-    line-height: 1.18;
-    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.6) 60%, rgba(7, 6, 11, 0) 100%);
-    color: var(--gold-hi);
+    line-height: 1.14;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.94) 0%, rgba(7, 6, 11, 0.5) 60%, rgba(7, 6, 11, 0) 100%);
+    color: var(--ink);
     z-index: 2;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
   }
-  /* Skin running number. Separated with "· " (a period reads too digital) */
-  .skin-card .label::before {
-    content: counter(skin, decimal-leading-zero) "  ·";
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 10px;
+  /* Champion eyebrow above the skin label — used on cards outside a champion
+     context (line detail / search results / gallery), where the owning champion
+     matters. render.js emits it as a span inside .label */
+  .skin-card .label .card-eyebrow {
+    display: block;
+    font-family: var(--font-eyebrow);
     font-style: normal;
-    font-weight: 500;
-    letter-spacing: 0.18em;
+    font-size: 8.5px; font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
     color: var(--gold);
-    margin-right: 8px;
-    vertical-align: middle;
-    opacity: 0.85;
+    margin-bottom: 3px;
+    opacity: 0.9;
   }
 
   /* === LIGHTBOX ==================================================== */
@@ -890,9 +1071,10 @@
   .lb-video.show { opacity: 1; }
   /* .fill = fill the screen (some crop). Kills the letterbox bars of a 16:9 splash
      on tall phones. Default is contain above (show everything). Toggled by the
-     lb-fit button (app.js). Ken Burns is transform-based, so it coexists with cover */
+     lb-fit button (app.js). Ken Burns is transform-based, so it coexists with cover.
+     The crop window is biased toward the top (faces live there in splash art) */
   .lightbox.fill .lb-img,
-  .lightbox.fill .lb-video { object-fit: cover; }
+  .lightbox.fill .lb-video { object-fit: cover; object-position: 50% 14%; }
   .lightbox.slideshow .lb-img.show {
     animation: kenburns 12s ease-out forwards;
   }
@@ -920,15 +1102,31 @@
     pointer-events: none;
     transition: opacity 0.2s ease;
   }
+  /* Skin name + rarity chip share one baseline row */
+  .lb-skin-row {
+    display: flex; align-items: baseline; gap: 14px;
+    flex-wrap: wrap;
+  }
   .lb-skin {
     font-family: var(--font-display);
-    font-size: clamp(28px, 4vw, 44px);
+    font-size: clamp(28px, 4.6vw, 56px);
     font-weight: 400; font-style: italic;
-    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
+    font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 500;
     color: var(--gold-hi);
-    letter-spacing: -0.015em; line-height: 1.0;
+    letter-spacing: -0.015em; line-height: 0.98;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 18px rgba(0, 0, 0, 0.7);
   }
+  .lb-rarity {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--rule);
+    padding: 4px 9px;
+    background: rgba(7, 6, 11, 0.4);
+  }
+  .lb-rarity[hidden] { display: none; }
   /* Very few skins have a description (only some Legendary/Ultimate or questSkinInfo).
      Clamp to a readable width at body size. The empty-state reservation (min-height)
      should only apply on screens with vertical headroom, so it isn't on the base
@@ -966,6 +1164,7 @@
      making re-show instant and asymmetric) */
   .lightbox.chrome-hidden .lb-toolbar,
   .lightbox.chrome-hidden .lb-nav,
+  .lightbox.chrome-hidden .lb-dock,
   .lightbox.chrome-hidden .lb-overlay {
     opacity: 0; pointer-events: none;
   }
@@ -1041,26 +1240,43 @@
   .lb-toolbar .lb-icon {
     padding: 9px 11px; font-size: 14px; line-height: 1;
   }
-  /* Relatively-positioned wrapper binding the ⚙ button and the settings menu that
-     drops below it (interval / caption). The menu is absolutely positioned against this */
-  .ss-options-wrap { position: relative; }
-  /* ⚙ is on the bar's right side, so align the menu to the gear's right edge and expand leftward (keeps it on-screen) */
-  .ss-menu {
-    position: absolute; top: calc(100% + 8px); right: 0; z-index: 2;
-    display: flex; flex-direction: column; gap: 6px;
-    padding: 8px;
-    background: rgba(12, 11, 20, 0.92);
+  /* Slideshow control dock (replaces the old top-bar ⚙ menu): a blurred panel
+     bottom-center holding ‹ [▶/⏸] › | ⏱ interval | 💬 caption. Shown only during
+     the slideshow via a JS display toggle (display:flex/none in lightbox.js) —
+     display:none also drops its buttons from the tab order for viewer mode */
+  .lb-dock {
+    position: absolute; left: 50%; bottom: 26px;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    background: rgba(12, 11, 20, 0.9);
     border: 1px solid var(--rule-bold);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap; justify-content: center;
+    transition: opacity 0.2s ease;
   }
-  /* Make [hidden] (display:none) win over .ss-menu's display:flex */
-  .ss-menu[hidden] { display: none; }
-  /* Menu buttons are equal-width and left-aligned, and don't wrap when the value changes */
-  .ss-menu .ss-btn { width: 100%; text-align: left; white-space: nowrap; }
+  .lb-dock .ss-btn { white-space: nowrap; }
+  .lb-dock .dock-nav {
+    width: 40px; padding: 11px 0;
+    font-family: var(--font-display);
+    font-size: 18px; line-height: 1;
+    text-align: center; letter-spacing: 0;
+  }
+  .lb-dock .dock-sep {
+    width: 1px; height: 24px;
+    background: var(--rule-bold);
+    margin: 0 4px;
+  }
+  /* During the slideshow the dock owns navigation (‹ ▶ ›), so the big side arrows
+     retire — they'd crowd the dock, especially in the mobile bottom corners.
+     Keyboard ←/→ still work (app.js handlers are independent of these buttons) */
+  .lightbox.slideshow .lb-nav { display: none; }
+  /* Play/pause is the dock's primary control: gold-lit while playing (the .active
+     class, synced by syncPauseButton) is defined with the shared #ss-pause.active rule below */
 
-  /* Pause (#ss-pause) moved into the top toolbar's single row, so the separately
-     positioned .slideshow-controls and its fade/hover logic are gone. Show/hide is
-     handled by a JS display toggle (only during slideshow) */
   @media (hover: none) {
     /* Touch devices can't bring it forward on hover, so keep ＋ always opaque */
     .sel-checkbox { opacity: 1; }
@@ -1262,14 +1478,11 @@
   .line-card.selected .sel-checkbox,
   .champ-card.partial .sel-checkbox,
   .line-card.partial .sel-checkbox { opacity: 1; border-color: var(--gold); }
-  .skin-card.selected, .champ-card.selected, .line-card.selected { border-color: var(--gold); }
-  /* selected is also shared across all three: keep the base vignette while
-     strengthening the inner border to 3px gold + glow. Higher specificity than the
-     base ::after (var(--card-frame-shadow)), so it overrides the moment the class is added */
-  .skin-card.selected::after,
-  .champ-card.selected::after,
-  .line-card.selected::after {
-    box-shadow: var(--card-frame-shadow-selected);
+  /* selected: solid gold edge + a soft inner glow directly on the card (the old
+     ::after frame layer is gone) */
+  .skin-card.selected, .champ-card.selected, .line-card.selected {
+    border-color: var(--gold);
+    box-shadow: inset 0 0 0 1px var(--gold), inset 0 0 40px rgba(212, 168, 87, 0.16);
   }
   /* Card-open overlay button. A transparent button covering the whole card,
      avoiding nested interactives (a ＋ button inside role=button) while still
@@ -1365,6 +1578,49 @@
     font-size: 13px;
     opacity: 0.7;
   }
+  /* Empty gallery: dashed frame + ◇ mark (the mock's empty state) */
+  .gallery-empty { border: 1px dashed var(--rule); }
+  .gallery-empty-mark {
+    font-size: 32px;
+    color: var(--gold);
+    opacity: 0.5;
+    margin-bottom: 14px;
+  }
+  .gallery-empty > p {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
+    font-size: 21px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-soft);
+  }
+  .gallery-empty > .gallery-hint {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* Thin rule-line section heading above detail grids ("THE COLLECTION ————") */
+  .section-rule {
+    display: flex; align-items: center; gap: 14px;
+    margin: 0 0 18px;
+  }
+  .section-rule h3 {
+    margin: 0;
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .section-rule span {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--rule), transparent);
+  }
   /* Empty-gallery action row (Browse + Import selection) shown below the empty-state hint. Centered,
      wraps on narrow screens; the row's own margin-top + gap handle all the spacing the buttons need. */
   .gallery-empty-actions {
@@ -1425,76 +1681,69 @@
   }
 
   /* === SKIN LINES GRID ============================================ */
-  /* Show each line's representative skin splash as the thumbnail */
+  /* 16:10 cards (a touch taller than skin cards, per the mock) with a mono running
+     number in the top-left corner. Fluid auto-fill like the other grids */
   .line-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 300px);
-    justify-content: center;
-    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(260px, 28vw, 340px), 1fr));
+    gap: 16px;
     counter-reset: line;
   }
   .line-card {
     position: relative;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16 / 10;
     cursor: pointer;
     overflow: hidden;
     background: var(--bg-1);
-    border: 1px solid transparent;
-    transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-    clip-path: polygon(
-      var(--frame-cut) 0%, calc(100% - var(--frame-cut)) 0%,
-      100% var(--frame-cut), 100% calc(100% - var(--frame-cut)),
-      calc(100% - var(--frame-cut)) 100%, var(--frame-cut) 100%,
-      0% calc(100% - var(--frame-cut)), 0% var(--frame-cut)
-    );
     counter-increment: line;
   }
   .line-card img {
     width: 100%; height: 100%; object-fit: cover;
-    /* Square tile in a 16:9 box — same upward bias as .skin-card img (see comment there) */
+    /* Square tile in a 16:10 box — same upward bias as .skin-card img (see comment there) */
     object-position: center 30%;
     transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.35s, filter 0.5s;
     position: relative; z-index: 1;
     filter: saturate(0.88) contrast(1.04);
   }
-  .line-card:hover { transform: translateY(-3px); }
-  .line-card:hover img { transform: scale(1.06); filter: saturate(1) contrast(1.06); }
-  /* Put the text-legibility gradient on .meta's background (same pattern as
-     skin-card .label), freeing ::after for the shared card frame. .meta is two rows
-     (name + count) and taller than skin-card, so widen padding-top to 60px to raise the gradient's fade top */
+  .line-card:hover img { transform: scale(1.05); filter: saturate(1) contrast(1.06); }
+  /* Running number "01" pinned top-RIGHT as a corner mark (the ＋ selection button
+     owns the top-left). ::after is free now that the frame shadow system is gone.
+     CSS counters do the numbering purely in CSS, so JS isn't touched */
+  .line-card::after {
+    content: counter(line, decimal-leading-zero);
+    position: absolute; top: 10px; right: 12px; z-index: 4;
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 500;
+    letter-spacing: 0.1em;
+    color: var(--gold-hi);
+    opacity: 0.85;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
   .line-card .meta {
     position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 60px 18px 18px;
-    background: linear-gradient(to top, rgba(7, 6, 11, 0.96) 0%, rgba(7, 6, 11, 0.55) 55%, rgba(7, 6, 11, 0) 100%);
+    padding: 56px 16px 15px;
+    background: linear-gradient(to top, rgba(7, 6, 11, 0.95) 0%, rgba(7, 6, 11, 0.45) 55%, rgba(7, 6, 11, 0) 100%);
     z-index: 2;
   }
   .line-card .name {
     font-family: var(--font-display);
-    color: var(--gold-hi);
-    font-size: 19px;
+    color: var(--ink);
+    font-size: 21px;
     font-style: italic;
-    font-variation-settings: "opsz" 24, "SOFT" 80, "wght" 500;
+    font-variation-settings: "opsz" 96, "SOFT" 70, "wght" 500;
     letter-spacing: -0.005em;
-    line-height: 1.15;
-  }
-  .line-card .meta::before {
-    content: counter(line, decimal-leading-zero);
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 9px; font-weight: 500;
-    letter-spacing: 0.2em;
-    color: var(--gold);
-    margin-bottom: 6px;
-    opacity: 0.8;
+    line-height: 1.06;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
   }
   .line-card .count {
-    font-family: var(--font-mono);
-    font-size: 10px;
+    display: block;
+    font-family: var(--font-eyebrow);
+    font-size: 9px; font-weight: 600;
     color: var(--gold);
-    letter-spacing: 0.22em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-top: 10px;
-    opacity: 0.75;
+    margin-top: 5px;
   }
 
   /* === PROGRESS OVERLAY =========================================== */
@@ -1508,16 +1757,17 @@
   .progress-box {
     min-width: 440px; max-width: 92vw;
     padding: 40px 44px 32px;
-    background: var(--bg-1);
-    border: 1px solid var(--gold);
+    background: linear-gradient(180deg, #13111e, var(--bg-1));
+    border: 1px solid var(--rule-bold);
     text-align: center;
     position: relative;
-    clip-path: polygon(
-      16px 0%, calc(100% - 16px) 0%,
-      100% 16px, 100% calc(100% - 16px),
-      calc(100% - 16px) 100%, 16px 100%,
-      0% calc(100% - 16px), 0% 16px
-    );
+  }
+  /* Gold top hairline (bright center fading at both ends) — the modal signature
+     shared with the tutorial box, replacing the old corner-cut frame */
+  .progress-box::before,
+  .tutorial-box::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-deep) 20%, var(--gold) 50%, var(--gold-deep) 80%, transparent);
   }
   .progress-box h3 {
     margin: 0 0 12px;
@@ -1584,8 +1834,9 @@
     width: 100%;
     max-width: 560px;
     padding: 40px 44px 28px;
-    background: var(--bg-1);
-    border: 1px solid var(--gold);
+    background: linear-gradient(180deg, #13111e, var(--bg-1));
+    border: 1px solid var(--rule-bold);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
     position: relative;
     /* .tut-body's min-height reservation (preventing height jitter between steps)
        overflows the box on short screens (landscape phones), so allow internal
@@ -1594,12 +1845,6 @@
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
-    clip-path: polygon(
-      16px 0%, calc(100% - 16px) 0%,
-      100% 16px, 100% calc(100% - 16px),
-      calc(100% - 16px) 100%, 16px 100%,
-      0% calc(100% - 16px), 0% 16px
-    );
   }
   .tut-step-counter {
     font-family: var(--font-mono);
@@ -1747,34 +1992,30 @@
      h2 and controls side by side get cramped */
   @media (max-width: 1100px) {
     .champ-header-controls {
-      grid-column: 1 / -1; grid-row: 2;
+      grid-column: 1 / -1; grid-row: 3;
       justify-self: stretch; align-self: start;
       flex-wrap: wrap;
     }
-    .champ-header .count { grid-row: 3; }
+    .champ-header .meta-row { grid-row: 4; }
+    .champ-header .banner-bio { grid-row: 5; }
     .champ-header > .btn,
-    .champ-header > .btn.primary { grid-row: 3; }
-    /* Once the controls/download button drop to rows 2-3, the auto-sized col 2 is set
-       by the wide download button ("全スキンをZIP") and keeps that width on row 1 too
+    .champ-header > .btn.primary { grid-row: 4; }
+    /* Once the controls/download button drop to rows 3-4, the auto-sized col 2 is set
+       by the wide download button ("全スキンをZIP") and keeps that width on row 2 too
        (grid tracks span all rows), squeezing the detail title's col 1 to a sliver. The
        huge display font then wraps CJK names mid-character into an ugly vertical stack.
-       Let the detail title span the full width on its own (now-empty) row-1 line.
-       is-list headers keep their count in col 2 / row 1, so exclude them. */
+       Let the detail title span the full width on its own row-2 line.
+       is-list headers keep their meta beside them, so exclude them. */
     .champ-header:not(.is-list) h2 { grid-column: 1 / -1; }
-    .champ-header-controls > #search {
-      flex: 1 1 240px;
-      max-width: none;
-    }
   }
   /* <= 900px: tablet band. Keep the header's two-row layout while tightening
      padding and font-size (spacing tuned via --container-pad) */
   @media (max-width: 900px) {
-    :root { --container-pad: 20px; }
+    :root { --container-pad: 20px; --tile-min: 150px; }
     header h1 { font-size: 20px; }
     main { padding: 20px var(--container-pad) 100px; }
-    .champ-grid { grid-template-columns: repeat(auto-fill, 132px); gap: 14px; }
-    .skin-grid { grid-template-columns: repeat(auto-fill, 260px); }
-    .line-grid { grid-template-columns: repeat(auto-fill, 260px); }
+    .hero { height: clamp(300px, 42vh, 420px); }
+    .hero-name { font-size: clamp(32px, 7.5vw, 52px); }
     .champ-header { padding: 24px 0 22px; margin-bottom: 32px; }
     .champ-header h2 { font-size: clamp(36px, 9vw, 56px); }
     .champ-header.is-list h2 { font-size: clamp(22px, 5.5vw, 32px); }
@@ -1799,7 +2040,7 @@
     /* --safe-top is for notch avoidance: shared by the topbar padding and the
        lightbox top controls. --bottom-nav-h is the body height of the fixed bottom
        nav (header-secondary) (safe-area added separately) */
-    :root { --ctrl-h: 44px; --frame-cut: 9px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; --bottom-nav-h: 56px; }
+    :root { --ctrl-h: 44px; --tile-min: 132px; --safe-top: max(12px, env(safe-area-inset-top)); --container-pad: 16px; --bottom-nav-h: 56px; }
 
     /* WCAG 2.4.11 (bottom edge): row 2 becomes a fixed bottom nav, so when Tab moves
        focus to near-bottom cards / footer links they aren't tucked behind the nav.
@@ -1891,18 +2132,15 @@
     .header-secondary { gap: 8px; }
     header h1 { font-size: 18px; }
     header h1::before { font-size: 11px; }
-    /* stats is just a small line under h1, but it's hard to fit at 320px. Escape it
-       with inline-block + ellipsis, leaving room for the lang-btn width (~52px) */
-    .header-brand #stats {
-      display: inline-block;
-      padding-left: 18px;
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: calc(100vw - 100px);
+    .brand-tag { display: none; }  /* width is precious at 320-430px */
+    /* Search drops to its own full-width row inside group 1 (row 1: brand + utils) */
+    .header-primary { flex-wrap: wrap; }
+    #search {
+      order: 9;
+      flex: 1 1 100%;
+      margin-left: 0;
     }
+    .header-utils { margin-left: auto; }
 
     /* Narrow the topbar buttons/tabs: handles CJK / long locales */
     header .btn,
@@ -1916,18 +2154,11 @@
     }
     header .view-tabs .tab { max-width: 40vw; }
 
-    /* Lay out the controls slot as one horizontal row (search grows + sort compact)
-       to halve the vertical footprint. On home (back hidden) search+sort is always
-       one row. While searching it's back+search+sort, and only on narrow devices
-       (~under 330px) does flex-wrap push sort to the next line (graceful wrap, no breakage) */
+    /* Lay out the controls slot (back + sort) as one horizontal row */
     .champ-header-controls {
       flex-direction: row;
       flex-wrap: wrap;
       align-items: center;
-    }
-    .champ-header-controls > #search {
-      flex: 1 1 140px;
-      min-width: 0;
     }
     /* iOS Safari force-zooms the page when a focused input's font-size is under 16px, and we
        deliberately keep pinch-zoom enabled (no maximum-scale — see index.html), so the desktop
@@ -1955,15 +2186,19 @@
     .champ-header.is-list h2 {
       font-size: clamp(21px, 5vw, 26px);  /* a 21px floor keeps "CHAMPIONS" from getting too thin */
     }
-    /* Move the count to col2/row1 (the heading's shoulder), aligned with the grid's
+    /* Move the meta row to col2/row2 (the heading's shoulder), aligned with the grid's
        align-items:end. padding-bottom is a tweak to optically align the small mono
-       count to the bottom of the huge italic heading (baseline align floats around the x-height, so use end + nudge) */
-    .champ-header.is-list .count {
-      grid-column: 2; grid-row: 1;
+       count to the bottom of the huge italic heading (baseline align floats around the
+       x-height, so use end + nudge). The global #stats gets no room here — count only */
+    .champ-header.is-list .meta-row {
+      grid-column: 2; grid-row: 2;
       justify-self: end; align-self: end;
       padding-bottom: 0.28em;
-      /* On no-results, count holds the raw search term. Use the same ellipsis guard
-         as #stats so long text doesn't bite into the heading. col1 stays the base minmax(0,1fr), prioritizing the heading */
+    }
+    .champ-header.is-list #stats { display: none; }
+    .champ-header.is-list .count {
+      /* On no-results, count holds the raw search term. Ellipsis-guard long text so
+         it doesn't bite into the heading. col1 stays the base minmax(0,1fr), prioritizing the heading */
       max-width: 45vw;
       white-space: nowrap;
       overflow: hidden;
@@ -1978,7 +2213,7 @@
     main { padding: 24px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 28px); }
     /* Add clearance to the footer too so its last line isn't eaten by the nav */
     footer { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 16px); }
-    .champ-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .champ-grid { gap: 10px; }  /* track minimum comes from --tile-min (132px here) */
     .skin-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
     .line-grid  { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
     .skin-card .label, .line-card .meta { padding: 14px 12px 12px; }
@@ -2051,8 +2286,32 @@
     /* Gallery toolbar: at narrow widths, tighten the buttons and let them wrap */
     .gallery-toolbar .btn { padding: 0 12px; letter-spacing: 0.10em; font-size: 9.5px; }
 
-    /* Push the bottom-fixed notices (toast / offline-banner) above the nav bar */
-    .toast { bottom: calc(36px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+    /* Hero: shorter band, tighter caption, actions wrap */
+    .hero { height: clamp(300px, 40vh, 400px); margin-bottom: 20px; }
+    .hero-content { padding: 0 16px 30px; }
+    .hero-name { font-size: clamp(30px, 9vw, 44px); }
+    .hero-dots { right: 16px; bottom: 14px; }
+
+    /* Selection bar: full width just above the fixed bottom nav, wrapping */
+    .selection-bar {
+      left: var(--container-pad); right: var(--container-pad);
+      transform: none;
+      bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 10px);
+      flex-wrap: wrap; justify-content: center;
+      gap: 8px 10px;
+      padding: 10px 12px;
+    }
+    .selbar-hint { display: none; }  /* width is precious; the count says enough */
+
+    /* Slideshow dock: clear the home-indicator area */
+    .lb-dock {
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      gap: 6px; padding: 8px;
+    }
+
+    /* Push the bottom-fixed notices (toast / offline-banner) above the nav bar
+       (toast also above the selection bar's band) */
+    .toast { bottom: calc(96px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     .offline-banner { bottom: calc(18px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
     /* Raise it with the same formula as .toast so it doesn't overlap the fixed bottom nav */
     .to-top { bottom: calc(16px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
@@ -2107,6 +2366,8 @@
     main { animation: none; }
     .champ-card:hover, .skin-card:hover, .line-card:hover { transform: none; }
     .champ-card:hover img, .skin-card:hover img, .line-card:hover img { transform: none; }
+    /* Hero: no Ken Burns; hero.js also skips the auto-advance timer under reduced motion */
+    .hero .kb-on.show { animation: none; }
   }
 
   /* The description-box reservation (so the skin name doesn't shift with/without a
@@ -2133,10 +2394,10 @@
 
   /* <= 400px (iPhone SE 1st gen, 320px class): to show cards larger, fix skin/line to 1 column and champ to 3 columns */
   @media (max-width: 400px) {
-    :root { --frame-cut: 8px; --container-pad: 10px; }
+    :root { --container-pad: 10px; }
     main { padding: 16px var(--container-pad) calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 24px); }
     .skin-grid, .line-grid { grid-template-columns: 1fr; }
-    .champ-grid { grid-template-columns: repeat(3, 1fr); }
+    .champ-grid { grid-template-columns: repeat(2, 1fr); }
 
     /* At the 320px class, long labels in es_es / fr_fr / pt_br are tight even with the
        600px settings, so kill letter-spacing and drop to 9.5px. Ellipsis already
@@ -2161,6 +2422,42 @@
     header .view-tabs .tab { max-width: 36vw; }
   }
 
+  /* === SELECTION BAR (floating "N selected" pill) ====================
+     Fixed bottom-center while 1+ skins are selected outside the gallery view.
+     Synced by refreshGalleryBtn(); wired once by initSelectionBar() (render.js).
+     z-index 95: above the FABs (40) / offline banner (90), below the lightbox (100) */
+  .selection-bar {
+    position: fixed; left: 50%; bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 95;
+    display: flex; align-items: center; gap: 16px;
+    max-width: calc(100vw - 24px);
+    padding: 12px 15px 12px 22px;
+    background: rgba(12, 11, 20, 0.93);
+    border: 1px solid var(--rule-bold);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+    animation: packIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .selection-bar[hidden] { display: none; }
+  .selbar-count {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 24, "SOFT" 60, "wght" 500;
+    font-size: 17px;
+    color: var(--gold-hi);
+    white-space: nowrap;
+  }
+  .selbar-hint {
+    font-family: var(--font-eyebrow);
+    font-size: 9.5px; font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    white-space: nowrap;
+  }
+  .selection-bar .btn { height: 36px; padding: 0 15px; font-size: 10px; letter-spacing: 0.14em; }
+
   /* === TOAST (wallpaper-action feedback in local mode) ===============
      Toasts must appear in front of all overlays. The highest is the wallpaper modal
      (.wp-modal, z-index:1000), which also has an opaque backdrop. The error toast on
@@ -2169,7 +2466,9 @@
      becomes invisible. Visual notice is #toast; for screen readers, the existing #sr-status (aria-live) is used alongside */
   .toast {
     position: fixed;
-    left: 50%; bottom: 36px;
+    /* Sits above the floating selection bar's band (~64px tall at bottom 24px) so
+       a toast never lands behind it */
+    left: 50%; bottom: 104px;
     transform: translateX(-50%) translateY(8px);
     z-index: 1100;
     max-width: min(90vw, 480px);

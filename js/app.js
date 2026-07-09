@@ -17,6 +17,7 @@ import {
 import {
   render, goHome, goBack, openLines, openSelected,
   imgLoaded, imgErr, setRouteListener, setNavListener, closeTransferMenu,
+  initSelectionBar,
 } from "./render.js";
 import {
   hideProgress,
@@ -546,6 +547,9 @@ function wireEvents() {
   $("lb-close").addEventListener("click", closeLightbox);
   $("lb-prev").addEventListener("click", prevSlide);
   $("lb-next").addEventListener("click", nextSlide);
+  // Dock arrows (slideshow mode): same nav as the big side arrows, which CSS hides during the slideshow
+  $("dock-prev").addEventListener("click", prevSlide);
+  $("dock-next").addEventListener("click", nextSlide);
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
     syncPauseButton();
@@ -560,29 +564,13 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
-  // Open/close the ⚙ menu. Interval and caption are grouped into one to limit the number of toolbar buttons.
-  // So both can be adjusted while it stays open, a click inside the menu doesn't close it (outside click / Esc closes it).
-  const closeSsMenu = () => {
-    $("ss-menu").hidden = true;
-    $("ss-options").setAttribute("aria-expanded", "false");
-  };
-  $("ss-options").addEventListener("click", (e) => {
-    // Stop it from being caught by the parent lightbox click (outside-click detection) and closing immediately
-    e.stopPropagation();
-    const willOpen = $("ss-menu").hidden;
-    $("ss-menu").hidden = !willOpen;
-    $("ss-options").setAttribute("aria-expanded", String(willOpen));
-  });
+  // Caption verbosity cycles full → name → none. Lives in the slideshow dock (the old ⚙ menu is gone).
   $("ss-caption").addEventListener("click", () => {
     const modes = ["full", "name", "none"];
     const i = modes.indexOf(state.lb.caption);
     state.lb.caption = modes[(i + 1) % modes.length];
     syncCaptionButton();
     applyCaption();
-  });
-  // Collapse on a click outside the menu (caught across the whole lightbox, excluding inside the ⚙ menu)
-  $("lightbox").addEventListener("click", (e) => {
-    if (!$("ss-menu").hidden && !$("ss-options-wrap").contains(e.target)) closeSsMenu();
   });
   // Image fit toggle (contain ↔ cover). Kills the black bars on tall phones.
   // The .fill class switches CSS object-fit, and the setting is persisted to localStorage.
@@ -697,15 +685,12 @@ function wireEvents() {
     }
   }, { passive: true });
   // Tapping the stage (image area) bulk-toggles the control UI, the standard image-viewer gesture.
-  // - When the ⚙ menu is open, defer to the existing "close on outside click" (the handler caught
-  //   across the whole lightbox) and do nothing here (= the tap is spent on the close action)
   // - Ignore exactly one click completed by the preceding swipe (no double-fire with next/prev)
   // - The handler is attached directly to .lb-stage, so by DOM structure clicks on the toolbar/arrows/
-  //   overlay don't reach here. lb-overlay is pointer-events:none so taps pass through to the stage,
-  //   but a tap in the overlay area is fine to toggle too.
+  //   dock/overlay don't reach here. lb-overlay is pointer-events:none so taps pass through to the
+  //   stage, but a tap in the overlay area is fine to toggle too.
   document.querySelector(".lb-stage").addEventListener("click", () => {
     if (swipeConsumedClick) { swipeConsumedClick = false; return; }
-    if (!$("ss-menu").hidden) return;
     $("lightbox").classList.toggle("chrome-hidden");
   });
 
@@ -749,8 +734,6 @@ function wireEvents() {
       }
       return;
     }
-    // If the ⚙ menu is open, Esc first collapses the menu (doesn't close the lightbox)
-    if (e.key === "Escape" && !$("ss-menu").hidden) { closeSsMenu(); return; }
     if (e.key === "Escape") closeLightbox();
     else if (e.key === "ArrowRight") nextSlide();
     else if (e.key === "ArrowLeft") prevSlide();
@@ -788,6 +771,9 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // The floating selection bar's buttons are static DOM; wire them once (render.js owns the
+  // handlers since it already imports the ZIP/wallpaper/clear actions)
+  initSelectionBar();
   // Attach the grid image load/error delegated listener before the first render (#root is in the initial HTML)
   wireImgDelegation();
   // Attach the hash-routing popstate wiring + the post-render URL sync hook first.
