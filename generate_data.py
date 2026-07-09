@@ -225,6 +225,146 @@ def fetch_release_dates() -> dict[str, str]:
     return best
 
 
+# Per-skin release dates. Like champion dates these don't exist anywhere in
+# CDragon/DDragon, but the wiki's Module:SkinData/data has every skin with a
+# `["release"] = "YYYY-MM-DD"` (probe 2026-07: 1901/1901 skins carry one). The
+# front end uses them for the home hero's "newest splashes" pool; skins without
+# a date (quest-skin tiers, brand-new skins the wiki hasn't caught up on) simply
+# never count as "new" — nothing breaks.
+SKIN_RELEASE_API_URLS = (
+    "https://leagueoflegends.fandom.com/api.php"
+    "?action=query&prop=revisions&titles=Module:SkinData/data"
+    "&rvslots=main&rvprop=content&format=json&formatversion=2",
+)
+
+
+def _parse_skin_release_api(data: dict) -> list[tuple[str, int, dict[int, str]]]:
+    """Parse Module:SkinData/data Lua into [(champ_display_name, champ_id, {skin_num: date})].
+
+    The module is machine-formatted with a fixed 2-space indent per level, so we
+    key on exact indentation instead of counting braces (lore strings can contain
+    braces, which makes depth counting unreliable):
+        2 sp  ["Aatrox"] = {          -> champion block
+        4 sp  ["id"] = 266            -> champion id (champion level has only id/skins)
+        6 sp  ["Original"] = {        -> skin block
+        8 sp  ["id"] = 0 / ["release"] = "2013-06-12"
+    Chroma sub-tables sit at 10/12 spaces, so the exact-8 match skips them.
+    Within a skin block the field order isn't guaranteed, so id and release are
+    collected independently and flushed at the next skin/champion boundary.
+    """
+    content = data["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+    champs: list[tuple[str, int, dict[int, str]]] = []
+    cur_name: str | None = None
+    cur_id: int | None = None
+    cur_skins: dict[int, str] = {}
+    skin_id: int | None = None
+    skin_release: str | None = None
+
+    def flush_skin() -> None:
+        nonlocal skin_id, skin_release
+        if skin_id is not None and skin_release:
+            cur_skins[skin_id] = skin_release
+        skin_id = skin_release = None
+
+    def flush_champ() -> None:
+        nonlocal cur_name, cur_id, cur_skins
+        flush_skin()
+        if cur_name is not None and cur_id is not None and cur_skins:
+            champs.append((cur_name, cur_id, cur_skins))
+        cur_name = cur_id = None
+        cur_skins = {}
+
+    for line in content.splitlines():
+        m = re.match(r'^  \["(.+)"\] = \{', line)
+        if m:
+            flush_champ()
+            cur_name = m.group(1)
+            continue
+        m = re.match(r'^    \["id"\] = (\d+)', line)
+        if m:
+            cur_id = int(m.group(1))
+            continue
+        if re.match(r'^      \["', line):
+            flush_skin()
+            continue
+        m = re.match(r'^        \["id"\] = (\d+)', line)
+        if m:
+            skin_id = int(m.group(1))
+            continue
+        m = re.match(r'^        \["release"\] = ["\'](\d{4}-\d{2}-\d{2})["\']', line)
+        if m:
+            skin_release = m.group(1)
+            continue
+    flush_champ()
+    return champs
+
+
+def fetch_skin_release_dates() -> tuple[dict[int, dict[int, str]], dict[str, dict[int, str]]]:
+    """Fetch per-skin release dates as (by_champ_id, by_champ_name) lookup maps.
+
+    Matching is on the numeric pair (champion id, skin number = CDragon skin id
+    % 1000), which sidesteps name drift entirely. But the wiki's champion-level
+    id has a copy-paste-error history (ChampionData once gave Ambessa/Mel Ahri's
+    id=103), so any id claimed by more than one champion block is dropped from
+    the id map and those champions resolve through the display-name map instead.
+    On fetch/parse failure both maps are empty and skins just get no `release`
+    (the hero falls back to a rarity-based pool).
+    """
+    champs: list[tuple[str, int, dict[int, str]]] = []
+    for url in SKIN_RELEASE_API_URLS:
+        try:
+            parsed = _parse_skin_release_api(fetch_json(url))
+        except Exception as e:
+            print(f"   [WARN] skin-release source fetch failed ({type(e).__name__}): {url[:48]}...", flush=True)
+            continue
+        total = sum(len(sk) for _, _, sk in parsed)
+        print(f"   {len(parsed)} champions / {total} skin dates fetched: {url[:48]}...", flush=True)
+        if len(parsed) > len(champs):
+            champs = parsed
+    if not champs:
+        print("   [WARN] could not fetch skin release dates; skins get no release field", flush=True)
+        return {}, {}
+    id_counts: dict[int, int] = {}
+    for _, cid, _ in champs:
+        id_counts[cid] = id_counts.get(cid, 0) + 1
+    dupes = sorted(cid for cid, n in id_counts.items() if n > 1)
+    if dupes:
+        print(f"   [WARN] duplicate champion ids on the wiki (resolving by name): {dupes}", flush=True)
+    by_id = {cid: sk for _, cid, sk in champs if id_counts[cid] == 1}
+    by_name = {name: sk for name, _, sk in champs}
+    return by_id, by_name
+
+
+def load_prev_skin_releases(path: Path | None) -> dict[tuple[str, str], str]:
+    """Read {(alias, label): release} out of the previously committed data.json.
+
+    The Fandom mirror froze around 2024-09 (the wiki moved to
+    wiki.leagueoflegends.com, whose API/raw both 403 bots — probed 2026-07), so
+    wiki dates alone leave every skin after the freeze undated. The fix is
+    stateful: dates already written to data.json are carried forward run-to-run,
+    and a top-level skin that appears with no wiki date and no prior date gets
+    stamped with the run date ("first seen" ≈ release, accurate to the weekly
+    update cadence). The very first stamping run bulk-marks the whole untracked
+    cohort with one date — a known approximation that self-heals as later
+    patches append genuinely new skins with later dates.
+    """
+    if not path:
+        return {}
+    try:
+        prev = json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[tuple[str, str], str] = {}
+    for c in prev.get("champions", []):
+        alias = c.get("alias")
+        if not alias:
+            continue
+        for s in c.get("skins", []):
+            if s.get("label") and s.get("release"):
+                out[(alias, s["label"])] = s["release"]
+    return out
+
+
 # Regions (Demacia / Noxus, etc.) were originally meant to come from Riot's universe-meeps
 # API, but a probe confirmed the server-side S3 IAM config is broken and permanently returns
 # 403 (probe log: AccessDenied,
@@ -485,12 +625,24 @@ def clean_bio(raw) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def collect_skins_from_skin_obj(alias: str, skin_obj: dict) -> list[dict]:
+def collect_skins_from_skin_obj(
+    alias: str, skin_obj: dict, skin_dates: dict[int, str] | None = None
+) -> list[dict]:
     """Build an entry from one skin or one tier"""
     skin_name = skin_obj.get("name", "Unknown")
     label = f"{alias}_Classic" if skin_obj.get("isBase") else skin_name
 
     entry = {"label": label}
+
+    # Release date (YYYY-MM-DD) from the wiki, keyed by skin number. CDragon skin
+    # ids encode champion*1000+num, and questSkinInfo tiers carry real skin ids in
+    # the same space, so % 1000 works for both. Tiers usually miss on the wiki and
+    # simply get no date (= never "new"), which is fine.
+    sid = skin_obj.get("id")
+    if skin_dates and isinstance(sid, int):
+        release = skin_dates.get(sid % 1000)
+        if release:
+            entry["release"] = release
 
     splash = skin_obj.get("uncenteredSplashPath")
     if splash:
@@ -553,7 +705,7 @@ def _walk_skins_with_index(detail: dict):
                 yield (ti, qi), tier
 
 
-def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
+def build_manifest(prev_manifest_path: Path | None = None) -> tuple[dict, list[tuple[int, str, list, str]]]:
     """Return the data.json manifest plus locale-align metadata used for i18n paths.
 
     Each element of the 2nd return value is
@@ -591,6 +743,19 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
     print("==> Fetching release dates (LoL Wiki)...", flush=True)
     release_dates = fetch_release_dates()
     print(f"    release dates for {len(release_dates)} champions", flush=True)
+
+    # Per-skin release dates (LoL Wiki). For the home hero's "newest splashes" pool.
+    print("==> Fetching skin release dates (LoL Wiki)...", flush=True)
+    skin_dates_by_id, skin_dates_by_name = fetch_skin_release_dates()
+    # The mirror is frozen (~2024-09), so post-freeze skins never get a wiki date.
+    # Carry dates forward from the previous data.json and stamp first-seen skins
+    # with the run date (see load_prev_skin_releases). Stamping is gated on the
+    # wiki source being alive this run: if the fetch failed outright, every skin
+    # would look "new" and one bad run would poison the carried-forward state.
+    prev_releases = load_prev_skin_releases(prev_manifest_path)
+    wiki_alive = bool(skin_dates_by_name)
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    stamped = [0]
 
     # Fetch all champion JSON in parallel. We want to preserve the original
     # champions order, so collect into an id->detail dict and reassemble in order
@@ -652,9 +817,23 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         # "untranslated = same as English" per locale (so we don't duplicate the
         # English text into locale files).
         paths_for_locale: list[tuple[tuple[int, int | None], str, str | None]] = []
+        # Wiki skin dates for this champion: numeric-id match first, display-name
+        # fallback only for ids the wiki lists twice (copy-paste errors).
+        skin_dates = skin_dates_by_id.get(cid) or skin_dates_by_name.get(name) or {}
         for path, skin_obj in _walk_skins_with_index(detail):
-            made = collect_skins_from_skin_obj(alias, skin_obj)
+            made = collect_skins_from_skin_obj(alias, skin_obj, skin_dates)
             if made:
+                entry0 = made[0]
+                if "release" not in entry0:
+                    prev_date = prev_releases.get((alias, entry0["label"]))
+                    if prev_date:
+                        entry0["release"] = prev_date
+                    elif wiki_alive and path[1] is None:
+                        # First-seen stamp: top-level skins only. Quest tiers are
+                        # sub-splashes of an already-dated skin and would pollute
+                        # the "newest" pool if bulk-stamped.
+                        entry0["release"] = today
+                        stamped[0] += 1
                 skin_entries.extend(made)
                 paths_for_locale.append((path, made[0]["label"], made[0].get("desc")))
 
@@ -708,6 +887,13 @@ def build_manifest() -> tuple[dict, list[tuple[int, str, list, str]]]:
         missing = [c["alias"] for c in out_champs if "release" not in c]
         if missing:
             print(f"   [WARN] release dates missing: {missing}", flush=True)
+
+    # Skin-date coverage summary (per-skin warnings would be noise: quest tiers
+    # and brand-new skins legitimately miss until the wiki catches up).
+    dated = sum(1 for c in out_champs for s in c["skins"] if "release" in s)
+    if dated:
+        newest = max(s["release"] for c in out_champs for s in c["skins"] if "release" in s)
+        print(f"    skin release dates: {dated}/{total} skins (newest: {newest}, first-seen stamped this run: {stamped[0]})", flush=True)
 
     # Keep only skin lines actually used (to shrink data.json)
     used_line_ids: set[int] = set()
@@ -836,7 +1022,10 @@ def build_locale_index(
 
 
 def main() -> int:
-    out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "data.json"
+    # Only a non-flag argument is the output path (a bare `--locales=...` used to be
+    # swallowed here and data.json got written to a file literally named "--locales=...")
+    positional = [a for a in sys.argv[1:] if not a.startswith("--")]
+    out_path = Path(positional[0]) if positional else Path(__file__).parent / "data.json"
     # i18n output is fixed to an `i18n/` dir alongside data.json. It follows a
     # custom data.json path given via CLI arg, so i18n/ lands in the same dir
     i18n_dir = out_path.parent / "i18n"
@@ -850,7 +1039,9 @@ def main() -> int:
             locales_filter = [x.strip() for x in arg.split("=", 1)[1].split(",") if x.strip()]
 
     try:
-        manifest, align_meta = build_manifest()
+        # out_path doubles as the "previous run" source for carrying skin release
+        # dates forward (see load_prev_skin_releases)
+        manifest, align_meta = build_manifest(prev_manifest_path=out_path)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
