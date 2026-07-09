@@ -2040,14 +2040,37 @@
   .to-back[hidden] { display: none; }
 
   /* === RESPONSIVE ================================================= */
-  /* Below ~1400px the single header row can't hold brand + search + utils + the four
-     nav buttons + language (long locales like ja wrap even sooner). Without help,
-     flex-wrap dropped ONLY the language picker to a lonely row-2 left edge — and its
-     right-anchored dropdown then opened off-screen. Instead, demote the whole nav
-     group to an explicit right-aligned second row (order:10) and keep the language
-     picker in row 1 next to ? / share. Wide screens keep the mock's
-     search → ? → nav → language order untouched. */
-  @media (max-width: 1400px) {
+  /* Keep the header on ONE row as long as possible by shedding width in tiers
+     (ornament → tracking/padding → language code) before ever wrapping. Long
+     locales (ja) are the sizing worst case.
+     Tier 1 (~1500px): drop the ARCHIVE brand tag, tighten gaps/padding/tracking,
+     let the search shrink further. */
+  @media (max-width: 1500px) {
+    header { gap: 10px 12px; }
+    .header-primary, .header-secondary, .header-utils, .header-actions,
+    .view-tabs { gap: 8px; }
+    .brand-tag { display: none; }
+    header .btn,
+    header .view-tabs .tab { padding: 0 12px; letter-spacing: 0.12em; }
+    #search { flex-basis: clamp(120px, 14vw, 220px); }
+  }
+  /* Tier 2 (~1150px): flag-only language button, denser type and gaps. Sized so
+     the worst case (ja labels + gallery badge) still fits one row at ~980px */
+  @media (max-width: 1150px) {
+    header { gap: 10px 8px; }
+    .header-primary, .header-secondary, .header-utils, .header-actions,
+    .view-tabs { gap: 6px; }
+    .lang-code { display: none; }
+    header h1 { font-size: 17px; }
+    header .btn,
+    header .view-tabs .tab { padding: 0 7px; letter-spacing: 0.04em; font-size: 10px; }
+    #search { flex-basis: clamp(90px, 10vw, 160px); }
+  }
+  /* Tier 3 (below ~950px): the row genuinely can't hold everything — demote the
+     nav group to an explicit right-aligned second row (order:10). The language
+     picker stays in row 1 next to ? / share, so its right-anchored dropdown never
+     ends up at the left screen edge (where it used to open off-screen). */
+  @media (max-width: 950px) {
     .header-secondary {
       order: 10;
       flex: 1 1 100%;
