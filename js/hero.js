@@ -67,6 +67,7 @@ export function mountHero(container, cbs) {
   if (!items.length || !container) return;
   callbacks = cbs;
 
+  container.setAttribute("aria-label", t("hero_eyebrow"));
   container.innerHTML = `
     <img class="hero-img kb-on" id="hero-img-a" alt="" decoding="async">
     <img class="hero-img kb-on" id="hero-img-b" alt="" decoding="async">
@@ -88,11 +89,10 @@ export function mountHero(container, cbs) {
   $("hero-eyebrow").textContent = t("hero_eyebrow");
   $("hero-view").textContent = t("hero_view_skin");
   $("hero-wallpaper").textContent = t("wallpaper_set_btn");
-  // "View splash" goes straight to the skin (champion view opens underneath and the
-  // lightbox lands on this exact splash) — the skin is the star here, not the champion
+  // "View splash" hands the whole pool + current position to the caller, which opens
+  // the lightbox in place — closing it returns exactly where the user was on home
   $("hero-view").addEventListener("click", () => {
-    const cur = items[idx];
-    if (cur && callbacks) callbacks.onView(cur.c.alias, cur.s.label);
+    if (callbacks) callbacks.onView(items, idx);
   });
   $("hero-wallpaper").addEventListener("click", () => {
     const cur = items[idx];

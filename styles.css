@@ -950,6 +950,47 @@
     text-shadow: 0 4px 22px rgba(0, 0, 0, 0.7);
   }
 
+  /* Home section row (is-home): the hero above is the page's headline, so the big
+     editorial header collapses into one slim strip — "CHAMPIONS · 173 champions ·
+     2100 skins … [back?] [sort]" — echoing the mock. The id selector outguns the
+     later responsive .champ-header.is-list overrides (equal-specificity class
+     chains would lose on source order) */
+  #primary-header.is-home {
+    display: flex; align-items: center; gap: 8px 18px;
+    flex-wrap: wrap;
+    min-height: 0;
+    padding: 2px 0 14px;
+    margin-bottom: 4px;
+    border-bottom: 0;
+  }
+  #primary-header.is-home::before,
+  #primary-header.is-home::after { display: none; }
+  #primary-header.is-home h2 {
+    font-family: var(--font-eyebrow);
+    font-style: normal;
+    font-variation-settings: normal;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink);
+    line-height: 1;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+  #primary-header.is-home .meta-row {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0;
+  }
+  #primary-header.is-home .count {
+    /* Result counts while searching sit inline next to the label; mono to match #stats */
+    font-family: var(--font-mono);
+    letter-spacing: 0.18em;
+  }
+  /* Controls (back / sort) close the row on the right; the counts hug the label on
+     the left (DOM order is h2 → controls → meta, so reorder via flex) */
+  #primary-header.is-home .champ-header-controls { order: 9; margin-left: auto; }
+
   /* === SKIN GRID =================================================== */
   /* Fluid 16:9 cards (the mock's clamp-based tracks): stretch between the clamp
      minimum and the row width */

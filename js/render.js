@@ -110,6 +110,7 @@ export function ensureLayout(root) {
   // it's re-invoked on every render (prev/next nav, locale switch), so a
   // create-per-call approach would stack duplicate imgs.
   root.innerHTML = `
+    <section class="hero" id="hero" hidden></section>
     <div class="champ-header" id="primary-header" hidden>
       <div class="header-banner" id="header-banner" hidden aria-hidden="true">
         <img id="banner-img" alt="" decoding="async">
@@ -140,11 +141,14 @@ export function ensureLayout(root) {
 // never touches its innerHTML, it just passes values here.
 // banner (a splash URL) turns the header into the detail hero band (is-banner);
 // eyebrow / bio fill the once-created nodes and hide when empty.
-function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null, banner = "", eyebrow = "", bio = "" }) {
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null, banner = "", eyebrow = "", bio = "", compact = false }) {
   const ph = $("primary-header");
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
   ph.classList.toggle("is-banner", !!banner);
+  // compact = the home section row: the hero above is the page's headline, so the
+  // header shrinks to a slim "CHAMPIONS · counts … sort" strip (no editorial rule/◆)
+  ph.classList.toggle("is-home", !!compact);
   // The global #stats shows only when the view has no count of its own (the pristine
   // home list) — side by side they'd repeat the same champion number
   ph.classList.toggle("has-count", !!count);
@@ -218,9 +222,11 @@ export function setNavListener(fn) { onBeforeNav = fn; }
 export function render() {
   const root = $("root");
   ensureLayout(root);
-  // The hero (home only) is rebuilt by renderHome when applicable; kill its timer
-  // unconditionally first so no rotation survives a view switch
+  // The hero (home only) is re-mounted by renderHome when applicable; kill its timer
+  // and hide the persistent node unconditionally first so no rotation survives a view switch
   destroyHero();
+  const heroEl = $("hero");
+  if (heroEl) heroEl.hidden = true;
   // Tabs are top-level switches. back-btn shows in detail views (champion / line / selected) or while searching.
   // "selected" (My Gallery) is an intermediate view opened via its own path, so neither tab is active.
   const isLines = (state.view === "lines" || state.view === "line");
@@ -470,24 +476,19 @@ function renderHome(root) {
     const list = sortedChampions();
     // No per-view count here: the global #stats ("173 champions · 2100 skins") in the
     // same meta row already says it (see setPrimaryHeader's has-count)
-    setPrimaryHeader({ isList: true, title: t("nav_home") });
-    // The hero band goes above the section head visually, but #primary-header is a
-    // persistent sibling ABOVE #view-content — so the hero leads view-content and
-    // CSS pulls the plain section head styling in line. Empty container first,
-    // mountHero fills + wires it after the innerHTML swap.
+    setPrimaryHeader({ isList: true, title: t("nav_home"), compact: true });
+    // The hero is a persistent node ABOVE the section head (ensureLayout), so the
+    // reading order matches the mock: hero → slim "CHAMPIONS" row → chips → grid
     $("view-content").innerHTML =
-      `<section class="hero" id="hero" aria-label="${esc(t("hero_eyebrow"))}"></section>`
-      + chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
-    mountHero($("hero"), {
-      // Straight to the splash: open the champion view underneath, then the lightbox
-      // on that exact skin (back closes the lightbox first, then returns home)
-      onView: (alias, label) => {
-        const c = DATA.champions.find(x => x.alias === alias);
-        if (!c) return;
-        openChampion(alias);
-        const i = c.skins.findIndex(s => s.label === label);
-        if (i >= 0) openLightbox(buildChampList(c), i, "manual");
-      },
+      chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    const heroEl = $("hero");
+    heroEl.hidden = false;
+    mountHero(heroEl, {
+      // View Splash opens the lightbox IN PLACE over the home view — the list is the
+      // "new splashes" pool itself (‹ › steps through the six), and closing it lands
+      // right back where the user was (no navigation, scroll intact)
+      onView: (pool, i) =>
+        openLightbox(pool.map(p => toLightboxItem(p.c, p.s)), i, "manual"),
       onWallpaper: (src) => {
         if (isLocalWallpaper()) {
           applyWallpaper([src])
@@ -519,7 +520,7 @@ function renderHome(root) {
   sortSkins(skinMatches);
 
   if (champMatches.length === 0 && skinMatches.length === 0) {
-    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery, compact: true });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     wireFilterChips(root);
     // WCAG 4.1.3: result changes from search (including filter chips) are a status. Announce to screen readers.
@@ -532,7 +533,7 @@ function renderHome(root) {
   // champ-header via innerHTML (no controls slot).
   const parts = [];
   if (champMatches.length > 0) {
-    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length) });
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length), compact: true });
     parts.push(`<div class="champ-grid">${renderChampCards(champMatches)}</div>`);
     if (skinMatches.length > 0) {
       parts.push(`
@@ -543,7 +544,7 @@ function renderHome(root) {
         <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
     }
   } else {
-    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length) });
+    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length), compact: true });
     parts.push(`<div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
   }
   $("view-content").innerHTML = chips + parts.join("");
