@@ -145,6 +145,9 @@ function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
   ph.classList.toggle("is-banner", !!banner);
+  // The global #stats shows only when the view has no count of its own (the pristine
+  // home list) — side by side they'd repeat the same champion number
+  ph.classList.toggle("has-count", !!count);
   const bWrap = $("header-banner");
   const bImg = $("banner-img");
   bWrap.hidden = !banner;
@@ -465,7 +468,9 @@ function renderHome(root) {
   // tokens and would vacuously match everything — also lands here instead of dumping every skin.
   if (!tokens.length) {
     const list = sortedChampions();
-    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
+    // No per-view count here: the global #stats ("173 champions · 2100 skins") in the
+    // same meta row already says it (see setPrimaryHeader's has-count)
+    setPrimaryHeader({ isList: true, title: t("nav_home") });
     // The hero band goes above the section head visually, but #primary-header is a
     // persistent sibling ABOVE #view-content — so the hero leads view-content and
     // CSS pulls the plain section head styling in line. Empty container first,

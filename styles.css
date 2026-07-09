@@ -505,7 +505,8 @@
     text-transform: uppercase;
     white-space: nowrap;
   }
-  #primary-header:not(.is-list) #stats { display: none; }
+  #primary-header:not(.is-list) #stats,
+  #primary-header.has-count #stats { display: none; }
   /* Reserve the final digit count (data-target's digits) as a min-width in ch so
      surrounding text doesn't shift while the count-up adds digits */
   #stats .stat-num {
@@ -850,7 +851,7 @@
   /* Meta row under the heading: per-view count + (list views only) the global
      #stats counter transplanted here by ensureLayout */
   .champ-header .meta-row {
-    grid-column: 1; grid-row: 2;
+    grid-column: 1; grid-row: 3;
     display: flex; align-items: baseline; gap: 18px;
     flex-wrap: wrap;
     min-width: 0;

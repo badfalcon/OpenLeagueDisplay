@@ -29,9 +29,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
+│   ├── hero.js                      #   ホームのヒーロー (新着スプラッシュ6件を7秒回転 + Ken Burns)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
-│   ├── tutorial.js                  #   初回訪問チュートリアル (4ステップ。? ボタン / ? キーで再表示)
+│   ├── tutorial.js                  #   初回訪問チュートリアル (5ステップ。? ボタン / ? キーで再表示)
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   ├── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
@@ -74,13 +75,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **zip.js**: JSZip 連携。`pMap` / `downloadAsZip` は module 内 private、
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
-  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。**操作系は上部の
-  1 本のバー (`.lb-toolbar`) に集約**: 左に counter、右に 一時停止 (`#ss-pause`、
-  スライドショー時のみ) / 画像フィット (`#lb-fit`、contain↔cover) / ⚙ メニュー
-  (`#ss-options`、スライドショー時のみ) / 閉じる (`#lb-close`) を並べ、`#lb-close`
-  が右端。`.lb-toolbar-spacer` (flex:1) が左右を押し分ける。ナビ矢印 (`.lb-nav`
-  ‹ ›) だけはタップしやすさ優先で左右中央に大きく残す (モバイルは下隅)。間隔と
-  キャプションは ⚙ メニュー (`#ss-menu`) にまとめてボタン数を抑える。キャプションは
+  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。**上部バー
+  (`.lb-toolbar`) はビューア用**: 左に counter、右に 画像フィット (`#lb-fit`、
+  contain↔cover) / 壁紙 (`#lb-wallpaper`、ローカルのみ) / 閉じる (`#lb-close`)。
+  `.lb-toolbar-spacer` (flex:1) が左右を押し分ける。**スライドショー操作は下部中央の
+  ドック `#lb-dock`** (`#dock-prev` ‹ / `#ss-pause` ▶⏸ / `#dock-next` › / `#ss-interval` /
+  `#ss-caption`。旧 ⚙ メニューは廃止、display:none 切替で viewer 時は Tab 対象からも
+  外れる)。ナビ矢印 (`.lb-nav` ‹ ›) はビューアモード専用でスライドショー中は CSS で
+  非表示 (ドックが担う。キーボード ←/→ は両モードで有効)。スキン名の隣に rarity チップ
+  (`#lb-rarity`、RARITY_LABELS で翻訳、無ければ hidden)。キャプションは
   `applyCaption()` が lightbox ルートに `caption-name` (説明文だけ畳む) /
   `caption-none` (オーバーレイごと隠す) を付与し、full は class なし。ビューアモード
   では常に full 扱い (⚙ を出さないので none のまま閉じても拡大表示に波及しない)
@@ -122,6 +125,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   Export 項目がスマホ→PC 経路を担う。`openInDesktop` 内にも mobile→Export フォールバックの保険
   あり)。**受動的な ④`mountFooterCTA` と Export はモバイルでも残す** (スマホで見て後で PC で使う
   動機になる / 割り込まない)
+- **hero.js**: ホームの「新着スプラッシュ」ヒーローバンド。import は state / i18n のみで、
+  ナビ (`openChampion`) と壁紙アクションは render.js がコールバック注入する (hero→render の
+  直接辺を作らない。hero→i18n→render の循環は render↔i18n と同じ hoist 前提で安全)。
+  `render()` が冒頭で必ず `destroyHero()` を呼び、renderHome (検索なし時のみ) が
+  `mountHero()` で再生成する — #view-content は毎 render で innerHTML ごと作り直される
+  ため DOM は残せず、featured プールと現在位置だけ module 変数で永続。プール = 各スキンの
+  `release` 降順6件 (無い/少ない時は Ultimate/Mythic ランダムにフォールバック)。7秒
+  setInterval は document.hidden・ライトボックス表示中はスキップ、reduced-motion では
+  張らない (Ken Burns も CSS 側で停止)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/
@@ -322,6 +334,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   最新側に置き、`[警告] リリース日 未取得` を出す (次回更新で Wiki が追記されれば自動で
   埋まる。最新キャラが末尾に来るのは時系列的に正しいので順序は破綻しない)。`Array#sort`
   は安定なので同日付・欠落どうしは id 順を保つ
+- **スキン単位のリリース日も Wiki + 初見スタンプのハイブリッドで持つ**: ホームのヒーロー
+  「新着スプラッシュ」用に各スキンへ `release` ("YYYY-MM-DD") を埋める。ソースは wiki の
+  `Module:SkinData/data` (`fetch_skin_release_dates()`。probe 2026-07 で 1901/1901 スキンが
+  `["release"]` を保有と確認)。**突合は数値ペア (チャンピオン id, スキン番号 = CDragon skin
+  id % 1000)** で名前ゆれ無し。wiki の champ id にはコピペミス前歴があるため、id が重複した
+  ブロックだけ表示名で解決する二段構え。**ただし Fandom ミラーは ~2024-09 で凍結**
+  (本家 wiki.leagueoflegends.com は API/raw とも 403 で bot を弾く — 再 probe 済み) ので、
+  凍結後のスキンは①前回 data.json の値を引き継ぎ (`load_prev_skin_releases`)、②wiki にも
+  前回にも無い**トップレベル**スキンへ実行日をスタンプ (初見 ≒ リリース。週次 update.yml の
+  粒度で正確化していく。questSkinInfo のティアはスタンプ対象外 = 「新着」を汚さない)。
+  スタンプは wiki 取得が生きている時のみ (全滅時に全スキンが「今日」になる汚染を防ぐ)。
+  初回スタンプで凍結期間のコホート (~211件) が同日になるのは既知の近似で、以後のパッチで
+  自然に解消する。パーサはインデント桁で階層判定 (lore 文字列に波括弧が入るため brace
+  カウントは不可。champion=2桁 / skins=6桁 / フィールド=8桁、chromas は 10桁以深で除外)
 
 ## CDragon のパスマッピング (重要)
 
@@ -396,7 +422,10 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [x] ~~キーボードショートカット一覧モーダル (? キーで表示)~~ → 専用モーダルは作らず
   チュートリアル第4ステップとして実装 (? キーで開く既存動線をそのまま流用)
-- [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
+- [x] ~~「最近追加されたスキン」セクション (data.json 差分から検出)~~ → ホームの
+  ヒーロー「新着スプラッシュ」(js/hero.js) として実装。データはスキン単位 `release`
+  (wiki SkinData + 初見スタンプ、上の設計判断参照) で、差分検出より正確な全履歴を持つ。
+  専用の一覧セクションを足したくなったら同じ `release` 降順で並べるだけ
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
 - [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で
