@@ -2033,6 +2033,21 @@
   .to-back[hidden] { display: none; }
 
   /* === RESPONSIVE ================================================= */
+  /* Below ~1400px the single header row can't hold brand + search + utils + the four
+     nav buttons + language (long locales like ja wrap even sooner). Without help,
+     flex-wrap dropped ONLY the language picker to a lonely row-2 left edge — and its
+     right-anchored dropdown then opened off-screen. Instead, demote the whole nav
+     group to an explicit right-aligned second row (order:10) and keep the language
+     picker in row 1 next to ? / share. Wide screens keep the mock's
+     search → ? → nav → language order untouched. */
+  @media (max-width: 1400px) {
+    .header-secondary {
+      order: 10;
+      flex: 1 1 100%;
+      justify-content: flex-end;
+      margin-left: 0;
+    }
+  }
   /* At 1100px (the upper bound where mid-size laptops can keep the desktop one-row
      topbar), drop champ-header's controls slot to row 2. This is the size where
      h2 and controls side by side get cramped */
