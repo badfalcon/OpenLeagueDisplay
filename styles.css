@@ -611,6 +611,10 @@
   }
   .hero-name {
     margin: 0 0 10px;
+    /* CJK display text: wrap at natural phrase boundaries instead of mid-name
+       ("黄昏の試練シン・ジャオ" breaking after シン・ reads badly at display sizes).
+       Chromium 119+ only (Japanese); other browsers ignore it — pure enhancement */
+    word-break: auto-phrase;
     font-family: var(--font-display);
     font-style: italic;
     font-variation-settings: "opsz" 144, "SOFT" 70, "wght" 500;
@@ -792,6 +796,7 @@
   .champ-header h2 {
     margin: 0;
     grid-column: 1; grid-row: 2;   /* always pin to col 1; col 2 is for the controls slot */
+    word-break: auto-phrase;       /* CJK phrase-boundary wrapping (see .hero-name) */
     font-family: var(--font-display);
     font-size: clamp(48px, 7vw, 96px);
     font-weight: 400; font-style: italic;
@@ -1155,6 +1160,7 @@
   }
   .lb-skin {
     font-family: var(--font-display);
+    word-break: auto-phrase;       /* CJK phrase-boundary wrapping (see .hero-name) */
     font-size: clamp(28px, 4.6vw, 56px);
     font-weight: 400; font-style: italic;
     font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 500;
@@ -1902,6 +1908,7 @@
   }
   .tut-title {
     margin: 0 0 18px;
+    word-break: auto-phrase;       /* CJK phrase-boundary wrapping (see .hero-name) */
     font-family: var(--font-display);
     font-style: italic;
     font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 500;
