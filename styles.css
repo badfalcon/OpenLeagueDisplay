@@ -570,6 +570,8 @@
     margin-bottom: 28px;
     border: 1px solid var(--card-outline);
     background: #000;
+    /* The whole splash is a click target for "view splash" (hero.js) */
+    cursor: pointer;
   }
   .hero-img {
     position: absolute; inset: 0;
@@ -650,13 +652,17 @@
     z-index: 3;
     display: flex; align-items: center; gap: 8px;
   }
+  /* The visible dot is the 8px content box; a transparent 6px padding ring widens
+     the real tap target to ~20px (background-clip keeps the fill off the padding) */
   .hero-dots button {
     width: 8px; height: 8px;
-    padding: 0; border: 0; cursor: pointer;
+    padding: 6px; border: 0; cursor: pointer;
+    box-sizing: content-box;
     background: rgba(237, 229, 211, 0.38);
-    transition: width 0.4s, background 0.4s;
+    background-clip: content-box;
+    transition: width 0.4s, background-color 0.4s;
   }
-  .hero-dots button.active { width: 24px; background: var(--gold); }
+  .hero-dots button.active { width: 24px; background-color: var(--gold); }
   .hero-dots button:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold);

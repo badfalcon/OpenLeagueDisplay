@@ -20,6 +20,8 @@ let idx = 0;
 let timer = null;
 let frontIsA = true;
 let callbacks = null;
+let hovered = false;  // pointer over the hero: hold the rotation (carousel convention)
+let swallowClick = false;  // a completed swipe absorbs the click it may leak
 
 // Newest first by the per-skin `release` (W0: wiki date / first-seen stamp).
 // Fallback when the data has too few dated skins (old data.json or a failed wiki
@@ -94,6 +96,36 @@ export function mountHero(container, cbs) {
   $("hero-view").addEventListener("click", () => {
     if (callbacks) callbacks.onView(items, idx);
   });
+  // The whole splash is a click target for the same action (the button stays as the
+  // labeled/accessible path; this is a convenience, so buttons/dots are excluded)
+  container.addEventListener("click", (e) => {
+    if (swallowClick) { swallowClick = false; return; }
+    if (e.target.closest("button")) return;
+    if (callbacks) callbacks.onView(items, idx);
+  });
+  // Hold the rotation while the pointer rests on the hero — swapping the image
+  // out from under someone reading the caption is classic carousel rudeness
+  container.addEventListener("mouseenter", () => { hovered = true; });
+  container.addEventListener("mouseleave", () => { hovered = false; });
+  // Touch swipe steps the featured slides (same thresholds as the lightbox swipe).
+  // A completed swipe may still leak a click on some devices — swallow exactly one
+  let tX = 0, tY = 0;
+  container.addEventListener("touchstart", (e) => {
+    swallowClick = false;
+    if (e.touches.length !== 1) return;
+    tX = e.touches[0].clientX;
+    tY = e.touches[0].clientY;
+  }, { passive: true });
+  container.addEventListener("touchend", (e) => {
+    const t0 = e.changedTouches[0];
+    const dx = t0.clientX - tX;
+    const dy = t0.clientY - tY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swallowClick = true;
+      show((idx + (dx < 0 ? 1 : -1) + items.length) % items.length, true);
+      arm();
+    }
+  }, { passive: true });
   $("hero-wallpaper").addEventListener("click", () => {
     const cur = items[idx];
     if (cur && callbacks) callbacks.onWallpaper(cur.s.splash);
@@ -118,8 +150,9 @@ function arm() {
   timer = null;
   if (reducedMotion()) return;  // no auto-advance for vestibular safety
   timer = setInterval(() => {
-    // Hold the rotation while the tab is hidden or a lightbox/slideshow is up
-    if (document.hidden) return;
+    // Hold the rotation while the tab is hidden, the pointer rests on the hero,
+    // or a lightbox/slideshow is up
+    if (document.hidden || hovered) return;
     const lb = $("lightbox");
     if (lb && lb.classList.contains("open")) return;
     show((idx + 1) % (pool ? pool.length : 1), true);
@@ -154,17 +187,27 @@ function show(i, crossfade) {
     front.src = s.splash;
     front.classList.add("show");
     back.classList.remove("show");
+    preloadNext();
     return;
   }
   const swap = () => {
     back.classList.add("show");
     front.classList.remove("show");
     frontIsA = !frontIsA;
+    preloadNext();
   };
   if (back.getAttribute("src") === s.splash) { swap(); return; }
   back.onload = swap;
   back.onerror = swap;
   back.src = s.splash;
+}
+
+// Warm the browser cache with the upcoming slide so every crossfade starts
+// instantly instead of waiting on the network at swap time
+function preloadNext() {
+  if (!pool || pool.length < 2) return;
+  const next = pool[(idx + 1) % pool.length];
+  if (next && next.s.splash) new Image().src = next.s.splash;
 }
 
 export function destroyHero() {

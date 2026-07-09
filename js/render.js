@@ -267,9 +267,31 @@ export function render() {
     searchEl.setAttribute("aria-label", ph);
   }
   refreshGalleryBtn();
+  syncDocumentTitle();
   // At the end, notify app.js of the hash for the current state. app.js only pushState's
   // "when it differs from the current location.hash" to avoid a double render.
   if (onRouteChange) onRouteChange();
+}
+
+// Keep the tab title in step with the view ("Annie — OpenLeagueDisplay") so history
+// entries, bookmarks, and the back-button dropdown read as destinations instead of
+// N identical "OpenLeagueDisplay" rows.
+function syncDocumentTitle() {
+  const base = "OpenLeagueDisplay";
+  let part = "";
+  if (state.view === "champion" && state.currentChamp) {
+    const c = DATA.champions.find(x => x.alias === state.currentChamp);
+    if (c) part = champName(c);
+  } else if (state.view === "line" && state.currentLine) {
+    part = lineName(state.currentLine);
+  } else if (state.view === "lines") {
+    part = t("skin_lines_header");
+  } else if (state.view === "selected") {
+    part = t("select_mode");
+  } else if (state.searchQuery) {
+    part = state.searchQuery;
+  }
+  document.title = part ? `${part} — ${base}` : base;
 }
 
 // The header "My Gallery" button: shows the selection count and, while in the gallery view,
@@ -377,6 +399,16 @@ function filterChipsHTML(q, maps) {
 }
 
 function wireFilterChips(root) {
+  // The chip row scrolls horizontally with a hidden scrollbar; when a chip toward the
+  // end is active (tapped earlier, or restored via Back), pull it into view so the
+  // gold highlight isn't sitting invisibly off-screen. Manual scrollLeft math instead
+  // of scrollIntoView: the latter can also scroll the PAGE vertically.
+  const row = root.querySelector(".filter-chips");
+  const active = row && row.querySelector(".filter-chip.active");
+  if (row && active) {
+    const target = active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2;
+    row.scrollLeft = Math.max(0, target);
+  }
   root.querySelectorAll(".filter-chip").forEach(el => {
     el.addEventListener("click", () => {
       // Re-tap an active chip -> clear. Otherwise -> search by that filter term.

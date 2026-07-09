@@ -132,8 +132,11 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   `mountHero()` で再生成する — #view-content は毎 render で innerHTML ごと作り直される
   ため DOM は残せず、featured プールと現在位置だけ module 変数で永続。プール = 各スキンの
   `release` 降順6件 (無い/少ない時は Ultimate/Mythic ランダムにフォールバック)。7秒
-  setInterval は document.hidden・ライトボックス表示中はスキップ、reduced-motion では
-  張らない (Ken Burns も CSS 側で停止)
+  setInterval は document.hidden・**ホバー中**・ライトボックス表示中はスキップ、
+  reduced-motion では張らない (Ken Burns も CSS 側で停止)。次スライドは事前 preload、
+  ステージ全面クリック = View Splash (ボタンが accessible path、全面は利便)、
+  タッチスワイプで前後送り (ライトボックスと同じ閾値 + click 漏れ吸収)。home と
+  Skin Lines の素のリスト両方に出る (`mountFeaturedHero`、検索中は非表示)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/
