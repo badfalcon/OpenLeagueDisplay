@@ -112,20 +112,6 @@
             <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line>
           </svg>
         </button>
-        <div class="lang-picker" id="lang-picker">
-          <!-- This is a disclosure (open/close toggle), so no aria-haspopup (aria-haspopup="true"
-               implies "menu", which mismatches an implementation that has no arrow-key menu model).
-               aria-expanded alone conveys the open/closed state -->
-          <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
-            <img class="lang-flag" id="lang-flag" alt="" decoding="async">
-          </button>
-          <!-- Collapsible language menu (disclosure). Originally role="listbox" + role="option",
-               but interposing <li> breaks the listbox→option ownership, and making each option a
-               Tab-focusable <button> also mismatched the listbox pattern (arrow keys / activedescendant).
-               Switched to a plain list to match reality (button opens it, items are buttons), and
-               the current language is marked with aria-current. Keyboard still works via Tab/Enter/Esc -->
-          <ul class="lang-menu" id="lang-menu" hidden></ul>
-        </div>
       </div>
     </div>
     <div class="header-secondary">
@@ -140,6 +126,23 @@
         <button class="btn" id="gallery-btn">My Gallery</button>
         <button class="btn" id="slideshow-btn">Slideshow</button>
       </div>
+    </div>
+    <!-- Language picker sits at the header's far-right edge (matching the mock's order:
+         search → ? → nav buttons → language), OUTSIDE .header-secondary so it stays in the
+         top bar when that group becomes the fixed bottom nav on mobile -->
+    <div class="lang-picker" id="lang-picker">
+      <!-- This is a disclosure (open/close toggle), so no aria-haspopup (aria-haspopup="true"
+           implies "menu", which mismatches an implementation that has no arrow-key menu model).
+           aria-expanded alone conveys the open/closed state -->
+      <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
+        <img class="lang-flag" id="lang-flag" alt="" decoding="async">
+      </button>
+      <!-- Collapsible language menu (disclosure). Originally role="listbox" + role="option",
+           but interposing <li> breaks the listbox→option ownership, and making each option a
+           Tab-focusable <button> also mismatched the listbox pattern (arrow keys / activedescendant).
+           Switched to a plain list to match reality (button opens it, items are buttons), and
+           the current language is marked with aria-current. Keyboard still works via Tab/Enter/Esc -->
+      <ul class="lang-menu" id="lang-menu" hidden></ul>
     </div>
   </header>
 </div>

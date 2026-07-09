@@ -479,7 +479,15 @@ function renderHome(root) {
       `<section class="hero" id="hero" aria-label="${esc(t("hero_eyebrow"))}"></section>`
       + chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
     mountHero($("hero"), {
-      onView: openChampion,
+      // Straight to the splash: open the champion view underneath, then the lightbox
+      // on that exact skin (back closes the lightbox first, then returns home)
+      onView: (alias, label) => {
+        const c = DATA.champions.find(x => x.alias === alias);
+        if (!c) return;
+        openChampion(alias);
+        const i = c.skins.findIndex(s => s.label === label);
+        if (i >= 0) openLightbox(buildChampList(c), i, "manual");
+      },
       onWallpaper: (src) => {
         if (isLocalWallpaper()) {
           applyWallpaper([src])

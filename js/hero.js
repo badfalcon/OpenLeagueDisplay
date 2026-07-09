@@ -86,11 +86,13 @@ export function mountHero(container, cbs) {
     <div class="hero-dots" id="hero-dots"></div>`;
 
   $("hero-eyebrow").textContent = t("hero_eyebrow");
-  $("hero-view").textContent = t("hero_view_champion");
+  $("hero-view").textContent = t("hero_view_skin");
   $("hero-wallpaper").textContent = t("wallpaper_set_btn");
+  // "View splash" goes straight to the skin (champion view opens underneath and the
+  // lightbox lands on this exact splash) — the skin is the star here, not the champion
   $("hero-view").addEventListener("click", () => {
     const cur = items[idx];
-    if (cur && callbacks) callbacks.onView(cur.c.alias);
+    if (cur && callbacks) callbacks.onView(cur.c.alias, cur.s.label);
   });
   $("hero-wallpaper").addEventListener("click", () => {
     const cur = items[idx];
@@ -130,8 +132,13 @@ function show(i, crossfade) {
   const { c, s } = pool[idx];
   const name = $("hero-name");
   if (!name) return;  // container was torn down between ticks
-  name.textContent = champName(c);
-  $("hero-skin").textContent = skinLabel(c, s);
+  // The SKIN name is the headline (it's a "new splashes" band); the champion is the
+  // small kicker below. Classic skins render their champion name as the skin label,
+  // so drop the kicker when it would just repeat the headline.
+  const skin = skinLabel(c, s);
+  const champ = champName(c);
+  name.textContent = skin;
+  $("hero-skin").textContent = champ !== skin ? champ : "";
   const rar = $("hero-rarity");
   const rLabel = s.rarity
     ? ((RARITY_LABELS[state.locale] || {})[s.rarity] || RARITY_LABELS.default[s.rarity] || "")
