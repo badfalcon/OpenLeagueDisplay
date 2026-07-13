@@ -444,8 +444,13 @@ function wireChipScroll(row) {
   const SLOP = 4;
   let startX = 0, startLeft = 0, moved = 0, down = false;
   row.addEventListener("pointerdown", (e) => {
+    // Clear the previous interaction's distance BEFORE the guard: a drag that ends off the row
+    // never fires click here (so the click handler below doesn't get to reset it), and the next
+    // press could be a touch tap, which returns early — leaving a stale `moved` that would make
+    // the click handler swallow a perfectly good tap.
+    moved = 0;
     if (e.pointerType === "touch" || e.button !== 0) return;
-    down = true; moved = 0; startX = e.clientX; startLeft = row.scrollLeft;
+    down = true; startX = e.clientX; startLeft = row.scrollLeft;
   });
   row.addEventListener("pointermove", (e) => {
     if (!down) return;
