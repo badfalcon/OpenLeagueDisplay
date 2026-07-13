@@ -722,10 +722,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # no reason (and throw away whatever view the user was on).
         if keys:
             window.load_url(f"http://{HOST}:{self.server.server_address[1]}/{import_fragment(keys)}")
-        try:
-            window.restore()  # un-minimize / bring forward, best-effort (backend-dependent)
-        except Exception:
-            pass
+        # BOTH calls, in this order, and each best-effort (they're backend-dependent):
+        # restore() only un-minimizes (winforms: WindowState = Normal; cocoa: deminiaturize_) — on a
+        # window that is merely buried behind the browser it is a no-op, which is the common case
+        # here and would make the whole hand-off look like it did nothing. show() is the one that
+        # raises and activates (winforms: Show() + Activate(); cocoa: makeKeyAndOrderFront).
+        for surface in ("restore", "show"):
+            try:
+                getattr(window, surface)()
+            except Exception:
+                pass
         self._json(200, {"ok": True, "count": len(keys)})
 
     def _handle_wallpaper(self, body: dict) -> None:
@@ -855,6 +861,15 @@ def hand_off_to_running(port: int, keys: list) -> bool:
     the running instance navigate its OWN window instead. It replies 409 when it has no window
     (browser mode), in which case a browser tab IS the right place and the caller opens one.
     """
+    # Windows only lets the process that currently owns the foreground hand it over. THIS process is
+    # the one the browser/Explorer just launched, so it has that right — the long-running instance
+    # doesn't, and its Activate() would only flash a taskbar button. Waive the right to anyone
+    # (ASFW_ANY) so the running instance's show() can actually raise the window. Best-effort.
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+        except Exception:
+            pass
     body = json.dumps({"keys": keys}).encode("utf-8")
     req = urllib.request.Request(
         f"http://{HOST}:{port}/api/handoff", data=body, method="POST",

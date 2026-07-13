@@ -36,6 +36,19 @@ const MAX_LINK_LEN = 16000;
 // openleaguedisplay://import?keys=<base64url of the JSON key array>. base64url (not
 // percent-encoded JSON): skin keys are full of "/" and spaces, which percent-encoding would
 // roughly triple, and the link has a hard length budget.
+// Fire a custom-scheme link from a throwaway tab, then close it. Firing it at the CURRENT document
+// is the obvious move, but it risks replacing the page the user is on: browsers that don't have a
+// handler registered aren't uniform about it (Chrome silently ignores it, Firefox can render an
+// "unknown protocol" error page in place of the app). A scratch tab absorbs that, and closing it
+// straight after leaves no orphan blank tab either — which is why we didn't just window.open.
+// The user gesture (the modal button) is what lets both the open and the close through.
+function fireSchemeLink(link) {
+  const w = window.open("", "_blank");
+  if (!w) { window.location.href = link; return; }  // popup blocked: fall back to this document
+  w.location.href = link;
+  setTimeout(() => { try { w.close(); } catch (_) {} }, 2000);
+}
+
 function desktopLink(keys) {
   const bytes = new TextEncoder().encode(JSON.stringify(keys));  // keys can hold non-ASCII, so go via UTF-8
   let bin = "";
@@ -174,12 +187,10 @@ export function openInDesktop() {
     body: t("handoff_body"),
     primary: {
       label: t("handoff_open"),
-      // Custom scheme: navigate the current page rather than window.open, which would leave an
-      // orphaned blank tab behind — the browser intercepts it, prompts, and the page stays put. The
-      // http fallback is a real page, so it still gets its own tab.
       onClick: () => {
-        if (scheme) { window.location.href = link; toast(t("handoff_launching")); }
-        else window.open(link, "_blank", "noopener");
+        if (!scheme) { window.open(link, "_blank", "noopener"); return; }  // http fallback: a real page
+        fireSchemeLink(link);
+        toast(t("handoff_launching"));
       },
     },
     secondary: { label: t("handoff_export"), onClick: () => { if (exportSelection()) toast(t("export_done")); } },
