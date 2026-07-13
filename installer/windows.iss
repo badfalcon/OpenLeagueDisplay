@@ -72,6 +72,19 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
+[Registry]
+; Register the openleaguedisplay:// URL scheme so the web version (GitHub Pages) can hand a gallery
+; to this app with a link — it launches the app whether or not it's already running (the old
+; http://127.0.0.1:8000 deep link only reached an already-running instance).
+; HKA = HKCU for the normal per-user install, HKLM if the user elevated to per-machine
+; (PrivilegesRequiredOverridesAllowed=dialog). uninsdeletekey on the root drops the whole tree on uninstall.
+; local_app.py re-registers the same keys at startup, which self-heals a moved install and covers the
+; portable exe; the entries here make the link work before the app has ever been run.
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: ""; ValueData: "URL:OpenLeagueDisplay Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\icon.ico"
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
+
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\icon.ico"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon

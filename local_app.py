@@ -18,14 +18,21 @@ Wallpaper setting and image fetching use only the Python standard library
 pywebview is the only optional dependency: when present it gives a native window,
 otherwise it falls back to the default browser, so it is never required.
 
+The app also owns the openleaguedisplay:// URL scheme, so the web version (GitHub Pages) can hand a
+gallery straight over: openleaguedisplay://import?keys=<base64url JSON> LAUNCHES this app with that
+selection preloaded, whether or not it was already running.
+
 Run:
     python local_app.py            # port 8000, native window (if pywebview is present)
     python local_app.py 8080       # specify port
     python local_app.py --no-window   # server only, no window (for CI / curl tests)
+    python local_app.py --no-register # don't (re-)register the openleaguedisplay:// scheme
+    python local_app.py "openleaguedisplay://import?keys=..."   # what the OS passes for a scheme link
 """
 
 from __future__ import annotations
 
+import base64
 import ctypes
 import functools
 import hashlib
@@ -55,6 +62,14 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 HOST = "127.0.0.1"  # never exposed externally (first gate against SSRF / hijacking)
+
+# Custom URL scheme this app answers to (registered by the Windows installer, and re-registered on
+# each start by register_url_scheme so portable / from-source runs work too). The web build fires
+# openleaguedisplay://import?keys=... to hand its gallery over.
+URL_SCHEME = "openleaguedisplay"
+# Sanity cap on a hand-off. A gallery is a few hundred skins at most; anything beyond this is a
+# malformed or hostile link, and the frontend already falls back to the file export past its own limit.
+MAX_IMPORT_KEYS = 5000
 
 # PyInstaller onefile extracts its payload to sys._MEIPASS. For a normal run it's
 # this file's directory. Using it as the static-serving root removes the cwd dependency.
@@ -712,6 +727,95 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 # ---------------------------------------------------------------------------
+# openleaguedisplay:// URL scheme (web → native gallery hand-off)
+# ---------------------------------------------------------------------------
+def _decode_import_keys(raw: str) -> list:
+    """Decode the `keys` parameter of an import link into a list of selection keys.
+
+    The frontend emits base64url of the JSON array (skin keys are full of "/" and spaces, and
+    percent-encoding them would roughly triple a link that has a hard command-line length budget).
+    Raw JSON is accepted too so a hand-written link still works.
+    """
+    for text in (_b64url_decode(raw), raw):
+        if not text:
+            continue
+        try:
+            keys = json.loads(text)
+        except ValueError:
+            continue
+        if isinstance(keys, list):
+            return [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
+    return []
+
+
+def _b64url_decode(raw: str) -> str | None:
+    try:
+        pad = "=" * (-len(raw) % 4)
+        return base64.urlsafe_b64decode(raw + pad).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+
+def import_hash_from_argv(argv: list) -> str:
+    """Turn an openleaguedisplay:// argument (if any) into the frontend's "#import=..." fragment.
+
+    Returns "" when there's no link / no keys. The fragment format is owned by js/desktop.js
+    (applyImportFromHash), which already merges the keys on startup — so the whole hand-off is just
+    "open the page at this hash" and no new endpoint or frontend path is needed.
+    """
+    link = next((a for a in argv if a.lower().startswith(URL_SCHEME + ":")), None)
+    if not link:
+        return ""
+    # Accept both scheme://import?keys=... and scheme:import?keys=... (some launchers drop the slashes).
+    parts = urllib.parse.urlsplit(link)
+    keys = _decode_import_keys(urllib.parse.parse_qs(parts.query).get("keys", [""])[0])
+    if not keys:
+        return ""
+    return "#import=" + urllib.parse.quote(json.dumps(keys), safe="")
+
+
+def register_url_scheme() -> None:
+    """Point HKCU\\Software\\Classes\\openleaguedisplay at this executable (Windows only).
+
+    The installer writes the same keys, but a portable exe or a `python local_app.py` run was never
+    installed — and an installed copy that gets moved leaves a dangling handler. Re-registering on
+    every start covers both (per-user, so no elevation; the installer removes the key on uninstall).
+    Failure is non-fatal: without it the app still works, it just can't be launched from a link.
+    """
+    if platform.system() != "Windows":
+        return
+    import winreg
+
+    if getattr(sys, "frozen", False):  # PyInstaller build: the exe takes the link directly
+        command = f'"{sys.executable}" "%1"'
+    else:
+        command = f'"{sys.executable}" "{os.path.abspath(__file__)}" "%1"'
+    root = "Software\\Classes\\" + URL_SCHEME
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
+            winreg.SetValueEx(key, None, 0, winreg.REG_SZ, "URL:OpenLeagueDisplay Protocol")
+            winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
+        icon = os.path.join(BASE_DIR, "icon.ico")
+        if os.path.isfile(icon):
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + "\\DefaultIcon") as key:
+                winreg.SetValueEx(key, None, 0, winreg.REG_SZ, icon)
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + "\\shell\\open\\command") as key:
+            winreg.SetValueEx(key, None, 0, winreg.REG_SZ, command)
+    except OSError as e:
+        print(f"[scheme] could not register {URL_SCHEME}:// ({e})", file=sys.stderr)
+
+
+def is_our_server(port: int) -> bool:
+    """Is the thing already holding `port` an OpenLeagueDisplay instance? (asks /api/ping)"""
+    try:
+        with urllib.request.urlopen(f"http://{HOST}:{port}/api/ping", timeout=2) as r:
+            info = json.loads(r.read(4096) or b"{}")
+    except Exception:
+        return False
+    return info.get("app") == "OpenLeagueDisplay"
+
+
+# ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
 def _serve(port: int) -> http.server.ThreadingHTTPServer:
@@ -728,10 +832,27 @@ def main() -> None:
     no_window = "--no-window" in args
     ports = [a for a in args if a.isdigit()]
     port = int(ports[0]) if ports else 8000
+    # A gallery handed over from the web rides in on an openleaguedisplay:// argument; it becomes the
+    # fragment of the page we open, and the frontend imports it on load.
+    frag = import_hash_from_argv(args)
 
-    httpd = _serve(port)
+    if "--no-register" not in args:
+        register_url_scheme()
+
     url = f"http://{HOST}:{port}"
+    try:
+        httpd = _serve(port)
+    except OSError:
+        # The port is taken. If it's our own already-running instance (the common case: a second
+        # link click), don't fight it for the port — point the browser at the running one so the
+        # hand-off still lands. Anything else holding the port is a real error.
+        if not is_our_server(port):
+            raise
+        print(f"OpenLeagueDisplay is already running on {url} — opening the selection there")
+        webbrowser.open(url + "/" + frag)
+        return
     print(f"OpenLeagueDisplay (local mode, wallpaper enabled) — {url}  (Ctrl+C to stop)")
+    url += "/" + frag
 
     # Native window if pywebview is present. GUIs require the main thread
     # (especially on macOS), so run the server on a separate (daemon) thread and

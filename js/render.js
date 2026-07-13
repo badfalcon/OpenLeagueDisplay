@@ -398,6 +398,76 @@ function filterChipsHTML(q, maps) {
     + chips.join("") + `</div>`;
 }
 
+// Show the edge fades only on the side that actually has more chips hiding behind it,
+// so the row reads as "there's more this way" instead of permanently dimming both ends.
+function updateChipFades(row) {
+  const max = row.scrollWidth - row.clientWidth;
+  row.classList.toggle("can-left", row.scrollLeft > 1);
+  row.classList.toggle("can-right", row.scrollLeft < max - 1);
+}
+
+// A resize changes which chips overflow, so the fades have to be recomputed. The chip row is
+// rebuilt on every render (#view-content innerHTML), so a per-row window listener would leak —
+// wire ONE listener that re-scans whatever row is currently mounted.
+let _chipResizeWired = false;
+
+// Make the row scrollable with a mouse. It's an overflow-x scroller with the scrollbar hidden,
+// which touch and keyboard can drive but a desktop pointer cannot: the wheel scrolls the page
+// vertically and there's no bar to grab. So map vertical wheel deltas onto scrollLeft and allow
+// click-drag panning.
+function wireChipScroll(row) {
+  updateChipFades(row);
+  row.addEventListener("scroll", () => updateChipFades(row), { passive: true });
+  if (!_chipResizeWired) {
+    _chipResizeWired = true;
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".filter-chips").forEach(updateChipFades);
+    });
+  }
+
+  row.addEventListener("wheel", (e) => {
+    if (e.ctrlKey) return;                                   // pinch-zoom
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // trackpad already scrolls sideways
+    const max = row.scrollWidth - row.clientWidth;
+    if (max <= 0) return;
+    // At either end, hand the wheel back to the page instead of swallowing it — trapping the
+    // page scroll on a chip row the user has already scrolled to the end of feels broken.
+    const down = e.deltaY > 0;
+    if (down ? row.scrollLeft >= max - 1 : row.scrollLeft <= 1) return;
+    e.preventDefault();
+    // deltaMode 1 = lines (Firefox): convert to roughly one chip-height of pixels.
+    row.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  }, { passive: false });
+
+  // Click-drag panning (mouse/pen only — touch already scrolls natively). A drag that moved
+  // past the slop threshold swallows its trailing click so it doesn't also fire the chip underneath.
+  const SLOP = 4;
+  let startX = 0, startLeft = 0, moved = 0, down = false;
+  row.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    down = true; moved = 0; startX = e.clientX; startLeft = row.scrollLeft;
+  });
+  row.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) <= SLOP && !moved) return;
+    if (!moved) {
+      row.setPointerCapture(e.pointerId);  // keep receiving moves even if the pointer leaves the row
+      row.classList.add("dragging");
+    }
+    moved = Math.max(moved, Math.abs(dx));
+    row.scrollLeft = startLeft - dx;
+  });
+  const endDrag = () => { down = false; row.classList.remove("dragging"); };
+  row.addEventListener("pointerup", endDrag);
+  row.addEventListener("pointercancel", endDrag);
+  // Capture phase: stopping here keeps the click from ever reaching the chip's own listener.
+  row.addEventListener("click", (e) => {
+    if (moved > SLOP) { e.stopPropagation(); e.preventDefault(); }
+    moved = 0;
+  }, true);
+}
+
 function wireFilterChips(root) {
   // The chip row scrolls horizontally with a hidden scrollbar; when a chip toward the
   // end is active (tapped earlier, or restored via Back), pull it into view so the
@@ -409,6 +479,7 @@ function wireFilterChips(root) {
     const target = active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2;
     row.scrollLeft = Math.max(0, target);
   }
+  if (row) wireChipScroll(row);
   root.querySelectorAll(".filter-chip").forEach(el => {
     el.addEventListener("click", () => {
       // Re-tap an active chip -> clear. Otherwise -> search by that filter term.

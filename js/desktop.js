@@ -19,10 +19,31 @@ import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
 const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
-// Default address the desktop app serves on (local_app.py binds 127.0.0.1:8000 unless a port is
-// passed). The hand-off deep-links here; if the user ran it on another port this won't reach it
-// (acceptable for v1 — 8000 is the documented default).
+// Custom URL scheme the desktop app registers (installer [Registry] + a self-heal re-register on
+// each start). Firing openleaguedisplay://import LAUNCHES the app — unlike the old
+// http://127.0.0.1:8000 deep link, which only reached an already-running instance and otherwise
+// dead-ended on a connection error. local_app.py parses the link and boots straight into the import.
+const NATIVE_SCHEME = "openleaguedisplay";
+// Only the Windows installer (and local_app.py's self-register, also Windows-only) claims the
+// scheme — a macOS scheme needs an .app bundle's Info.plist and Linux needs a .desktop entry,
+// neither of which the single-binary builds have. So elsewhere we keep the original deep link,
+// which reaches an already-running instance on its default port.
 const NATIVE_URL = "http://127.0.0.1:8000";
+const isWindows = () => /win/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "");
+// The OS passes the whole link to the app as one argv entry, and Windows caps a command line at
+// 32767 chars. Stay well under it: past this the link is abandoned for the file export.
+const MAX_LINK_LEN = 16000;
+
+// openleaguedisplay://import?keys=<base64url of the JSON key array>. base64url (not
+// percent-encoded JSON): skin keys are full of "/" and spaces, which percent-encoding would
+// roughly triple, and the link has a hard length budget.
+function desktopLink(keys) {
+  const bytes = new TextEncoder().encode(JSON.stringify(keys));  // keys can hold non-ASCII, so go via UTF-8
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${NATIVE_SCHEME}://import?keys=${b64}`;
+}
 
 // ---- generic two-choice modal (reuses the wp-* modal CSS for styling) --------
 let _releaseTrap = null;  // focus-trap release fn (set on open, called on close)
@@ -126,25 +147,42 @@ export function gateDownload(runDownload) {
 }
 
 // ---- 2. web → native selection hand-off --------------------------------------
-// Encode the current My Gallery selection into a deep link and offer to open it in the desktop app.
-// The selection rides in the URL *fragment* (#import=...), which is never sent to the local server,
-// so there's no request-line length limit. localStorage is per-origin (github.io ≠ 127.0.0.1) and
-// can't be shared automatically — this explicit hand-off bridges the two.
+// Encode the current My Gallery selection into an openleaguedisplay:// link and offer to open it in
+// the desktop app. localStorage is per-origin (github.io ≠ 127.0.0.1) and can't be shared
+// automatically — this explicit hand-off bridges the two.
 export function openInDesktop() {
   const keys = [...state.selected];
   if (!keys.length) return;
-  // On mobile the deep link can't work — there's no desktop app (and so no 127.0.0.1 server) on the
-  // phone. Skip the "open in desktop app" choice and go straight to the file export, which is the
-  // path that actually makes sense here: write the selection out and import it on the PC.
+  // On mobile the link can't work — there's no desktop app on the phone. Skip the choice and go
+  // straight to the file export, which is the path that actually makes sense here: write the
+  // selection out and import it on the PC.
   if (isMobile()) { if (exportSelection()) toast(t("export_done")); return; }
-  const link = `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
-  // The page can't reliably preflight 127.0.0.1 from an https origin (mixed-content / CORS), so instead
-  // of a dead connection-error tab when the app isn't running, the secondary offers the file Export —
-  // the reliable fallback that works regardless of whether the desktop app is up.
+  const scheme = isWindows();
+  const link = scheme ? desktopLink(keys)
+                      : `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
+  // A gallery big enough to blow the command-line budget can't ride the scheme link at all, so don't
+  // offer a button that would silently do nothing — export it to a file, which has no size limit.
+  // (The http fallback rides in the fragment, which the browser never puts on a command line.)
+  if (scheme && link.length > MAX_LINK_LEN) {
+    if (exportSelection()) toast(t("handoff_too_big"));
+    return;
+  }
+  // Neither path can be preflighted from an https origin (the browser swallows the result of a
+  // custom scheme, and 127.0.0.1 can't be probed cross-origin), so the secondary always offers the
+  // file Export — the fallback that works whatever state the desktop app is in.
   choiceModal({
     title: t("handoff_title"),
     body: t("handoff_body"),
-    primary: { label: t("handoff_open"), onClick: () => window.open(link, "_blank", "noopener") },
+    primary: {
+      label: t("handoff_open"),
+      // Custom scheme: navigate the current page rather than window.open, which would leave an
+      // orphaned blank tab behind — the browser intercepts it, prompts, and the page stays put. The
+      // http fallback is a real page, so it still gets its own tab.
+      onClick: () => {
+        if (scheme) { window.location.href = link; toast(t("handoff_launching")); }
+        else window.open(link, "_blank", "noopener");
+      },
+    },
     secondary: { label: t("handoff_export"), onClick: () => { if (exportSelection()) toast(t("export_done")); } },
   });
 }

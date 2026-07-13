@@ -1703,13 +1703,27 @@
        ring (3px outset box-shadow) isn't cut off top/bottom. On the right, the
        scroll-padding-right below keeps a focused chip out of the mask's fade band */
     padding: 4px 0;
-    scroll-padding-right: 32px;
-    /* Since the scrollbar is hidden, a right-edge fade signals there's more content
-       overflowing (when everything fits, the right edge is blank so the fade isn't visible) */
+    scroll-padding-inline: 32px;
+  }
+  .filter-chips::-webkit-scrollbar { display: none; }
+  /* Since the scrollbar is hidden, an edge fade signals there's more content that way.
+     wireChipScroll (render.js) toggles can-left / can-right from the scroll position, so the
+     fade only appears on the side that actually has chips hidden behind it. */
+  .filter-chips.can-right {
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
-  .filter-chips::-webkit-scrollbar { display: none; }
+  .filter-chips.can-left {
+    mask-image: linear-gradient(to right, transparent, #000 28px);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px);
+  }
+  .filter-chips.can-left.can-right {
+    mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  }
+  /* Mid-drag: the whole row (chips included) shows the grabbing cursor, and text selection would
+     otherwise fight the pan */
+  .filter-chips.dragging, .filter-chips.dragging * { cursor: grabbing; user-select: none; }
   .filter-chips-label {
     flex: 0 0 auto;
     font-family: var(--font-eyebrow);

@@ -102,10 +102,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   再描画は呼び出し側 app.js が持つ)。公開は4つ: ①`gateDownload(fn)` = 初回 ZIP DL 時に
   「デスクトップ版を入手 / このまま ZIP」を1回だけ尋ね、選択を `LS_DL_PROMPT_SEEN` に記憶
   (以降は素通し。ローカル実行時も素通し)。render.js の DL 3口を包む ②`openInDesktop()` =
-  My Gallery の選択を deep link `http://127.0.0.1:8000/#import=<JSON keys>` にして
-  デスクトップ版で開く。**選択は URL のフラグメントに載せる** (ローカルサーバに送られない
-  = リクエスト長制限なし)。localStorage はオリジン別 (github.io ≠ 127.0.0.1) で共有
-  できないための明示受け渡し ③`applyImportFromHash()` = 受け側。`#import=` を読んで
+  My Gallery の選択を**カスタム URL スキーム** `openleaguedisplay://import?keys=<base64url の
+  JSON keys>` にしてデスクトップ版に渡す (`desktopLink()`)。旧 deep link
+  `http://127.0.0.1:8000/#import=` は「既に起動中のインスタンス」にしか届かず、未起動だと
+  接続エラーのタブが開くだけだった。スキームなら OS がアプリを**起動**するので起動中かどうかを
+  問わない (インストール済みであればよい)。**ただしスキームを名乗れるのは Windows だけ**
+  (mac は .app バンドルの Info.plist、Linux は .desktop エントリが要り、単一バイナリ配布には
+  無い) なので、`isWindows()` で分岐し **非 Windows では旧 deep link のまま**にする
+  (従来挙動を維持)。localStorage はオリジン別
+  (github.io ≠ 127.0.0.1) で共有できないための明示受け渡し、という位置づけは同じ。
+  ペイロードは **base64url** (キーは `/` と空白だらけで、percent-encode すると約3倍になる。
+  リンクは OS のコマンドライン長 32767 に載る必要がある)。`MAX_LINK_LEN` (16000) を超える
+  巨大ギャラリーは**リンクを諦めてファイル書き出しにフォールバック**する (押しても何も
+  起きないボタンを出さない)。発火は `window.open` ではなく `location.href` (カスタム
+  スキームを新規タブで開くと空タブが残る) ③`applyImportFromHash()` = 受け側。`#import=` を読んで
   SKIN_BY_KEY に在るキーだけ選択へマージし件数を返す (app.js 起動時に buildIndexes 後・
   ルーティング前に1回呼ぶ。終わったら hash を `#/gallery` に書換えて再取り込みを防ぐ)。
   ローカル限定にはしない (手貼りリンクでも動くように) ④`mountFooterCTA()` = フッターに
@@ -120,7 +130,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   lightbox.js (isLocalWallpaper)、クリック処理は app.js (`applyWallpaper([現在のsrc])`)。
   **モバイル (`isMobile()`) では「その端末で今すぐデスクトップ版を使え」と促す割り込み導線を
   抑制する**: ①`gateDownload` はモーダルを挟まず素通し (スマホにデスクトップ版は入れられない /
-  `LS_DL_PROMPT_SEEN` も汚さない) ②`openInDesktop` の deep link は localhost が立たないスマホでは
+  `LS_DL_PROMPT_SEEN` も汚さない) ②`openInDesktop` のリンクはデスクトップ版を入れられないスマホでは
   必ず失敗するので、render.js が「Open in desktop app」メニュー項目自体を mobile で隠す (すぐ下の
   Export 項目がスマホ→PC 経路を担う。`openInDesktop` 内にも mobile→Export フォールバックの保険
   あり)。**受動的な ④`mountFooterCTA` と Export はモバイルでも残す** (スマホで見て後で PC で使う
@@ -237,6 +247,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
   - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
+  - **カスタム URL スキーム `openleaguedisplay://`** (Web → デスクトップ版の受け渡し口):
+    Web 版の「デスクトップ版に送る」が投げる `openleaguedisplay://import?keys=<base64url JSON>`
+    を受ける。`import_hash_from_argv()` が argv の中のスキーム URL を探して
+    `#import=<percent-encoded JSON>` に変換し、**起動する窓/ブラウザの URL のフラグメントに
+    そのまま載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口なので、新しい
+    エンドポイントもフロントの分岐も要らない)。`keys` は base64url を第一、素の JSON も許容
+    (手書きリンク救済)、`MAX_IMPORT_KEYS` (5000) で上限。**多重起動**: ポートが埋まっていたら
+    `is_our_server()` (= `/api/ping`) で相手が自分自身か確かめ、そうならポートを奪い合わず
+    既存インスタンスの URL をブラウザで開いて受け渡しを成立させる (別プロセスが握っていたら
+    従来どおりエラー)。**登録は二重化**: ①インストーラ (`windows.iss` の `[Registry]`) が
+    HKA に書く = 一度も起動していなくてもリンクが効く ②`register_url_scheme()` が起動のたびに
+    HKCU へ書き直す = ポータブル exe / `python local_app.py` 直起動 / インストール先を移動した
+    ケースを自己修復する (`--no-register` で抑止可、失敗しても非致命)。Windows 限定
+    (mac/Linux は Info.plist / .desktop が要るので未対応 = リンクは Windows のみ)
 - **Windows は正規インストーラも配る (Inno Setup)**: bare exe だけだとスタート
   メニューにも「アプリと機能」にも載らず "ちゃんとしたソフトウェア感" が無い。
   `installer/windows.iss` (Inno Setup 6) で setup.exe を作り、`release.yml` の
@@ -259,6 +283,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     `SetupIconFile` とショートカット `IconFilename` に使う
   - **bare exe (ポータブル) も残す**: setup.exe を推奨導線にしつつ、インストールを
     好まない人向けに従来の単一 exe も Release に併置 (生成コストはほぼゼロ)
+  - **`[Registry]` で `openleaguedisplay://` を登録** (Web からの受け渡し口。上の local_app.py の
+    項参照)。`Root: HKA` = 通常の per-user インストールでは HKCU、`PrivilegesRequiredOverridesAllowed`
+    で per-machine に昇格した場合は HKLM に書かれる。ルートキーに `uninsdeletekey` を付けて
+    あるのでアンインストールで丸ごと消える
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
     ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
   - **既インストール検知 (`[Code] InitializeSetup`)**: setup 再実行時に挙動を分ける。
