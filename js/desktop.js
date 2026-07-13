@@ -50,9 +50,24 @@ const MAX_LINK_LEN = 16000;
 // Hence a long backstop and nothing cleverer: closing on "the user came back to this page" would
 // kill a prompt they merely tabbed away from. A minute of silence means they walked away, so the
 // blank tab is just litter to sweep up.
-function fireSchemeLink(link) {
+function fireSchemeLink(link, message) {
   const w = window.open("", "_blank");
   if (!w) { window.location.href = link; return; }  // popup blocked: fall back to this document
+  // The scratch tab takes focus, so THIS is the surface the user is looking at — a toast back on
+  // the opener would play to an empty room (and expire before they return). Write the message here
+  // instead: with no handler registered the browser silently drops the navigation, and without this
+  // the user would just be staring at a blank tab. about:blank is same-origin, and mutating its DOM
+  // leaves location.href === "about:blank", so the cleanup guard below still recognises it as ours.
+  try {
+    const d = w.document;
+    d.title = "OpenLeagueDisplay";
+    d.body.style.cssText = "margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+      + "background:#07060b;color:#e8e3d9;font:16px/1.7 system-ui,sans-serif;text-align:center;padding:24px";
+    const p = d.createElement("p");
+    p.style.cssText = "max-width:46ch";
+    p.textContent = message;
+    d.body.appendChild(p);
+  } catch (_) { /* a browser that won't let us touch the popup's document: the link still fires */ }
   w.location.href = link;
   setTimeout(() => {
     try {
@@ -205,7 +220,9 @@ export function openInDesktop() {
       label: t("handoff_open"),
       onClick: () => {
         if (!scheme) { window.open(link, "_blank", "noopener"); return; }  // http fallback: a real page
-        fireSchemeLink(link);
+        // The message goes into the scratch tab (that's where the user's eyes are); the toast covers
+        // the popup-blocked path, where the link fires from this document and no scratch tab exists.
+        fireSchemeLink(link, t("handoff_launching"));
         toast(t("handoff_launching"));
       },
     },
