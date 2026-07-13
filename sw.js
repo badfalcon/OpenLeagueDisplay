@@ -13,7 +13,7 @@
 // - Offline operation (PWA) survives via the cache fallback. SHELL is precached
 //   on install. Bump CACHE_VERSION whenever the shell changes.
 
-const CACHE_VERSION = "v16";
+const CACHE_VERSION = "v18";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).
@@ -26,6 +26,7 @@ const SHELL = [
   "./icon-maskable.svg",
   "./js/i18n-failsafe.js",
   "./js/app.js",
+  "./js/hero.js",
   "./js/state.js",
   "./js/i18n.js",
   "./js/render.js",

@@ -79,23 +79,25 @@
      hidden off-screen, shown at top-left only on focus. applyStaticUIStrings() keeps the text in sync with the locale -->
 <a href="#root" class="skip-link" id="skip-link">Skip to content</a>
 
-<!-- topbar: a two-row sticky bar.
-     Row 1 (.header-primary):   brand (logo + count) … ? + language picker (.header-utils)
-     Row 2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
-     Rows are split by role: row 1 holds identity + persistent utilities, row 2 holds browsing controls.
-     The search bar / back button / sort live in the dom-stash below and are transplanted
-     into the .champ-header-controls slot by render() -->
+<!-- topbar: a sticky bar holding two groups that share ONE row on desktop and wrap below ~1100px.
+     Group 1 (.header-primary):   brand … search … ? / share / language picker (.header-utils)
+     Group 2 (.header-secondary): view-tabs … My Gallery / Slideshow (.header-actions)
+     Keep BOTH group divs and their class names: the ≤600px block turns .header-secondary
+     into the fixed bottom nav. The back button / sort live in the dom-stash below and are
+     transplanted into the .champ-header-controls slot by render(); search now lives here
+     permanently (it applies on every view) -->
 <div class="topbar">
   <header>
     <div class="header-primary">
       <div class="header-brand">
         <div class="header-brand-info">
           <!-- Logo = return to home. Keep the h1 heading semantics while making the click
-               action keyboard-accessible by wrapping a <button> inside (transparent + inherited font, so it looks unchanged) -->
-          <h1><button id="title" type="button">OpenLeagueDisplay</button></h1>
-          <span id="stats"></span>
+               action keyboard-accessible by wrapping a <button> inside (transparent + inherited font, so it looks unchanged).
+               The "Archive" tag is an untranslated brand mark (like the footer attribution), decorative only -->
+          <h1><button id="title" type="button">OpenLeagueDisplay</button><span class="brand-tag" aria-hidden="true">Archive</span></h1>
         </div>
       </div>
+      <input type="search" id="search" placeholder="Search champion…">
       <div class="header-utils">
         <button class="btn btn-icon" id="help-btn" type="button" aria-label="Open guide">?</button>
         <!-- Share: devices with the Web Share API (mostly mobile) get the native share sheet;
@@ -110,20 +112,6 @@
             <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line>
           </svg>
         </button>
-        <div class="lang-picker" id="lang-picker">
-          <!-- This is a disclosure (open/close toggle), so no aria-haspopup (aria-haspopup="true"
-               implies "menu", which mismatches an implementation that has no arrow-key menu model).
-               aria-expanded alone conveys the open/closed state -->
-          <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
-            <img class="lang-flag" id="lang-flag" alt="" decoding="async">
-          </button>
-          <!-- Collapsible language menu (disclosure). Originally role="listbox" + role="option",
-               but interposing <li> breaks the listbox→option ownership, and making each option a
-               Tab-focusable <button> also mismatched the listbox pattern (arrow keys / activedescendant).
-               Switched to a plain list to match reality (button opens it, items are buttons), and
-               the current language is marked with aria-current. Keyboard still works via Tab/Enter/Esc -->
-          <ul class="lang-menu" id="lang-menu" hidden></ul>
-        </div>
       </div>
     </div>
     <div class="header-secondary">
@@ -139,15 +127,32 @@
         <button class="btn" id="slideshow-btn">Slideshow</button>
       </div>
     </div>
+    <!-- Language picker sits at the header's far-right edge (matching the mock's order:
+         search → ? → nav buttons → language), OUTSIDE .header-secondary so it stays in the
+         top bar when that group becomes the fixed bottom nav on mobile -->
+    <div class="lang-picker" id="lang-picker">
+      <!-- This is a disclosure (open/close toggle), so no aria-haspopup (aria-haspopup="true"
+           implies "menu", which mismatches an implementation that has no arrow-key menu model).
+           aria-expanded alone conveys the open/closed state -->
+      <button class="btn" id="lang-btn" type="button" aria-expanded="false" aria-label="Display language">
+        <img class="lang-flag" id="lang-flag" alt="" decoding="async">
+      </button>
+      <!-- Collapsible language menu (disclosure). Originally role="listbox" + role="option",
+           but interposing <li> breaks the listbox→option ownership, and making each option a
+           Tab-focusable <button> also mismatched the listbox pattern (arrow keys / activedescendant).
+           Switched to a plain list to match reality (button opens it, items are buttons), and
+           the current language is marked with aria-current. Keyboard still works via Tab/Enter/Esc -->
+      <ul class="lang-menu" id="lang-menu" hidden></ul>
+    </div>
   </header>
 </div>
 
-<!-- DOM stash: the "home" for the search bar / back button / sort selector. They are parked
-     here, then transplanted into the .champ-header-controls slot after innerHTML is regenerated
-     in render(). Hidden via the hidden attribute -->
+<!-- DOM stash: the "home" for the back button / sort selector / stats counter. They are parked
+     here, then transplanted by ensureLayout() (back/sort into the .champ-header-controls slot,
+     stats into the section head's meta row). Hidden via the hidden attribute -->
 <div class="dom-stash" id="dom-stash" hidden>
   <button class="btn" id="back-btn">← Back</button>
-  <input type="search" id="search" placeholder="Search champion…">
+  <span id="stats"></span>
   <!-- Sort label, visually hidden: the sort glyph now lives inside the select box as a
        left background-image (like the search field's magnifier), so the only thing this
        <label> carries is the SR accessible name (applyStaticUIStrings keeps #sort-label-text
@@ -197,28 +202,15 @@
     <video class="lb-video" id="lb-video" muted loop playsinline preload="auto"></video>
   </div>
   <!-- Controls are consolidated into a single top bar. counter on the left, control buttons
-       (pause / fit / ⚙ / close) on the right with close at the far right. The spacer pushes
+       (fit / wallpaper / close) on the right with close at the far right. The spacer pushes
        the two sides apart. Only the nav arrows ‹ › stay large and vertically centered on each side, prioritizing tap target size -->
   <div class="lb-toolbar">
     <span class="badge" id="lb-counter"></span>
     <span class="lb-toolbar-spacer"></span>
-    <!-- Pause: shown only during the slideshow, JS toggles display -->
-    <button class="ss-btn" id="ss-pause" style="display:none">⏸ Pause</button>
     <!-- Image fit toggle: contain (whole image) ↔ cover (fill screen). Kills the letterboxing
          of 16:9 splashes on tall phones. State is shown via the icon and the aria-label is fixed.
          Always visible since it applies in both viewer and slideshow modes -->
     <button class="ss-btn lb-icon" id="lb-fit" aria-label="Toggle image fit">⛶</button>
-    <!-- Interval and caption are "set once and leave it" settings, so they're consolidated into
-         the ⚙ menu. JS shows the whole wrap only during the slideshow -->
-    <div class="ss-options-wrap" id="ss-options-wrap" style="display:none">
-      <!-- Like the language menu, this is a disclosure (interval/caption toggle group), so no
-           aria-haspopup; aria-expanded alone conveys open/closed -->
-      <button class="ss-btn ss-gear lb-icon" id="ss-options" aria-expanded="false" aria-label="Slideshow settings">⚙</button>
-      <div class="ss-menu" id="ss-menu" hidden>
-        <button class="ss-btn" id="ss-interval">⏱ 7s</button>
-        <button class="ss-btn" id="ss-caption">💬 Full</button>
-      </div>
-    </div>
     <!-- Set the currently shown splash as wallpaper in one click. Local-run mode only; JS toggles
          display in openLightbox (hidden = display:none on Pages, where wallpaper can't be set). -->
     <button class="ss-btn lb-icon" id="lb-wallpaper" style="display:none" aria-label="Set as wallpaper">🖥</button>
@@ -226,14 +218,45 @@
   </div>
   <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">‹</button>
   <button class="lb-nav lb-next" id="lb-next" aria-label="Next">›</button>
+  <!-- Slideshow control dock (replaces the old top-bar ⚙ menu): ‹ play/pause › | interval | caption.
+       A DIRECT child of #lightbox — the inert attribute, trapFocus scoping, and the .chrome-hidden
+       descendant rule all rely on that. Shown only during the slideshow via a JS display toggle
+       (display:none also drops its buttons from the tab order — offsetParent goes null) -->
+  <div class="lb-dock" id="lb-dock" style="display:none">
+    <button class="ss-btn dock-nav" id="dock-prev" aria-label="Previous">‹</button>
+    <!-- Play/pause keeps its historical id: Space (app.js keydown) clicks #ss-pause -->
+    <button class="ss-btn" id="ss-pause">⏸ Pause</button>
+    <button class="ss-btn dock-nav" id="dock-next" aria-label="Next">›</button>
+    <span class="dock-sep" aria-hidden="true"></span>
+    <button class="ss-btn" id="ss-interval">⏱ 7s</button>
+    <button class="ss-btn" id="ss-caption">💬 Full</button>
+  </div>
   <div class="lb-overlay">
     <div class="lb-champ" id="lb-champ"></div>
-    <div class="lb-skin" id="lb-skin"></div>
+    <!-- Skin name + rarity chip on one baseline row. The rarity chip lives inside .lb-overlay so
+         the caption modes keep working: caption-name (desc collapsed) keeps it, caption-none hides
+         the whole overlay. JS empties + hides it for the (majority of) skins without a rarity -->
+    <div class="lb-skin-row">
+      <div class="lb-skin" id="lb-skin"></div>
+      <span class="lb-rarity" id="lb-rarity" hidden></span>
+    </div>
     <!-- Skin description (lore/flavor). Few skins have a description, but the area (min-height)
          is reserved even when absent so the skin name's height doesn't shift depending on whether
          a description exists (it doesn't collapse). JS fills in the text -->
     <div class="lb-desc" id="lb-desc"></div>
   </div>
+</div>
+
+<!-- Floating selection bar: appears bottom-center while 1+ skins are selected outside the gallery
+     view. Synced by refreshGalleryBtn() (the single choke point for selection-count changes);
+     buttons are wired once by initSelectionBar() (render.js). The primary action mirrors the
+     gallery toolbar: ZIP on the Web, Set-wallpaper in local mode -->
+<div class="selection-bar" id="selection-bar" hidden>
+  <span class="selbar-count" id="selbar-count"></span>
+  <span class="selbar-hint" id="selbar-hint"></span>
+  <button class="btn" id="selbar-gallery" type="button"></button>
+  <button class="btn" id="selbar-clear" type="button"></button>
+  <button class="btn primary" id="selbar-primary" type="button"></button>
 </div>
 
 <!-- tutorial overlay: auto-shown on first visit / reopened via the header ? button and ? key.

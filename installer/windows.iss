@@ -72,6 +72,26 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
+[Registry]
+; Register the openleaguedisplay:// URL scheme so the web version (GitHub Pages) can hand a gallery
+; to this app with a link — it launches the app whether or not it's already running (the old
+; http://127.0.0.1:8000 deep link only reached an already-running instance).
+; THIS IS THE ONLY PLACE THE SCHEME IS REGISTERED. local_app.py deliberately never writes it: an
+; app that re-registered on every start would let a portable exe / from-source run silently steal the
+; handler from an installed copy. Consequence, by design: the portable exe does not get link launching.
+; HKA = HKCU for the normal per-user install, HKLM if the user elevated to per-machine
+; (PrivilegesRequiredOverridesAllowed=dialog). uninsdeletekey on the root drops the whole tree on uninstall.
+; The HKCU delete below runs first and only in admin mode: HKCU\Software\Classes SHADOWS HKLM in the
+; HKCR merge, so a leftover per-user registration from an earlier non-elevated install would keep
+; pointing the scheme at the old (now removed) {localappdata} exe.
+Root: HKCU; Subkey: "Software\Classes\openleaguedisplay"; ValueType: none; Flags: deletekey; Check: IsAdminInstallMode
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: ""; ValueData: "URL:OpenLeagueDisplay Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+; Quoted + icon index: an elevated install defaults to a Program Files path, and an unquoted path
+; with a space there fails to resolve (generic icon in the browser's "Open OpenLeagueDisplay?" prompt).
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\icon.ico"",0"
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
+
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\icon.ico"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon

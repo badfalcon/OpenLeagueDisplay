@@ -2,7 +2,7 @@
 // state.lb holds the lightbox's internal state (current idx, mode, timer, A/B fade, etc.).
 
 import { state, $, SKIN_BY_KEY, DATA, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
-import { toLightboxItem, syncPauseButton, syncCaptionButton } from "./i18n.js";
+import { toLightboxItem, syncPauseButton, syncCaptionButton, RARITY_LABELS } from "./i18n.js";
 import { isLocalWallpaper } from "./local.js";
 
 // Focus-trap release function (installed on open, called on close). Even while chrome-hidden
@@ -54,9 +54,9 @@ export function openLightbox(list, idx, mode) {
   // Match the duration of the horizontal pan on mobile zoom (CSS lb-panx) to one slide's display time.
   // If not set before showImage adds the first .show, only the first image reads the CSS default 7000ms.
   lb.style.setProperty("--lb-pan-dur", state.lb.interval + "ms");
-  // The pause button shares the top toolbar row (the standalone container was removed).
-  // Shown only during slideshow.
-  $("ss-pause").style.display = mode === "slideshow" ? "" : "none";
+  // The slideshow control dock (‹ ▶ › | interval | caption) only exists during the
+  // slideshow; display:none in viewer mode also drops its buttons from the tab order.
+  $("lb-dock").style.display = mode === "slideshow" ? "flex" : "none";
   // Prevent the label/appearance staying at "resume" when last closed while paused
   // (paused was reset to false above, so sync to the playing state the instant it opens).
   syncPauseButton();
@@ -70,10 +70,6 @@ export function openLightbox(list, idx, mode) {
   lbWp.style.display = isLocalWallpaper() ? "" : "none";
   lbWp.disabled = false;
   lbWp.removeAttribute("aria-busy");
-  // The interval/caption ⚙ menu only exists during slideshow. Always collapse it on open.
-  $("ss-options-wrap").style.display = mode === "slideshow" ? "" : "none";
-  $("ss-menu").hidden = true;
-  $("ss-options").setAttribute("aria-expanded", "false");
   applyCaption();
   // The first media needs no crossfade. Video skin → play video, otherwise show the still directly.
   const seq = ++state.lb.seq;
@@ -195,6 +191,16 @@ function updateMeta() {
   if (!item) return;
   $("lb-champ").textContent = item.champ;
   $("lb-skin").textContent = item.skin;
+  // Rarity chip next to the skin name. Most skins have none — empty + hidden then,
+  // so no "undefined" ever renders. Translated at display time (RARITY_LABELS)
+  const rar = $("lb-rarity");
+  if (rar) {
+    const label = item.rarity
+      ? ((RARITY_LABELS[state.locale] || {})[item.rarity] || RARITY_LABELS.default[item.rarity] || "")
+      : "";
+    rar.hidden = !label;
+    rar.textContent = label;
+  }
   // Descriptions are rarely present, but the area is reserved via CSS min-height even when absent,
   // so the skin name's height doesn't shift based on whether a description exists (don't collapse). Only swap the text.
   const descEl = $("lb-desc");

@@ -127,20 +127,28 @@ tiny local helper that sets the wallpaper for you.
     keeps rotating even after you close the app and shows up correctly as a
     slideshow in your system settings.
   - **Sent from the web**: browsing on the [web version](https://badfalcon.github.io/OpenLeagueDisplay/)?
-    Build a selection in My Gallery there and click **🖥 Open in desktop app** — it
-    opens your picks in the desktop app (running on this PC) ready to set. Picking
-    on a *different* device (phone → PC)? Use **⬆ Export selection** to save a small
-    file and **⬇ Import selection** to load it on the other end.
+    Build a selection in My Gallery there and click **🖥 Open in desktop app** — your
+    picks open in the desktop app ready to set. On Windows this goes through an
+    `openleaguedisplay://` link, so the app is **launched for you** even if it wasn't
+    running (your browser will ask "Open OpenLeagueDisplay?" first). That link only
+    works with the **installer** build below — the portable exe never registers it, and
+    on macOS / Linux the app has to be running already. Picking on a *different* device
+    (phone → PC)? Use **⬆ Export selection** to save a small file and **⬇ Import
+    selection** to load it on the other end — that works everywhere.
   - **Windows — installer (recommended):**
     `OpenLeagueDisplay-windows-setup.exe` installs per-user (no admin prompt),
-    adds a **Start Menu** entry and an optional **desktop shortcut**, and
+    adds a **Start Menu** entry and an optional **desktop shortcut**, registers the
+    `openleaguedisplay://` link the web version uses to hand a gallery over, and
     registers an **uninstaller** under *Settings → Apps → Installed apps*. The
     builds are **unsigned**, so SmartScreen warns on first run — click **More
     info → Run anyway**. Uninstalling removes the app but **keeps your wallpaper
     cache** (`%LOCALAPPDATA%\OpenLeagueDisplay`) so the current wallpaper isn't
     broken; delete that folder by hand if you want it gone too.
   - **Windows — portable:** `OpenLeagueDisplay-windows.exe` is the same app with
-    no installer — just download and run.
+    no installer — just download and run. One difference: it does **not** register the
+    `openleaguedisplay://` link (an app that claimed the link on every start could
+    silently steal it from an installed copy), so **🖥 Open in desktop app** on the web
+    version won't reach it — use **⬆ Export selection** / **⬇ Import selection** instead.
   - **macOS / Linux:** `OpenLeagueDisplay-macos` / `-linux` — download and run.
 - **Or run from source**: `python local_app.py` (Python 3.7+). `pip install
   pywebview` for the native window; without it, it just opens your default

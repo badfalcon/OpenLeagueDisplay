@@ -9,13 +9,14 @@ import {
 } from "./state.js";
 import {
   t, UI_STRINGS, ROLE_LABELS, RARITY_LABELS, REGION_LABELS,
-  champName, skinLabel, lineName, toLightboxItem,
+  champName, skinLabel, lineName, toLightboxItem, championBio,
 } from "./i18n.js";
 import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
-import { isLocal, isLocalWallpaper, toast } from "./local.js";
+import { isLocal, isLocalWallpaper, toast, applyWallpaper } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
 import { gateDownload, openInDesktop, exportSelection, pickSelectionFile, choiceModal } from "./desktop.js";
+import { mountHero, destroyHero } from "./hero.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
 // CDragon's "xx_xx" to "xx-xx", so name sorting reads naturally in the current locale.
@@ -104,31 +105,68 @@ export function renderStats(champCount, skinCount) {
 // focus, cursor position, and IME composition survive mid-typing.
 export function ensureLayout(root) {
   if ($("view-content")) return;
+  // The banner nodes (img + scrim / eyebrow / bio) are created ONCE here;
+  // setPrimaryHeader only swaps src/textContent and toggles [hidden] per view —
+  // it's re-invoked on every render (prev/next nav, locale switch), so a
+  // create-per-call approach would stack duplicate imgs.
   root.innerHTML = `
+    <section class="hero" id="hero" hidden></section>
     <div class="champ-header" id="primary-header" hidden>
+      <div class="header-banner" id="header-banner" hidden aria-hidden="true">
+        <img id="banner-img" alt="" decoding="async">
+        <div class="banner-scrim"></div>
+      </div>
+      <div class="banner-eyebrow" id="banner-eyebrow" hidden></div>
       <h2 class="primary-title-row">
         <button class="detail-nav-btn" id="detail-prev" type="button" hidden>‹</button>
         <span id="primary-title"></span>
         <button class="detail-nav-btn" id="detail-next" type="button" hidden>›</button>
       </h2>
       <div class="champ-header-controls"></div>
-      <span class="count" id="primary-count"></span>
+      <div class="meta-row"><span class="count" id="primary-count"></span></div>
+      <p class="banner-bio" id="banner-bio" hidden></p>
       <button class="btn primary" id="primary-action" hidden></button>
     </div>
     <div id="view-content"></div>`;
   const slot = root.querySelector(".champ-header-controls");
   slot.appendChild($("back-btn"));
-  slot.appendChild($("search"));
   slot.appendChild($("sort-label"));
   slot.appendChild($("sort-select"));
+  // The global stats counter joins the per-view count in the meta row (search
+  // stayed in the static header; stats took its place in the dom-stash)
+  root.querySelector(".meta-row").appendChild($("stats"));
 }
 
 // The single entry point for updating the contents of the persistent champ-header. renderXxx
 // never touches its innerHTML, it just passes values here.
-function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null }) {
+// banner (a splash URL) turns the header into the detail hero band (is-banner);
+// eyebrow / bio fill the once-created nodes and hide when empty.
+function setPrimaryHeader({ isList = false, title = "", count = "", primaryLabel = "", primaryClick = null, nav = null, banner = "", eyebrow = "", bio = "", compact = false }) {
   const ph = $("primary-header");
   ph.hidden = false;
   ph.classList.toggle("is-list", !!isList);
+  ph.classList.toggle("is-banner", !!banner);
+  // compact = the home section row: the hero above is the page's headline, so the
+  // header shrinks to a slim "CHAMPIONS · counts … sort" strip (no editorial rule/◆)
+  ph.classList.toggle("is-home", !!compact);
+  // The global #stats shows only when the view has no count of its own (the pristine
+  // home list) — side by side they'd repeat the same champion number
+  ph.classList.toggle("has-count", !!count);
+  const bWrap = $("header-banner");
+  const bImg = $("banner-img");
+  bWrap.hidden = !banner;
+  if (banner) {
+    if (bImg.getAttribute("src") !== banner) bImg.src = banner;
+  } else if (bImg.getAttribute("src")) {
+    // Drop the stale splash so a later detail view doesn't flash the previous one
+    bImg.removeAttribute("src");
+  }
+  const eb = $("banner-eyebrow");
+  eb.hidden = !eyebrow;
+  eb.textContent = eyebrow;
+  const bioEl = $("banner-bio");
+  bioEl.hidden = !bio;
+  bioEl.textContent = bio;
   $("primary-title").textContent = title;
   $("primary-count").textContent = count;
   const btn = $("primary-action");
@@ -184,6 +222,11 @@ export function setNavListener(fn) { onBeforeNav = fn; }
 export function render() {
   const root = $("root");
   ensureLayout(root);
+  // The hero (home only) is re-mounted by renderHome when applicable; kill its timer
+  // and hide the persistent node unconditionally first so no rotation survives a view switch
+  destroyHero();
+  const heroEl = $("hero");
+  if (heroEl) heroEl.hidden = true;
   // Tabs are top-level switches. back-btn shows in detail views (champion / line / selected) or while searching.
   // "selected" (My Gallery) is an intermediate view opened via its own path, so neither tab is active.
   const isLines = (state.view === "lines" || state.view === "line");
@@ -224,9 +267,31 @@ export function render() {
     searchEl.setAttribute("aria-label", ph);
   }
   refreshGalleryBtn();
+  syncDocumentTitle();
   // At the end, notify app.js of the hash for the current state. app.js only pushState's
   // "when it differs from the current location.hash" to avoid a double render.
   if (onRouteChange) onRouteChange();
+}
+
+// Keep the tab title in step with the view ("Annie — OpenLeagueDisplay") so history
+// entries, bookmarks, and the back-button dropdown read as destinations instead of
+// N identical "OpenLeagueDisplay" rows.
+function syncDocumentTitle() {
+  const base = "OpenLeagueDisplay";
+  let part = "";
+  if (state.view === "champion" && state.currentChamp) {
+    const c = DATA.champions.find(x => x.alias === state.currentChamp);
+    if (c) part = champName(c);
+  } else if (state.view === "line" && state.currentLine) {
+    part = lineName(state.currentLine);
+  } else if (state.view === "lines") {
+    part = t("skin_lines_header");
+  } else if (state.view === "selected") {
+    part = t("select_mode");
+  } else if (state.searchQuery) {
+    part = state.searchQuery;
+  }
+  document.title = part ? `${part} — ${base}` : base;
 }
 
 // The header "My Gallery" button: shows the selection count and, while in the gallery view,
@@ -263,6 +328,43 @@ export function refreshGalleryBtn() {
   // My Gallery (app.js) stays alive.
   const ssBtn = $("slideshow-btn");
   if (ssBtn) ssBtn.classList.toggle("is-empty", n === 0);
+  // The floating selection bar rides the same sync point: visible while something is
+  // selected outside the gallery view (clear/import reach here via render()).
+  const bar = $("selection-bar");
+  if (bar) {
+    const show = n > 0 && state.view !== "selected";
+    bar.hidden = !show;
+    if (show) {
+      $("selbar-count").textContent = t("selbar_selected", n);
+      $("selbar-hint").textContent = t("selbar_hint");
+      $("selbar-gallery").textContent = t("select_mode");
+      $("selbar-clear").textContent = t("clear");
+      // Primary mirrors the gallery toolbar's main action per mode
+      $("selbar-primary").textContent = isLocalWallpaper() ? t("wallpaper_set_btn") : t("dl_selected");
+    }
+  }
+}
+
+// One-time wiring for the floating selection bar (static DOM in index.html). Lives here
+// rather than app.js because the actions (ZIP / wallpaper / clear-confirm) are already
+// imported by render.js. Called once from app.js bootstrap.
+export function initSelectionBar() {
+  const bar = $("selection-bar");
+  if (!bar) return;
+  $("selbar-gallery").addEventListener("click", openSelected);
+  $("selbar-clear").addEventListener("click", clearSelected);
+  $("selbar-primary").addEventListener("click", () => {
+    if (isLocalWallpaper()) {
+      const items = [];
+      for (const k of state.selected) {
+        const hit = SKIN_BY_KEY.get(k);
+        if (hit && hit.s.splash) items.push({ key: k, champ: hit.c, skin: hit.s });
+      }
+      openWallpaperConfirm(items);
+    } else {
+      gateDownload(downloadSelected);
+    }
+  });
 }
 
 // Filter chips: one tap injects a localized term from the given LABELS maps into the search query.
@@ -296,7 +398,112 @@ function filterChipsHTML(q, maps) {
     + chips.join("") + `</div>`;
 }
 
+// Show the edge fades only on the side that actually has more chips hiding behind it,
+// so the row reads as "there's more this way" instead of permanently dimming both ends.
+function updateChipFades(row) {
+  const max = row.scrollWidth - row.clientWidth;
+  row.classList.toggle("can-left", row.scrollLeft > 1);
+  row.classList.toggle("can-right", row.scrollLeft < max - 1);
+}
+
+// A resize changes which chips overflow, so the fades have to be recomputed. The chip row is
+// rebuilt on every render (#view-content innerHTML), so a per-row window listener would leak —
+// wire ONE listener that re-scans whatever row is currently mounted.
+let _chipResizeWired = false;
+
+// Make the row scrollable with a mouse. It's an overflow-x scroller with the scrollbar hidden,
+// which touch and keyboard can drive but a desktop pointer cannot: the wheel scrolls the page
+// vertically and there's no bar to grab. So map vertical wheel deltas onto scrollLeft and allow
+// click-drag panning.
+function wireChipScroll(row) {
+  updateChipFades(row);
+  row.addEventListener("scroll", () => updateChipFades(row), { passive: true });
+  if (!_chipResizeWired) {
+    _chipResizeWired = true;
+    const rescan = () => document.querySelectorAll(".filter-chips").forEach(updateChipFades);
+    window.addEventListener("resize", rescan);
+    // Chips are first laid out in the fallback face; when Cinzel swaps in their widths change and
+    // the row can cross the overflow threshold without any scroll/resize event to notice it.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(rescan);
+  }
+
+  row.addEventListener("wheel", (e) => {
+    if (e.ctrlKey) return;                                   // pinch-zoom
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // trackpad already scrolls sideways
+    const max = row.scrollWidth - row.clientWidth;
+    if (max <= 0) return;
+    // At either end, hand the wheel back to the page instead of swallowing it — trapping the
+    // page scroll on a chip row the user has already scrolled to the end of feels broken.
+    const down = e.deltaY > 0;
+    if (down ? row.scrollLeft >= max - 1 : row.scrollLeft <= 1) return;
+    e.preventDefault();
+    // Normalize the delta unit: 0 = pixels, 1 = lines (Firefox), 2 = pages (rare, but if left as
+    // pixels its deltaY of ~1 would swallow the wheel and move the row a single pixel).
+    const step = e.deltaMode === 1 ? e.deltaY * 16
+               : e.deltaMode === 2 ? e.deltaY * row.clientWidth
+               : e.deltaY;
+    row.scrollLeft += step;
+  }, { passive: false });
+
+  // Click-drag panning (mouse/pen only — touch already scrolls natively). A drag that moved past the
+  // slop threshold swallows its trailing click so it doesn't also fire the chip underneath.
+  const SLOP = 4;
+  let startX = 0, startLeft = 0, moved = 0, down = false, swallowClick = false;
+  row.addEventListener("pointerdown", (e) => {
+    // Disarm BEFORE the guard: a drag whose click never reaches the row (released outside the
+    // window, say) would otherwise leave the flag armed, and the next press to bypass the guard —
+    // a touch tap on a hybrid laptop — would have its click eaten.
+    swallowClick = false;
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    down = true; moved = 0;
+    startX = e.clientX; startLeft = row.scrollLeft;
+  });
+  row.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    // The button can come up somewhere we never hear about: below the SLOP threshold no pointer
+    // capture is set yet, so a press that leaves the row and releases elsewhere never delivers its
+    // pointerup here. Without this check `down` would stay true and the row would then pan along
+    // with a bare, unpressed cursor the moment it re-entered.
+    if (e.buttons === 0) { endDrag(); return; }
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) <= SLOP && !moved) return;
+    if (!moved) {
+      row.setPointerCapture(e.pointerId);  // keep receiving moves even if the pointer leaves the row
+      row.classList.add("dragging");
+    }
+    moved = Math.max(moved, Math.abs(dx));
+    row.scrollLeft = startLeft - dx;
+  });
+  // Only a pointerUP after a real drag is followed by a click — so that is the only case that arms
+  // the swallow. A pointercancel (the browser stealing the gesture for a native text/image drag)
+  // produces no click at all, and arming it there would leave the flag set to eat someone's next
+  // click — including a keyboard Enter on a chip, which fires a click with no pointer sequence.
+  function endDrag(armSwallow) {
+    if (armSwallow === true && moved > SLOP) swallowClick = true;
+    down = false;
+    row.classList.remove("dragging");
+  }
+  row.addEventListener("pointerup", () => endDrag(true));
+  row.addEventListener("pointercancel", () => endDrag(false));
+  // Capture phase: stopping here keeps the click from ever reaching the chip's own listener.
+  row.addEventListener("click", (e) => {
+    if (swallowClick) { e.stopPropagation(); e.preventDefault(); }
+    swallowClick = false;
+  }, true);
+}
+
 function wireFilterChips(root) {
+  // The chip row scrolls horizontally with a hidden scrollbar; when a chip toward the
+  // end is active (tapped earlier, or restored via Back), pull it into view so the
+  // gold highlight isn't sitting invisibly off-screen. Manual scrollLeft math instead
+  // of scrollIntoView: the latter can also scroll the PAGE vertically.
+  const row = root.querySelector(".filter-chips");
+  const active = row && row.querySelector(".filter-chip.active");
+  if (row && active) {
+    const target = active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2;
+    row.scrollLeft = Math.max(0, target);
+  }
+  if (row) wireChipScroll(row);
   root.querySelectorAll(".filter-chip").forEach(el => {
     el.addEventListener("click", () => {
       // Re-tap an active chip -> clear. Otherwise -> search by that filter term.
@@ -394,8 +601,14 @@ function renderHome(root) {
   // tokens and would vacuously match everything — also lands here instead of dumping every skin.
   if (!tokens.length) {
     const list = sortedChampions();
-    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", list.length) });
-    $("view-content").innerHTML = chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    // No per-view count here: the global #stats ("173 champions · 2100 skins") in the
+    // same meta row already says it (see setPrimaryHeader's has-count)
+    setPrimaryHeader({ isList: true, title: t("nav_home"), compact: true });
+    // The hero is a persistent node ABOVE the section head (ensureLayout), so the
+    // reading order matches the mock: hero → slim "CHAMPIONS" row → chips → grid
+    $("view-content").innerHTML =
+      chips + `<div class="champ-grid">${renderChampCards(list)}</div>`;
+    mountFeaturedHero();
     wireChampCards(root);
     wireFilterChips(root);
     return;
@@ -416,7 +629,7 @@ function renderHome(root) {
   sortSkins(skinMatches);
 
   if (champMatches.length === 0 && skinMatches.length === 0) {
-    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery });
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: state.searchQuery, compact: true });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(state.searchQuery))}</p></div>`;
     wireFilterChips(root);
     // WCAG 4.1.3: result changes from search (including filter chips) are a status. Announce to screen readers.
@@ -429,7 +642,7 @@ function renderHome(root) {
   // champ-header via innerHTML (no controls slot).
   const parts = [];
   if (champMatches.length > 0) {
-    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length) });
+    setPrimaryHeader({ isList: true, title: t("nav_home"), count: t("champs_count", champMatches.length), compact: true });
     parts.push(`<div class="champ-grid">${renderChampCards(champMatches)}</div>`);
     if (skinMatches.length > 0) {
       parts.push(`
@@ -440,7 +653,7 @@ function renderHome(root) {
         <div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
     }
   } else {
-    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length) });
+    setPrimaryHeader({ isList: true, title: t("section_skins"), count: t("skins_count", skinMatches.length), compact: true });
     parts.push(`<div class="skin-grid is-flat">${renderSkinCards(skinMatches)}</div>`);
   }
   $("view-content").innerHTML = chips + parts.join("");
@@ -474,6 +687,7 @@ function openBtn(label) {
 }
 
 function renderChampCards(list) {
+  const localeRoles = ROLE_LABELS[state.locale] || {};
   return list.map(c => {
     // Tally the selected count among the champion's skins to distinguish partial/selected.
     // state.selected is per-skin, so this is just derived info (the source of truth is the Set).
@@ -487,12 +701,22 @@ function renderChampCards(list) {
     // are decorative (alt="" / aria-hidden) to prevent double reading. + is a sibling button reachable
     // individually via Tab.
     const name = champName(c);
+    // Role eyebrow (translated, "Mage / Support"). Guarded: roles is optional in the data
+    const roles = (c.roles || [])
+      .map(r => localeRoles[r] || ROLE_LABELS.default[r])
+      .filter(Boolean);
+    const eyebrow = roles.length
+      ? `<span class="card-eyebrow">${esc(roles.join(" / "))}</span>` : "";
+    // Skin count badge only when there's a collection to open (mock's "N ◇")
+    const badge = c.skins.length > 1
+      ? `<span class="skin-count-badge" aria-hidden="true">${c.skins.length} ◇</span>` : "";
     return `
     <div class="champ-card${cls}" data-alias="${esc(c.alias)}">
       ${openBtn(name)}
       <button class="sel-checkbox" ${cbAttrs(full, partial)}>${esc(cbText)}</button>
       <img loading="lazy" decoding="async" src="${esc(c.portrait)}" alt="">
-      <div class="label" aria-hidden="true">${esc(name)}</div>
+      ${badge}
+      <div class="label" aria-hidden="true">${eyebrow}<span class="card-name">${esc(name)}</span></div>
     </div>`;
   }).join("");
 }
@@ -501,23 +725,37 @@ function renderChampCards(list) {
 // with only minor differences (presence of data-alias, a champ-name prefix on the label, always-selected),
 // so it's consolidated here. With video, overlay a ▶ badge so it's clear "this one moves" before
 // opening the lightbox.
-function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false }) {
+// `eyebrow` (optional) is the champion-name kicker shown above the skin label on cards
+// outside a champion context (line detail / search results / gallery); `label` stays the
+// full accessible name for the cover button.
+function skinCardHTML({ c, s, idx, label, alias = false, forceSelected = false, eyebrow = "", text = "" }) {
   const k = SELECT_KEY(c.alias, s.label);
   const selected = forceSelected || state.selected.has(k);
   const aliasAttr = alias ? ` data-alias="${esc(c.alias)}"` : "";
-  const badge = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+  // Top-right badge cluster: ▶ for animated splashes + the rarity chip (translated)
+  const play = s.video ? `<span class="anim-badge" aria-hidden="true">▶</span>` : "";
+  const rarity = s.rarity
+    ? `<span class="rarity-badge">${esc((RARITY_LABELS[state.locale] || {})[s.rarity] || RARITY_LABELS.default[s.rarity] || "")}</span>`
+    : "";
+  const badges = (play || rarity) ? `<span class="card-badges" aria-hidden="true">${play}${rarity}</span>` : "";
+  const kicker = eyebrow ? `<span class="card-eyebrow">${esc(eyebrow)}</span>` : "";
   return `
     <div class="skin-card${selected ? " selected" : ""}" data-idx="${idx}" data-key="${esc(k)}"${aliasAttr}>
       ${openBtn(label)}
-      <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badge}
+      <button class="sel-checkbox" ${cbAttrs(selected, false)}></button>${badges}
       <img loading="lazy" decoding="async" src="${esc(cardThumb(s))}" alt="">
-      <div class="label" aria-hidden="true">${esc(label)}</div>
+      <div class="label" aria-hidden="true">${kicker}${esc(text || label)}</div>
     </div>`;
 }
 
 function renderSkinCards(matches) {
   return matches.map((m, i) =>
-    skinCardHTML({ c: m.c, s: m.s, idx: i, label: `${champName(m.c)} — ${skinLabel(m.c, m.s)}`, alias: true })
+    skinCardHTML({
+      c: m.c, s: m.s, idx: i,
+      label: `${champName(m.c)} — ${skinLabel(m.c, m.s)}`,
+      eyebrow: champName(m.c), text: skinLabel(m.c, m.s),
+      alias: true,
+    })
   ).join("");
 }
 
@@ -565,14 +803,64 @@ function renderChampion(root) {
   const order = sortedChampions();
   const i = order.findIndex(x => x.alias === c.alias);
   const nav = order.length > 1 && i >= 0 ? makeDetailNav(order, i, x => champName(x), x => openChampion(x.alias)) : null;
+  // Banner hero: Classic splash behind the header. Region eyebrow is guarded — some
+  // champions have no region (Locke), and an unregistered slug must not surface raw.
+  const classic = c.skins.find(s => s.label.endsWith("_Classic")) || c.skins[0];
+  const localeRegions = REGION_LABELS[state.locale] || {};
+  const regionSlug = (c.regions || [])[0];
+  const eyebrow = regionSlug
+    ? (localeRegions[regionSlug] || REGION_LABELS.default[regionSlug] || "") : "";
+  // Meta line mirrors the mock: "MAGE · SUPPORT — 18 SKINS" (roles guarded the same way)
+  const localeRoles = ROLE_LABELS[state.locale] || {};
+  const roles = (c.roles || [])
+    .map(r => localeRoles[r] || ROLE_LABELS.default[r])
+    .filter(Boolean);
+  const count = roles.length
+    ? `${roles.join(" · ")}  ·  ${t("skins_count", c.skins.length)}`
+    : t("skins_count", c.skins.length);
   setPrimaryHeader({
     title: champName(c),
-    count: t("skins_count", c.skins.length),
+    count,
     nav,
+    banner: (classic && classic.splash) || "",
+    eyebrow,
+    bio: championBio(c),
     ...detailPrimary(keys, t("dl_champion"), () => gateDownload(() => downloadChampion(c))),
   });
-  $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
+  $("view-content").innerHTML =
+    sectionRuleHTML(t("collection_heading")) + `<div class="skin-grid">${cards}</div>`;
   wireSkinCards($("view-content"), buildChampList(c));
+}
+
+// Thin rule-line section heading ("THE COLLECTION ————"), used above detail grids
+function sectionRuleHTML(label) {
+  return `<div class="section-rule" aria-hidden="true"><h3>${esc(label)}</h3><span></span></div>`;
+}
+
+// Unhide + fill the persistent hero band (the "new splashes" rotation). Shared by the
+// unfiltered home and Skin Lines lists — render() hides it again on every pass, so
+// each list view opts back in explicitly.
+function mountFeaturedHero() {
+  const heroEl = $("hero");
+  if (!heroEl) return;
+  heroEl.hidden = false;
+  mountHero(heroEl, {
+    // View Splash opens the lightbox IN PLACE over the current view — the list is
+    // the "new splashes" pool itself (‹ › steps through the six), and closing it
+    // lands right back where the user was (no navigation, scroll intact)
+    onView: (pool, i) =>
+      openLightbox(pool.map(p => toLightboxItem(p.c, p.s)), i, "manual"),
+    onWallpaper: (src) => {
+      if (isLocalWallpaper()) {
+        applyWallpaper([src])
+          .then(() => toast(t("wallpaper_set")))
+          .catch((err) => toast(t("wallpaper_failed", err.message), "err"));
+      } else {
+        // On the Web the button is a soft desktop-app pitch (same as the mock)
+        toast(t("hero_wallpaper_web"));
+      }
+    },
+  });
 }
 
 // Builds the { prevLabel, nextLabel, onPrev, onNext } for a detail view's prev/next nav.
@@ -620,7 +908,7 @@ function renderLines(root) {
   const entries = sortedLineEntries()
     .filter(e => !tokens.length || matchesTokens(tokens, searchNorm(e.name + " " + e._en)));
   if (entries.length === 0) {
-    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "" });
+    setPrimaryHeader({ isList: true, title: t("no_results_title"), count: "", compact: true });
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_lines_msg")}</p></div>`;
     wireFilterChips(root);
     // WCAG 4.1.3: announce to screen readers only when the search filter yields 0 (stay silent for the plain list)
@@ -646,7 +934,11 @@ function renderLines(root) {
       </div>
     </div>`;
   }).join("");
-  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length) });
+  // Same layout grammar as home: the featured hero is the page's headline on the
+  // pristine list, and the header stays a slim compact strip (searching hides the
+  // hero, exactly like home)
+  setPrimaryHeader({ isList: true, title: t("skin_lines_header"), count: t("lines_count", entries.length), compact: true });
+  if (!tokens.length) mountFeaturedHero();
   $("view-content").innerHTML = chips + `<div class="line-grid">${cards}</div>`;
   $("view-content").querySelectorAll(".line-card").forEach(el => {
     el.querySelector(".card-open").addEventListener("click", () => openLine(el.dataset.line));
@@ -676,7 +968,7 @@ function renderRaritySkins(root, chips, rarityKey) {
     return an.localeCompare(bn, cmpLocale, { sensitivity: "base" });
   });
   const label = (RARITY_LABELS[state.locale] || {})[rarityKey] || RARITY_LABELS.default[rarityKey];
-  setPrimaryHeader({ isList: true, title: label, count: t("skins_count", matches.length) });
+  setPrimaryHeader({ isList: true, title: label, count: t("skins_count", matches.length), compact: true });
   if (matches.length === 0) {
     $("view-content").innerHTML = chips + `<div class="loading"><p>${t("no_results_msg", esc(label))}</p></div>`;
     wireFilterChips(root);
@@ -696,7 +988,11 @@ function renderLine(root) {
   const items = idx ? idx.members.map(m => ({ champ: m.c, skin: m.s })) : [];
   if (items.length === 0) { state.view = "lines"; render(); return; }
   const cards = items.map((it, i) =>
-    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}` })
+    skinCardHTML({
+      c: it.champ, s: it.skin, idx: i,
+      label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`,
+      eyebrow: champName(it.champ), text: skinLabel(it.champ, it.skin),
+    })
   ).join("");
   const keys = items.map(it => SELECT_KEY(it.champ.alias, it.skin.label));
   // Prev/next nav: find the current id's index within sortedLineEntries' ordering (ignoring the search
@@ -708,6 +1004,8 @@ function renderLine(root) {
     title: lname,
     count: t("skins_count", items.length),
     nav,
+    banner: (idx && idx.members[0] && idx.members[0].s.splash) || "",
+    eyebrow: t("skin_lines_header"),
     ...detailPrimary(keys, t("dl_line"), () => gateDownload(() => downloadLine(lid, lname, items))),
   });
   $("view-content").innerHTML = `<div class="skin-grid">${cards}</div>`;
@@ -782,6 +1080,7 @@ function renderSelected(root) {
     isList: true,
     title: t("select_mode"),
     count: items.length ? t("skins_count", items.length) : "",
+    eyebrow: t("gallery_eyebrow"),
   });
 
   if (items.length === 0) {
@@ -789,7 +1088,8 @@ function renderSelected(root) {
     // Offer Import here too: a fresh desktop app (or a new device) starts with an empty gallery, and
     // importing a file exported elsewhere is exactly the cross-machine hand-off path.
     $("view-content").innerHTML =
-      `<div class="loading"><p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
+      `<div class="loading gallery-empty"><div class="gallery-empty-mark" aria-hidden="true">◇</div>` +
+      `<p>${t("gallery_empty")}</p><p class="gallery-hint">${t("gallery_empty_hint")}</p>` +
       `<div class="gallery-empty-actions">` +
       `<button class="btn primary" id="gallery-browse">${t("gallery_empty_cta")}</button>` +
       `<button class="btn" id="gallery-import">${t("import_selection")}</button>` +
@@ -801,7 +1101,12 @@ function renderSelected(root) {
   }
 
   const cards = items.map((it, i) =>
-    skinCardHTML({ c: it.champ, s: it.skin, idx: i, label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`, forceSelected: true })
+    skinCardHTML({
+      c: it.champ, s: it.skin, idx: i,
+      label: `${champName(it.champ)} — ${skinLabel(it.champ, it.skin)}`,
+      eyebrow: champName(it.champ), text: skinLabel(it.champ, it.skin),
+      forceSelected: true,
+    })
   ).join("");
   // Only in local-run mode, show "Set as wallpaper" (select -> confirm modal -> bulk apply).
   // One image = static wallpaper, two or more = the OS's native slideshow (handled by wallpaper.js + the server).
@@ -810,7 +1115,7 @@ function renderSelected(root) {
     ? `<button class="btn primary" id="gallery-wp">${t("wallpaper_set_btn")}</button>`
     : "";
   // ZIP DL is Web-only (the way to work around the browser sandbox). Hide it in local mode.
-  const dlBtn = isLocal() ? "" : `<button class="btn primary" id="gallery-dl">${t("dl_selected")}</button>`;
+  const dlBtn = isLocal() ? "" : `<button class="btn" id="gallery-dl">${t("dl_selected")}</button>`;
   // The occasional cross-device actions (hand-off + Export/Import) are grouped under a single
   // "Transfer…" menu so the everyday Download/Slideshow/Clear stay as top-level peers and the bar
   // doesn't balloon to 6 buttons (crowds small screens). The deep-link hand-off is Web-only
@@ -818,11 +1123,14 @@ function renderSelected(root) {
   // "Open in desktop app" deep-links 127.0.0.1, which can't work on a phone (no local server there) —
   // and the Export item right below already covers the phone → PC path — so hide it on mobile too.
   const handoffItem = (isLocal() || isMobile()) ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
+  // Button ranks follow the mock on the Web (Slideshow gold-primary, ZIP ghost);
+  // in local mode wallpaper stays the primary (it IS the product there)
+  const ssClass = isLocalWallpaper() ? "btn" : "btn primary";
   $("view-content").innerHTML = `
     <div class="gallery-toolbar">
-      ${dlBtn}
+      <button class="${ssClass}" id="gallery-ss">▶ ${t("nav_slideshow")}</button>
       ${wpBtn}
-      <button class="btn" id="gallery-ss">${t("nav_slideshow")}</button>
+      ${dlBtn}
       <div class="menu-wrap">
         <button class="btn" id="transfer-btn" type="button" aria-expanded="false">${t("transfer_menu")}</button>
         <ul class="toolbar-menu" id="transfer-menu" hidden>

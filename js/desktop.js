@@ -19,10 +19,74 @@ import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
 const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
-// Default address the desktop app serves on (local_app.py binds 127.0.0.1:8000 unless a port is
-// passed). The hand-off deep-links here; if the user ran it on another port this won't reach it
-// (acceptable for v1 — 8000 is the documented default).
+// Custom URL scheme claimed by the Windows installer. Firing openleaguedisplay://import LAUNCHES the
+// installed app — unlike the old http://127.0.0.1:8000 deep link, which only reached an
+// already-running instance and otherwise dead-ended on a connection error. local_app.py accepts the
+// link only in exactly this shape (strict regex) and boots straight into the import.
+const NATIVE_SCHEME = "openleaguedisplay";
+// Only the Windows installer claims the scheme — a macOS scheme needs an .app bundle's Info.plist
+// and Linux needs a .desktop entry, neither of which the single-binary builds have. So elsewhere we
+// keep the original deep link, which reaches an already-running instance on its default port.
 const NATIVE_URL = "http://127.0.0.1:8000";
+const isWindows = () => /win/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "");
+// The OS passes the whole link to the app as one argv entry, and Windows caps a command line at
+// 32767 chars. Stay well under it: past this the link is abandoned for the file export.
+const MAX_LINK_LEN = 16000;
+
+// openleaguedisplay://import?keys=<base64url of the JSON key array>. base64url (not
+// percent-encoded JSON): skin keys are full of "/" and spaces, which percent-encoding would
+// roughly triple, and the link has a hard length budget.
+// Fire a custom-scheme link from a throwaway tab, then close the tab once it's done its job. Firing
+// it at the CURRENT document is the obvious move, but it risks replacing the page the user is on:
+// browsers without a handler registered aren't uniform about it (Chrome silently ignores it, Firefox
+// can render an "unknown protocol" error page in place of the app). A scratch tab absorbs that, and
+// closing it afterwards leaves no orphan blank tab — which is why we don't just window.open and walk
+// away. The user gesture (the modal button) is what lets the open through.
+//
+// The close must NOT race the user. The browser's "Open OpenLeagueDisplay?" permission prompt is
+// owned by the tab that initiated the navigation, so destroying that tab destroys the prompt and
+// takes its cancel path — the app never launches. Every user meets that prompt on their first
+// hand-off (until they tick "always allow"), and nobody reads and answers it in a couple of seconds.
+// Hence a long backstop and nothing cleverer: closing on "the user came back to this page" would
+// kill a prompt they merely tabbed away from. A minute of silence means they walked away, so the
+// blank tab is just litter to sweep up.
+function fireSchemeLink(link, message) {
+  const w = window.open("", "_blank");
+  if (!w) { window.location.href = link; return; }  // popup blocked: fall back to this document
+  // The scratch tab takes focus, so THIS is the surface the user is looking at — a toast back on
+  // the opener would play to an empty room (and expire before they return). Write the message here
+  // instead: with no handler registered the browser silently drops the navigation, and without this
+  // the user would just be staring at a blank tab. about:blank is same-origin, and mutating its DOM
+  // leaves location.href === "about:blank", so the cleanup guard below still recognises it as ours.
+  try {
+    const d = w.document;
+    d.title = "OpenLeagueDisplay";
+    d.body.style.cssText = "margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+      + "background:#07060b;color:#e8e3d9;font:16px/1.7 system-ui,sans-serif;text-align:center;padding:24px";
+    const p = d.createElement("p");
+    p.style.cssText = "max-width:46ch";
+    p.textContent = message;
+    d.body.appendChild(p);
+  } catch (_) { /* a browser that won't let us touch the popup's document: the link still fires */ }
+  w.location.href = link;
+  setTimeout(() => {
+    try {
+      // Sweep it up only if it's still OUR blank tab. The scratch tab is focused and empty, which
+      // is exactly where someone starts typing a URL — and the scheme navigation never commits, so
+      // a tab that is still "about:blank" is one nobody has touched. Once they've navigated it, the
+      // cross-origin read throws and we correctly leave their tab alone.
+      if (!w.closed && w.location.href === "about:blank") w.close();
+    } catch (_) {}
+  }, 60000);
+}
+
+function desktopLink(keys) {
+  const bytes = new TextEncoder().encode(JSON.stringify(keys));  // keys can hold non-ASCII, so go via UTF-8
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${NATIVE_SCHEME}://import?keys=${b64}`;
+}
 
 // ---- generic two-choice modal (reuses the wp-* modal CSS for styling) --------
 let _releaseTrap = null;  // focus-trap release fn (set on open, called on close)
@@ -126,43 +190,68 @@ export function gateDownload(runDownload) {
 }
 
 // ---- 2. web → native selection hand-off --------------------------------------
-// Encode the current My Gallery selection into a deep link and offer to open it in the desktop app.
-// The selection rides in the URL *fragment* (#import=...), which is never sent to the local server,
-// so there's no request-line length limit. localStorage is per-origin (github.io ≠ 127.0.0.1) and
-// can't be shared automatically — this explicit hand-off bridges the two.
+// Encode the current My Gallery selection into an openleaguedisplay:// link and offer to open it in
+// the desktop app. localStorage is per-origin (github.io ≠ 127.0.0.1) and can't be shared
+// automatically — this explicit hand-off bridges the two.
 export function openInDesktop() {
   const keys = [...state.selected];
   if (!keys.length) return;
-  // On mobile the deep link can't work — there's no desktop app (and so no 127.0.0.1 server) on the
-  // phone. Skip the "open in desktop app" choice and go straight to the file export, which is the
-  // path that actually makes sense here: write the selection out and import it on the PC.
+  // On mobile the link can't work — there's no desktop app on the phone. Skip the choice and go
+  // straight to the file export, which is the path that actually makes sense here: write the
+  // selection out and import it on the PC.
   if (isMobile()) { if (exportSelection()) toast(t("export_done")); return; }
-  const link = `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
-  // The page can't reliably preflight 127.0.0.1 from an https origin (mixed-content / CORS), so instead
-  // of a dead connection-error tab when the app isn't running, the secondary offers the file Export —
-  // the reliable fallback that works regardless of whether the desktop app is up.
+  const scheme = isWindows();
+  const link = scheme ? desktopLink(keys)
+                      : `${NATIVE_URL}/#import=${encodeURIComponent(JSON.stringify(keys))}`;
+  // A gallery big enough to blow the command-line budget can't ride the scheme link at all, so don't
+  // offer a button that would silently do nothing — export it to a file, which has no size limit.
+  // (The http fallback rides in the fragment, which the browser never puts on a command line.)
+  if (scheme && link.length > MAX_LINK_LEN) {
+    if (exportSelection()) toast(t("handoff_too_big"));
+    return;
+  }
+  // Neither path can be preflighted from an https origin (the browser swallows the result of a
+  // custom scheme, and 127.0.0.1 can't be probed cross-origin), so the secondary always offers the
+  // file Export — the fallback that works whatever state the desktop app is in.
   choiceModal({
     title: t("handoff_title"),
     body: t("handoff_body"),
-    primary: { label: t("handoff_open"), onClick: () => window.open(link, "_blank", "noopener") },
+    primary: {
+      label: t("handoff_open"),
+      onClick: () => {
+        if (!scheme) { window.open(link, "_blank", "noopener"); return; }  // http fallback: a real page
+        // The message goes into the scratch tab (that's where the user's eyes are); the toast covers
+        // the popup-blocked path, where the link fires from this document and no scratch tab exists.
+        fireSchemeLink(link, t("handoff_launching"));
+        toast(t("handoff_launching"));
+      },
+    },
     secondary: { label: t("handoff_export"), onClick: () => { if (exportSelection()) toast(t("export_done")); } },
   });
 }
 
 // Native side of the hand-off: if the URL carries #import=<json keys>, merge the valid ones into the
-// current selection. Returns null when there is NO #import= hash, or a count >= 0 when there is one
-// (a corrupt/unparseable fragment is folded into 0 = nothing imported — these links are normally
-// machine-generated, so a rare hand-pasted broken one just reads as "nothing new" rather than an
-// error). This lets the caller tell "no hand-off" from "hand-off that added nothing" without
-// re-parsing the fragment format, which is owned here. Called once on startup (after buildIndexes, so
-// SKIN_BY_KEY is ready). Not gated on isLocal() — the link only ever points at 127.0.0.1, but a
-// manually pasted link should still work. The caller clears the hash afterward.
+// current selection. The fragment format is owned here, so the caller never re-parses it; it only
+// reads the return value:
+//    null → no #import= hash at all (not a hand-off)
+//    -1   → there was one, but its payload is unreadable (same contract as pickSelectionFile)
+//    0    → a valid hand-off whose picks were all already in the gallery
+//    n    → n keys newly added
+// Two callers, both in app.js and both of which then clear the hash: init() (after buildIndexes, so
+// SKIN_BY_KEY is ready) for a link that launched or reloaded the page, and maybeHandleImportHash()
+// for one that arrives at an already-loaded page (the desktop app's /api/handoff steers its own
+// window there, which is a same-document fragment navigation — init does not re-run).
+// Not gated on isLocal() — the link only ever points at 127.0.0.1, but a manually pasted link should
+// still work.
 export function applyImportFromHash() {
   const m = /^#import=(.*)$/.exec(location.hash || "");
   if (!m) return null;
   let keys;
-  try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return 0; }
-  return Array.isArray(keys) ? mergeKeys(keys) : 0;
+  // -1 (not 0) for an unreadable payload — same contract as pickSelectionFile. 0 has to keep
+  // meaning "a valid hand-off whose picks were all already in the gallery", so that the caller can
+  // reassure ("already up to date") instead of claiming a broken link is fine.
+  try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return -1; }
+  return Array.isArray(keys) ? mergeKeys(keys) : -1;
 }
 
 // Merge a list of SELECT_KEY strings into the current selection, keeping only keys that exist in the

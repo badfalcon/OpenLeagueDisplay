@@ -1,4 +1,4 @@
-// First-visit tutorial: a simple 4-step onboarding modal.
+// First-visit tutorial: a simple 5-step onboarding modal.
 // The seen flag lives in localStorage (LS_TUTORIAL_KEY); the header's ? button and the ? key
 // can re-show it any number of times (without changing the flag). Every close path (Skip / Done /
 // Esc / outside click) sets the flag on the first display.
@@ -9,7 +9,7 @@
 import { state, $, lsGet, lsSet, LS_TUTORIAL_KEY, lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert } from "./state.js";
 import { t } from "./i18n.js";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 // Focus-trap release fn (set on open, called on close). Since buttons come and go by state
 // (e.g. Skip hides on the last step), trapFocus recomputes the list on the fly each time.
