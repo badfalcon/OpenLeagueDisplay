@@ -828,15 +828,11 @@ def import_hash_from_argv(argv: list) -> str:
 
 
 def is_our_server(port: int) -> bool:
-    """Is an OpenLeagueDisplay instance already holding `port`? (asks /api/ping)
+    """Is the process already holding `port` an OpenLeagueDisplay instance? (asks /api/ping)
 
-    Asked BEFORE binding, not after a bind failure: http.server sets SO_REUSEADDR, which on Windows
-    lets a second process bind a port another one is actively listening on (that is what
-    SO_EXCLUSIVEADDRUSE exists to prevent). So the bind SUCCEEDS and we would silently end up with
-    two instances fighting over :8000 and over the shared wallpaper folder. Verified on Windows.
-
+    Only called once the bind has already failed, so it costs nothing on a normal start.
     Not an authentication check — any local process can answer /api/ping. It only tells apart "our
-    own instance" from "nothing there", which is all the hand-off needs.
+    own instance" from "some other server", which is all the hand-off needs.
     """
     try:
         with urllib.request.urlopen(f"http://{HOST}:{port}/api/ping", timeout=2) as r:
@@ -870,13 +866,27 @@ def hand_off_to_running(port: int, keys: list) -> bool:
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
+class _Server(http.server.ThreadingHTTPServer):
+    """ThreadingHTTPServer whose bind is authoritative about "am I the only instance?".
+
+    http.server sets allow_reuse_address (SO_REUSEADDR), and on Windows that flag has hijack
+    semantics: a second process can bind a port the first is actively LISTENING on. The bind then
+    succeeds and we get two instances on :8000, pruning the same wallpaper folder out from under
+    each other. Turning it off on Windows makes the second bind fail deterministically, so
+    "already running?" is answered by an atomic bind instead of a probe — no startup latency and no
+    TOCTOU window between checking and binding.
+
+    Kept ON elsewhere: POSIX SO_REUSEADDR does NOT allow stealing a listening socket (it only skips
+    the TIME_WAIT wait), and dropping it would make a quick restart fail with "address in use".
+    """
+    allow_reuse_address = os.name != "nt"
+
+
 def _serve(port: int) -> http.server.ThreadingHTTPServer:
-    # ThreadingHTTPServer: serve other requests (stop / static) even during an
-    # image download (up to ~20s). directory= makes the serving root explicit and
-    # removes the cwd dependency (supports PyInstaller bundling).
+    # Threading: serve other requests (stop / static) even during an image download (up to ~20s).
+    # directory= makes the serving root explicit and removes the cwd dependency (PyInstaller).
     handler = functools.partial(Handler, directory=BASE_DIR)
-    httpd = http.server.ThreadingHTTPServer((HOST, port), handler)
-    return httpd
+    return _Server((HOST, port), handler)
 
 
 def main() -> None:
@@ -896,22 +906,25 @@ def main() -> None:
     port = int(ports[0]) if ports else 8000
 
     url = f"http://{HOST}:{port}"
-    # Ask BEFORE binding whether an instance is already up. Waiting for a bind failure doesn't work:
-    # http.server sets SO_REUSEADDR, and on Windows that lets this process bind a port the running
-    # instance is actively listening on — two servers on :8000, both pruning the same wallpaper
-    # folder out from under each other.
-    if is_our_server(port):
+    try:
+        # The bind is the "am I already running?" check — _Server makes it authoritative on Windows
+        # too (see its docstring). Doing it this way costs nothing on a normal start and leaves no
+        # window for two simultaneous launches to both decide the port was free.
+        httpd = _serve(port)
+    except OSError:
+        # Port taken. If it's our own instance, hand the selection over rather than fight for the
+        # port; anything else holding it is a real error.
+        if not is_our_server(port):
+            raise
         if keys and hand_off_to_running(port, keys):
             print(f"OpenLeagueDisplay is already running on {url} — sent the selection to its window")
         else:
-            # Running in browser mode (no window to steer) or a build without /api/handoff: a tab at
-            # the same origin is the right destination, and it's also how the user gets back to an
-            # app they already have open.
+            # Browser mode (no native window to steer) or an older build without /api/handoff: a tab
+            # at the same origin is the right destination, and it also surfaces the app the user
+            # already has open.
             print(f"OpenLeagueDisplay is already running on {url} — opening it")
             webbrowser.open(url + "/" + import_fragment(keys))
         return
-
-    httpd = _serve(port)
     print(f"OpenLeagueDisplay (local mode, wallpaper enabled) — {url}  (Ctrl+C to stop)")
     url += "/" + import_fragment(keys)
 

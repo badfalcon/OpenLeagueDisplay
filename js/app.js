@@ -402,7 +402,28 @@ function syncBackFab() {
   fab.hidden = !show;
 }
 
+// A hand-off (#import=<keys>) can also arrive at a page that is ALREADY loaded: the desktop app's
+// /api/handoff points its own window at the import URL when a second openleaguedisplay:// link fires
+// while it's running. That's a same-document fragment navigation — init() has long since run, so
+// without this the keys would never be merged and routing would just read "#import=…" as an unknown
+// route and drop the user on home. Returns true when it consumed the hash.
+// (Idempotent: it rewrites the hash to #/gallery, so the follow-up event sees nothing to do.)
+function maybeHandleImportHash() {
+  if (!/^#import=/.test(location.hash || "")) return false;
+  const imported = applyImportFromHash();
+  history.replaceState(null, "", "#/gallery");
+  if (imported === null) return false;  // unparseable payload: fall through to normal routing
+  setStateFromRoute("#/gallery");
+  render();
+  toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
+  return true;
+}
+
 function wirePopstate() {
+  // Both events fire for a fragment navigation (popstate first). Whichever gets there does the work;
+  // the other then sees the rewritten #/gallery hash and no-ops. A backend that reloads the document
+  // instead of doing a same-document nav is covered by init()'s own applyImportFromHash.
+  window.addEventListener("hashchange", maybeHandleImportHash);
   window.addEventListener("popstate", (e) => {
     // (1) If the lightbox is open, Back is spent on "close". By this point history has already
     // unwound (state.lb is gone), so closeLightbox's history.back() doesn't fire and there's no
@@ -411,7 +432,10 @@ function wirePopstate() {
       closeLightbox();
       return;
     }
-    // (2) Otherwise, reflect the current hash into state. But for the case fired by a UI-driven
+    // (2) A hand-off landing on the live page (see maybeHandleImportHash) — it renders the gallery
+    // itself, so don't also route the raw #import= hash (which would bounce the user to home).
+    if (maybeHandleImportHash()) return;
+    // (3) Otherwise, reflect the current hash into state. But for the case fired by a UI-driven
     // lightbox close (history.back inside closeLightbox), the URL already matches the view, so
     // re-render and scroll reset are wasted (= flicker / position jump). If they match, do nothing.
     if ((location.hash || "#/") === routeFromState()) return;

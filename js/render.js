@@ -450,8 +450,12 @@ function wireChipScroll(row) {
   const SLOP = 4;
   let startX = 0, startLeft = 0, moved = 0, down = false, swallowClick = false;
   row.addEventListener("pointerdown", (e) => {
+    // Disarm BEFORE the guard: a drag whose click never reaches the row (released outside the
+    // window, say) would otherwise leave the flag armed, and the next press to bypass the guard —
+    // a touch tap on a hybrid laptop — would have its click eaten.
+    swallowClick = false;
     if (e.pointerType === "touch" || e.button !== 0) return;
-    down = true; moved = 0; swallowClick = false;
+    down = true; moved = 0;
     startX = e.clientX; startLeft = row.scrollLeft;
   });
   row.addEventListener("pointermove", (e) => {
