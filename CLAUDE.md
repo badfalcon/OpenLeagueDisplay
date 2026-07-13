@@ -117,9 +117,13 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   巨大ギャラリーは**リンクを諦めてファイル書き出しにフォールバック**する (押しても何も
   起きないボタンを出さない)。発火は `window.open` ではなく `location.href` (カスタム
   スキームを新規タブで開くと空タブが残る) ③`applyImportFromHash()` = 受け側。`#import=` を読んで
-  SKIN_BY_KEY に在るキーだけ選択へマージし件数を返す (app.js 起動時に buildIndexes 後・
-  ルーティング前に1回呼ぶ。終わったら hash を `#/gallery` に書換えて再取り込みを防ぐ)。
-  ローカル限定にはしない (手貼りリンクでも動くように) ④`mountFooterCTA()` = フッターに
+  SKIN_BY_KEY に在るキーだけ選択へマージし、**追加件数 / 0 (全部既に在った) / -1 (payload が
+  読めない)** を返す (`pickSelectionFile` と同じ契約。0 と -1 を分けないと、壊れたリンクに
+  「最新です ✓」と嘘をつく)。呼ぶのは app.js の2箇所: 起動時 (buildIndexes 後・ルーティング前) と
+  `maybeHandleImportHash()` (起動後に飛んできたフラグメントを popstate/hashchange で拾う。
+  デスクトップ版の `/api/handoff` がこの経路)。どちらも終わったら hash を `#/gallery` に
+  書換えて再取り込みを防ぐ。ローカル限定にはしない (手貼りリンクでも動くように)
+  ④`mountFooterCTA()` = フッターに
   デスクトップ版 CTA を1回注入 (ローカル時は no-op)。**別端末 (スマホ→PC) 向けに
   `exportSelection()` / `pickSelectionFile()` = 選択を JSON ファイル (`{v,keys}`) で
   書き出し/読み込み** (deep link が使えないクロスマシン経路。モード非依存で双方向)。
@@ -255,17 +259,24 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     URL のフラグメントに載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口)。
     Windows 限定 (mac/Linux は Info.plist / .desktop が要るので未対応。フロント側も
     `isWindows()` でしか投げない)
-  - **多重起動の扱い (バインド前に ping する)**: `is_our_server()` (= `/api/ping`) を**バインドの前**に
-    叩き、既に自分が動いていたら二重起動しない。**bind の失敗を待つ実装ではダメ**: http.server は
-    `SO_REUSEADDR` を立てるので、**Windows では listen 中のポートに2つ目が bind できてしまう**
-    (実測済み) → :8000 に2プロセスが並び、共有の壁紙フォルダ (`current`) を互いに prune し合う。
-    受け渡し先も注意: 既存インスタンスは通常 **pywebview のネイティブ窓**で、システムブラウザとは
-    **localStorage のパーティションが別**(同一オリジンでも)。だからブラウザで開くだけでは
-    ユーザーが見ている窓のギャラリーに入らない。**`POST /api/handoff`** (`hand_off_to_running`) で
-    既存インスタンスに keys を渡し、**向こうが自分の窓を `load_url` で `#import=` に飛ばす**。
+  - **多重起動の判定は bind そのもの** (`_Server.allow_reuse_address = os.name != "nt"`):
+    http.server は既定で `SO_REUSEADDR` を立てるが、**Windows のそれは奪取セマンティクス**で
+    **listen 中のポートに2つ目が bind できてしまう** (実測済み) → :8000 に2プロセスが並び、共有の
+    壁紙フォルダ (`current`) を互いに prune し合う。そこで **Windows だけ OFF** にして bind を
+    権威にする (POSIX の `SO_REUSEADDR` は listen 中のソケットを奪えず、切ると Ctrl+C 直後の
+    再起動が TIME_WAIT で失敗するので ON のまま)。bind は原子的なので、起動のたびに ping する案
+    (= 通常起動に毎回レイテンシ + 同時起動で両方が「空いている」と判断する TOCTOU) より良い。
+    bind が失敗したときだけ `is_our_server()` (= `/api/ping`) で相手が自分かを確かめる
+  - **受け渡し先の落とし穴 (`POST /api/handoff`)**: 既存インスタンスは通常 **pywebview のネイティブ窓**
+    で、システムブラウザとは**同一オリジンでも localStorage のパーティションが別**。だから
+    「ブラウザで `#import=` を開く」だけではユーザーが見ている窓のギャラリーに入らない。
+    `hand_off_to_running()` が keys を POST し、**受け側が自分の窓を `load_url` で `#import=` に
+    飛ばす** (ナビゲート先 URL は受け側が keys から組み立てる = 呼び出し側に URL を指定させない)。
     窓が無い (ブラウザモード / `--no-window`) 時は 409 を返し、呼び出し側がブラウザタブで開く
-    (その場合は同一プロファイル・同一オリジンなので正しく届く)。ナビゲート先 URL は**受け側が
-    keys から組み立てる** (呼び出し側に URL を指定させない)
+    (その場合は同一プロファイル・同一オリジンなので正しく届く)。**フロント側にも受け口が要る**:
+    `load_url` は**同一ドキュメント内のフラグメント遷移**になるので init は再実行されない →
+    `js/app.js` の `maybeHandleImportHash()` を popstate / hashchange に張って、起動後に飛んで
+    きた `#import=` も取り込む (取り込んだら `#/gallery` に書き換え + 先頭へスクロール)
   - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
     `Software\Classes` を一切書かない** (壁紙のレガシー fallback が `Control Panel\Desktop` を
     書くのは別件): 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
