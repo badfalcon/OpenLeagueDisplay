@@ -718,7 +718,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             # browser profile, same origin, so the import lands where the user is actually looking.
             self._json(409, {"ok": False, "error": "no window"})
             return
-        window.load_url(f"http://{HOST}:{self.server.server_address[1]}/{import_fragment(keys)}")
+        # No keys = a plain relaunch: just surface the window. Navigating it would reload the app for
+        # no reason (and throw away whatever view the user was on).
+        if keys:
+            window.load_url(f"http://{HOST}:{self.server.server_address[1]}/{import_fragment(keys)}")
         try:
             window.restore()  # un-minimize / bring forward, best-effort (backend-dependent)
         except Exception:
@@ -916,8 +919,13 @@ def main() -> None:
         # port; anything else holding it is a real error.
         if not is_our_server(port):
             raise
-        if keys and hand_off_to_running(port, keys):
-            print(f"OpenLeagueDisplay is already running on {url} — sent the selection to its window")
+        # Not gated on `keys`: a plain relaunch (Start Menu / shortcut / double-click while the app
+        # is open) has none, and it must still surface the window the user already has — opening a
+        # browser tab instead would hand them a second UI on a different storage partition, i.e. an
+        # empty-looking gallery, while their real window stayed buried.
+        if hand_off_to_running(port, keys):
+            what = "sent the selection to its window" if keys else "brought its window forward"
+            print(f"OpenLeagueDisplay is already running on {url} — {what}")
         else:
             # Browser mode (no native window to steer) or an older build without /api/handoff: a tab
             # at the same origin is the right destination, and it also surfaces the app the user

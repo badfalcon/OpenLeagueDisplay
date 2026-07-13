@@ -187,13 +187,18 @@ export function openInDesktop() {
 }
 
 // Native side of the hand-off: if the URL carries #import=<json keys>, merge the valid ones into the
-// current selection. Returns null when there is NO #import= hash, or a count >= 0 when there is one
-// (a corrupt/unparseable fragment is folded into 0 = nothing imported — these links are normally
-// machine-generated, so a rare hand-pasted broken one just reads as "nothing new" rather than an
-// error). This lets the caller tell "no hand-off" from "hand-off that added nothing" without
-// re-parsing the fragment format, which is owned here. Called once on startup (after buildIndexes, so
-// SKIN_BY_KEY is ready). Not gated on isLocal() — the link only ever points at 127.0.0.1, but a
-// manually pasted link should still work. The caller clears the hash afterward.
+// current selection. The fragment format is owned here, so the caller never re-parses it; it only
+// reads the return value:
+//    null → no #import= hash at all (not a hand-off)
+//    -1   → there was one, but its payload is unreadable (same contract as pickSelectionFile)
+//    0    → a valid hand-off whose picks were all already in the gallery
+//    n    → n keys newly added
+// Two callers, both in app.js and both of which then clear the hash: init() (after buildIndexes, so
+// SKIN_BY_KEY is ready) for a link that launched or reloaded the page, and maybeHandleImportHash()
+// for one that arrives at an already-loaded page (the desktop app's /api/handoff steers its own
+// window there, which is a same-document fragment navigation — init does not re-run).
+// Not gated on isLocal() — the link only ever points at 127.0.0.1, but a manually pasted link should
+// still work.
 export function applyImportFromHash() {
   const m = /^#import=(.*)$/.exec(location.hash || "");
   if (!m) return null;

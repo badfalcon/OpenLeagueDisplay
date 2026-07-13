@@ -197,7 +197,7 @@ async function init() {
   // A 0 here means the link's picks were already in the gallery (re-imported your own selection), so
   // it gets the reassuring "already up to date" rather than the file path's "nothing new"; -1 is a
   // link we couldn't read.
-  if (imported !== null) toast(importToast(imported));
+  if (imported !== null) showImportToast(imported);
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
@@ -411,6 +411,10 @@ function syncBackFab() {
 // (Idempotent: it rewrites the hash to #/gallery, so the follow-up event sees nothing to do.)
 function maybeHandleImportHash() {
   if (!/^#import=/.test(location.hash || "")) return false;
+  // The app may have been left with a splash open. The gallery would then render *behind* the
+  // lightbox (and its scroll lock pins the body, so the scrollTo below would be a no-op and the
+  // user would land mid-page when they finally closed it). The hand-off is the new subject: close it.
+  if ($("lightbox").classList.contains("open")) closeLightbox();
   const imported = applyImportFromHash();  // -1 unreadable / 0 nothing new / n added
   history.replaceState(null, "", "#/gallery");
   // A fresh entry from the fragment nav, so nothing is worth restoring: land at the top of the
@@ -420,13 +424,18 @@ function maybeHandleImportHash() {
   setStateFromRoute("#/gallery");
   render();
   window.scrollTo(0, 0);
-  toast(importToast(imported));
+  showImportToast(imported);
   return true;
 }
 
 // Shared by the two hand-off paths (startup deep link and a link arriving at a live window).
-const importToast = (n) =>
-  n < 0 ? t("import_invalid") : n > 0 ? t("import_done", n) : t("handoff_uptodate");
+// -1 = unreadable payload: that's an error, so it gets the error styling and the assertive live
+// region — the same treatment the file-import path gives the same string. Announcing a broken link
+// in the calm gold "ok" toast is exactly what the -1/0 split was introduced to stop.
+function showImportToast(n) {
+  if (n < 0) { toast(t("import_invalid"), "err"); return; }
+  toast(n > 0 ? t("import_done", n) : t("handoff_uptodate"));
+}
 
 function wirePopstate() {
   // Both events fire for a fragment navigation (popstate first). Whichever gets there does the work;
