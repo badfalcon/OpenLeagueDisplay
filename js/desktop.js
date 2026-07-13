@@ -198,8 +198,11 @@ export function applyImportFromHash() {
   const m = /^#import=(.*)$/.exec(location.hash || "");
   if (!m) return null;
   let keys;
-  try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return 0; }
-  return Array.isArray(keys) ? mergeKeys(keys) : 0;
+  // -1 (not 0) for an unreadable payload — same contract as pickSelectionFile. 0 has to keep
+  // meaning "a valid hand-off whose picks were all already in the gallery", so that the caller can
+  // reassure ("already up to date") instead of claiming a broken link is fine.
+  try { keys = JSON.parse(decodeURIComponent(m[1])); } catch (_) { return -1; }
+  return Array.isArray(keys) ? mergeKeys(keys) : -1;
 }
 
 // Merge a list of SELECT_KEY strings into the current selection, keeping only keys that exist in the

@@ -114,7 +114,7 @@ export const UI_STRINGS = {
     import_selection: "⬇ Import to gallery",
     export_done: "Saved openleaguedisplay-selection.json ✓ — import it on your other device.",
     import_none: "No new skins to import.",
-    import_invalid: "Couldn't read a selection from that file.",
+    import_invalid: "Couldn't read that selection.",  // shared by the file import and the hand-off link
     jszip_load_failed: "Failed to load JSZip CDN (10s).",
     offline_banner: "You are offline — splash images may not load.",
     slideshow_empty: "Add skins to My Gallery first to use the slideshow.",
@@ -257,7 +257,7 @@ export const UI_STRINGS = {
     import_selection: "⬇ ギャラリーに読み込み",
     export_done: "openleaguedisplay-selection.json を保存しました ✓ — 他の端末で読み込んでください。",
     import_none: "取り込む新しいスキンはありませんでした。",
-    import_invalid: "そのファイルから選択を読み込めませんでした。",
+    import_invalid: "その選択を読み込めませんでした。",
     jszip_load_failed: "JSZip CDN の読込に失敗しました (10秒)",
     offline_banner: "オフラインです — スプラッシュ画像は表示されないことがあります",
     slideshow_empty: "先にマイギャラリーにスキンを追加してください",

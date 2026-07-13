@@ -194,9 +194,10 @@ async function init() {
   render();
 
   // Now that the gallery is on screen, announce the hand-off result (see the deferral note above).
-  // A 0-count here means the link's picks were already in the gallery (re-imported your own selection),
-  // so use the reassuring "already up to date" message rather than the file path's "nothing new".
-  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
+  // A 0 here means the link's picks were already in the gallery (re-imported your own selection), so
+  // it gets the reassuring "already up to date" rather than the file path's "nothing new"; -1 is a
+  // link we couldn't read.
+  if (imported !== null) toast(importToast(imported));
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
@@ -410,14 +411,22 @@ function syncBackFab() {
 // (Idempotent: it rewrites the hash to #/gallery, so the follow-up event sees nothing to do.)
 function maybeHandleImportHash() {
   if (!/^#import=/.test(location.hash || "")) return false;
-  const imported = applyImportFromHash();
+  const imported = applyImportFromHash();  // -1 unreadable / 0 nothing new / n added
   history.replaceState(null, "", "#/gallery");
-  if (imported === null) return false;  // unparseable payload: fall through to normal routing
+  // A fresh entry from the fragment nav, so nothing is worth restoring: land at the top of the
+  // gallery rather than at whatever scroll offset the previous view happened to be at. Bumping
+  // navSeq also cancels any deferred font-reflow re-scroll applyRoute may still have in flight.
+  navSeq++;
   setStateFromRoute("#/gallery");
   render();
-  toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
+  window.scrollTo(0, 0);
+  toast(importToast(imported));
   return true;
 }
+
+// Shared by the two hand-off paths (startup deep link and a link arriving at a live window).
+const importToast = (n) =>
+  n < 0 ? t("import_invalid") : n > 0 ? t("import_done", n) : t("handoff_uptodate");
 
 function wirePopstate() {
   // Both events fire for a fragment navigation (popstate first). Whichever gets there does the work;
