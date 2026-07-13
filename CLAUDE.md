@@ -252,15 +252,26 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     を受ける。`import_hash_from_argv()` が argv の中のスキーム URL を探して
     `#import=<percent-encoded JSON>` に変換し、**起動する窓/ブラウザの URL のフラグメントに
     そのまま載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口なので、新しい
-    エンドポイントもフロントの分岐も要らない)。`keys` は base64url を第一、素の JSON も許容
-    (手書きリンク救済)、`MAX_IMPORT_KEYS` (5000) で上限。**多重起動**: ポートが埋まっていたら
+    エンドポイントもフロントの分岐も要らない)。**多重起動**: ポートが埋まっていたら
     `is_our_server()` (= `/api/ping`) で相手が自分自身か確かめ、そうならポートを奪い合わず
     既存インスタンスの URL をブラウザで開いて受け渡しを成立させる (別プロセスが握っていたら
-    従来どおりエラー)。**登録は二重化**: ①インストーラ (`windows.iss` の `[Registry]`) が
-    HKA に書く = 一度も起動していなくてもリンクが効く ②`register_url_scheme()` が起動のたびに
-    HKCU へ書き直す = ポータブル exe / `python local_app.py` 直起動 / インストール先を移動した
-    ケースを自己修復する (`--no-register` で抑止可、失敗しても非致命)。Windows 限定
-    (mac/Linux は Info.plist / .desktop が要るので未対応 = リンクは Windows のみ)
+    従来どおりエラー)。Windows 限定 (mac/Linux は Info.plist / .desktop が要るので未対応 =
+    リンクは Windows のみ。フロント側も `isWindows()` でしか投げない)
+  - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
+    レジストリを一切書かない**: 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
+    入れている人が一度でも `python local_app.py` / ポータブル exe を起動すると、その時点で
+    ハンドラの宛先がそっちに差し替わる (= 意図しない乗っ取り) ため採らなかった。副作用として
+    ポータブル exe と直起動ではリンクが効かない (= 「インストーラ版の機能」と割り切る)
+  - **スキームの脅威モデル** (登録した以上、**任意の Web ページがこのアプリを起動できる**。
+    ブラウザは確認ダイアログを出すが、押し通されると仮定して設計する): ①リンク全体を
+    `IMPORT_LINK_RE` の**厳格一致**でしか受けない (action は `import` 1つ、payload は base64url
+    charset のみ、長さ上限 `MAX_LINK_CHARS`。素の JSON payload・追加クエリ・他 action は全部
+    拒否) ②レジストリのコマンドは `"exe" "%1"` なので、リンクにダブルクォートを混ぜて
+    argv を注入する古典手が効かないよう、**charset にクォートを含めない** + スキーム起動時は
+    **argv の残りを丸ごと捨てる** (`--no-window` や port を後付けさせない) ③リンクにできるのは
+    「ギャラリーにスキンを選択済みにする」ことだけ (data.json に無いキーはフロントで落ちる)。
+    画像の取得も壁紙の適用もユーザーのクリックが要る (`/api/wallpaper` の CSRF ヘッダ +
+    Host 制限は従来どおり)
 - **Windows は正規インストーラも配る (Inno Setup)**: bare exe だけだとスタート
   メニューにも「アプリと機能」にも載らず "ちゃんとしたソフトウェア感" が無い。
   `installer/windows.iss` (Inno Setup 6) で setup.exe を作り、`release.yml` の
@@ -286,7 +297,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   - **`[Registry]` で `openleaguedisplay://` を登録** (Web からの受け渡し口。上の local_app.py の
     項参照)。`Root: HKA` = 通常の per-user インストールでは HKCU、`PrivilegesRequiredOverridesAllowed`
     で per-machine に昇格した場合は HKLM に書かれる。ルートキーに `uninsdeletekey` を付けて
-    あるのでアンインストールで丸ごと消える
+    あるのでアンインストールで丸ごと消える。**スキームを登録する唯一の場所がここ** (アプリ側は
+    レジストリを書かない = 理由は local_app.py の項)。ポータブル exe にリンク起動が要る、と
+    なったら「登録するかを尋ねるインストーラ的な導線」を別途足すこと (黙って書かない)
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
     ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
   - **既インストール検知 (`[Code] InitializeSetup`)**: setup 再実行時に挙動を分ける。

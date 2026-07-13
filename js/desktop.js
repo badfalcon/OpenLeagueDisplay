@@ -19,15 +19,14 @@ import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
 const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
-// Custom URL scheme the desktop app registers (installer [Registry] + a self-heal re-register on
-// each start). Firing openleaguedisplay://import LAUNCHES the app — unlike the old
-// http://127.0.0.1:8000 deep link, which only reached an already-running instance and otherwise
-// dead-ended on a connection error. local_app.py parses the link and boots straight into the import.
+// Custom URL scheme claimed by the Windows installer. Firing openleaguedisplay://import LAUNCHES the
+// installed app — unlike the old http://127.0.0.1:8000 deep link, which only reached an
+// already-running instance and otherwise dead-ended on a connection error. local_app.py accepts the
+// link only in exactly this shape (strict regex) and boots straight into the import.
 const NATIVE_SCHEME = "openleaguedisplay";
-// Only the Windows installer (and local_app.py's self-register, also Windows-only) claims the
-// scheme — a macOS scheme needs an .app bundle's Info.plist and Linux needs a .desktop entry,
-// neither of which the single-binary builds have. So elsewhere we keep the original deep link,
-// which reaches an already-running instance on its default port.
+// Only the Windows installer claims the scheme — a macOS scheme needs an .app bundle's Info.plist
+// and Linux needs a .desktop entry, neither of which the single-binary builds have. So elsewhere we
+// keep the original deep link, which reaches an already-running instance on its default port.
 const NATIVE_URL = "http://127.0.0.1:8000";
 const isWindows = () => /win/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "");
 // The OS passes the whole link to the app as one argv entry, and Windows caps a command line at

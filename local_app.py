@@ -18,15 +18,16 @@ Wallpaper setting and image fetching use only the Python standard library
 pywebview is the only optional dependency: when present it gives a native window,
 otherwise it falls back to the default browser, so it is never required.
 
-The app also owns the openleaguedisplay:// URL scheme, so the web version (GitHub Pages) can hand a
-gallery straight over: openleaguedisplay://import?keys=<base64url JSON> LAUNCHES this app with that
-selection preloaded, whether or not it was already running.
+The Windows installer registers the openleaguedisplay:// URL scheme against this app, so the web
+version (GitHub Pages) can hand a gallery straight over: openleaguedisplay://import?keys=<base64url
+JSON> LAUNCHES the installed app with that selection preloaded, whether or not it was already
+running. The registration lives in the installer alone — this app never writes the registry — so a
+portable / from-source run can't take the handler over from an installed copy.
 
 Run:
     python local_app.py            # port 8000, native window (if pywebview is present)
     python local_app.py 8080       # specify port
     python local_app.py --no-window   # server only, no window (for CI / curl tests)
-    python local_app.py --no-register # don't (re-)register the openleaguedisplay:// scheme
     python local_app.py "openleaguedisplay://import?keys=..."   # what the OS passes for a scheme link
 """
 
@@ -41,6 +42,7 @@ import json
 import os
 import pathlib
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -63,13 +65,17 @@ for _stream in (sys.stdout, sys.stderr):
 
 HOST = "127.0.0.1"  # never exposed externally (first gate against SSRF / hijacking)
 
-# Custom URL scheme this app answers to (registered by the Windows installer, and re-registered on
-# each start by register_url_scheme so portable / from-source runs work too). The web build fires
+# Custom URL scheme this app answers to. It is claimed ONLY by the Windows installer
+# (installer/windows.iss [Registry]) — the app never touches the registry itself, so running the
+# portable exe or `python local_app.py` can't hijack an installed copy's handler (and a from-source
+# run can't quietly become the machine's OpenLeagueDisplay). The web build fires
 # openleaguedisplay://import?keys=... to hand its gallery over.
 URL_SCHEME = "openleaguedisplay"
-# Sanity cap on a hand-off. A gallery is a few hundred skins at most; anything beyond this is a
-# malformed or hostile link, and the frontend already falls back to the file export past its own limit.
+# Sanity caps on a hand-off. A gallery is a few hundred skins at most; anything beyond this is a
+# malformed or hostile link, and the frontend already falls back to the file export past its own
+# limit (MAX_LINK_LEN in js/desktop.js, deliberately smaller than the cap here).
 MAX_IMPORT_KEYS = 5000
+MAX_LINK_CHARS = 24000
 
 # PyInstaller onefile extracts its payload to sys._MEIPASS. For a normal run it's
 # this file's directory. Using it as the static-serving root removes the cwd dependency.
@@ -729,80 +735,52 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 # ---------------------------------------------------------------------------
 # openleaguedisplay:// URL scheme (web → native gallery hand-off)
 # ---------------------------------------------------------------------------
-def _decode_import_keys(raw: str) -> list:
-    """Decode the `keys` parameter of an import link into a list of selection keys.
-
-    The frontend emits base64url of the JSON array (skin keys are full of "/" and spaces, and
-    percent-encoding them would roughly triple a link that has a hard command-line length budget).
-    Raw JSON is accepted too so a hand-written link still works.
-    """
-    for text in (_b64url_decode(raw), raw):
-        if not text:
-            continue
-        try:
-            keys = json.loads(text)
-        except ValueError:
-            continue
-        if isinstance(keys, list):
-            return [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
-    return []
+# A registered URL scheme means ANY web page can make Windows start this app (the browser asks the
+# user first, but assume they click through). So the link is treated as fully untrusted input:
+#
+#   * the whole link must match IMPORT_LINK_RE — the single "import" action and a base64url payload,
+#     nothing else. No raw-JSON payloads, no other actions, no extra query parameters.
+#   * a link that contains a double quote could otherwise break out of the "%1" in the registry
+#     command and inject further argv entries. The regex charset can't express one, and
+#     _scheme_link() below makes a scheme launch ignore every other argument anyway, so an injected
+#     "--no-window 9999" can't change how the app runs.
+#   * the payload only ever preselects skins in the gallery (keys not in data.json are dropped
+#     frontend-side). Nothing is downloaded and no wallpaper is set without the user clicking.
+IMPORT_LINK_RE = re.compile(
+    rf"^{URL_SCHEME}:(?://)?import\?keys=([A-Za-z0-9_-]{{1,{MAX_LINK_CHARS}}})$", re.IGNORECASE)
 
 
-def _b64url_decode(raw: str) -> str | None:
-    try:
-        pad = "=" * (-len(raw) % 4)
-        return base64.urlsafe_b64decode(raw + pad).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return None
+def _scheme_link(argv: list) -> str | None:
+    """The openleaguedisplay:// argument, if this process was started by a link."""
+    return next((a for a in argv if a.lower().startswith(URL_SCHEME + ":")), None)
 
 
 def import_hash_from_argv(argv: list) -> str:
     """Turn an openleaguedisplay:// argument (if any) into the frontend's "#import=..." fragment.
 
-    Returns "" when there's no link / no keys. The fragment format is owned by js/desktop.js
-    (applyImportFromHash), which already merges the keys on startup — so the whole hand-off is just
-    "open the page at this hash" and no new endpoint or frontend path is needed.
+    Returns "" when there's no link, it doesn't match the strict form, or it carries no usable keys.
+    The fragment format is owned by js/desktop.js (applyImportFromHash), which already merges the
+    keys on startup — so the whole hand-off is just "open the page at this hash", and no new
+    endpoint or frontend path is needed.
     """
-    link = next((a for a in argv if a.lower().startswith(URL_SCHEME + ":")), None)
-    if not link:
+    link = _scheme_link(argv)
+    m = IMPORT_LINK_RE.match(link) if link else None
+    if not m:
+        if link:
+            print(f"[scheme] ignoring malformed link: {link[:80]}", file=sys.stderr)
         return ""
-    # Accept both scheme://import?keys=... and scheme:import?keys=... (some launchers drop the slashes).
-    parts = urllib.parse.urlsplit(link)
-    keys = _decode_import_keys(urllib.parse.parse_qs(parts.query).get("keys", [""])[0])
+    payload = m.group(1)
+    try:
+        text = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode("utf-8")
+        keys = json.loads(text)
+    except (ValueError, UnicodeDecodeError):
+        return ""
+    if not isinstance(keys, list):
+        return ""
+    keys = [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
     if not keys:
         return ""
     return "#import=" + urllib.parse.quote(json.dumps(keys), safe="")
-
-
-def register_url_scheme() -> None:
-    """Point HKCU\\Software\\Classes\\openleaguedisplay at this executable (Windows only).
-
-    The installer writes the same keys, but a portable exe or a `python local_app.py` run was never
-    installed — and an installed copy that gets moved leaves a dangling handler. Re-registering on
-    every start covers both (per-user, so no elevation; the installer removes the key on uninstall).
-    Failure is non-fatal: without it the app still works, it just can't be launched from a link.
-    """
-    if platform.system() != "Windows":
-        return
-    import winreg
-
-    if getattr(sys, "frozen", False):  # PyInstaller build: the exe takes the link directly
-        command = f'"{sys.executable}" "%1"'
-    else:
-        command = f'"{sys.executable}" "{os.path.abspath(__file__)}" "%1"'
-    root = "Software\\Classes\\" + URL_SCHEME
-    try:
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
-            winreg.SetValueEx(key, None, 0, winreg.REG_SZ, "URL:OpenLeagueDisplay Protocol")
-            winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
-        icon = os.path.join(BASE_DIR, "icon.ico")
-        if os.path.isfile(icon):
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + "\\DefaultIcon") as key:
-                winreg.SetValueEx(key, None, 0, winreg.REG_SZ, icon)
-        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root + "\\shell\\open\\command") as key:
-            winreg.SetValueEx(key, None, 0, winreg.REG_SZ, command)
-    except OSError as e:
-        print(f"[scheme] could not register {URL_SCHEME}:// ({e})", file=sys.stderr)
 
 
 def is_our_server(port: int) -> bool:
@@ -829,15 +807,18 @@ def _serve(port: int) -> http.server.ThreadingHTTPServer:
 
 def main() -> None:
     args = [a for a in sys.argv[1:]]
+    # A gallery handed over from the web rides in on an openleaguedisplay:// argument; it becomes the
+    # fragment of the page we open, and the frontend imports it on load. A link launch comes from the
+    # browser (i.e. from a web page, i.e. untrusted), so it gets no say in HOW the app runs: the rest
+    # of argv is discarded and the defaults stand. Belt and braces against a link that manages to
+    # smuggle extra argv entries past the registry command's "%1" quoting.
+    frag = import_hash_from_argv(args)
+    if _scheme_link(args):
+        args = []
+
     no_window = "--no-window" in args
     ports = [a for a in args if a.isdigit()]
     port = int(ports[0]) if ports else 8000
-    # A gallery handed over from the web rides in on an openleaguedisplay:// argument; it becomes the
-    # fragment of the page we open, and the frontend imports it on load.
-    frag = import_hash_from_argv(args)
-
-    if "--no-register" not in args:
-        register_url_scheme()
 
     url = f"http://{HOST}:{port}"
     try:
