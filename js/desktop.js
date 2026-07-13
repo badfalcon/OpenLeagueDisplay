@@ -54,7 +54,15 @@ function fireSchemeLink(link) {
   const w = window.open("", "_blank");
   if (!w) { window.location.href = link; return; }  // popup blocked: fall back to this document
   w.location.href = link;
-  setTimeout(() => { try { w.close(); } catch (_) {} }, 60000);
+  setTimeout(() => {
+    try {
+      // Sweep it up only if it's still OUR blank tab. The scratch tab is focused and empty, which
+      // is exactly where someone starts typing a URL — and the scheme navigation never commits, so
+      // a tab that is still "about:blank" is one nobody has touched. Once they've navigated it, the
+      // cross-origin read throws and we correctly leave their tab alone.
+      if (!w.closed && w.location.href === "about:blank") w.close();
+    } catch (_) {}
+  }, 60000);
 }
 
 function desktopLink(keys) {
