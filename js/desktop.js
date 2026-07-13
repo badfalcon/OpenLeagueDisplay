@@ -36,17 +36,25 @@ const MAX_LINK_LEN = 16000;
 // openleaguedisplay://import?keys=<base64url of the JSON key array>. base64url (not
 // percent-encoded JSON): skin keys are full of "/" and spaces, which percent-encoding would
 // roughly triple, and the link has a hard length budget.
-// Fire a custom-scheme link from a throwaway tab, then close it. Firing it at the CURRENT document
-// is the obvious move, but it risks replacing the page the user is on: browsers that don't have a
-// handler registered aren't uniform about it (Chrome silently ignores it, Firefox can render an
-// "unknown protocol" error page in place of the app). A scratch tab absorbs that, and closing it
-// straight after leaves no orphan blank tab either — which is why we didn't just window.open.
-// The user gesture (the modal button) is what lets both the open and the close through.
+// Fire a custom-scheme link from a throwaway tab, then close the tab once it's done its job. Firing
+// it at the CURRENT document is the obvious move, but it risks replacing the page the user is on:
+// browsers without a handler registered aren't uniform about it (Chrome silently ignores it, Firefox
+// can render an "unknown protocol" error page in place of the app). A scratch tab absorbs that, and
+// closing it afterwards leaves no orphan blank tab — which is why we don't just window.open and walk
+// away. The user gesture (the modal button) is what lets the open through.
+//
+// The close must NOT race the user. The browser's "Open OpenLeagueDisplay?" permission prompt is
+// owned by the tab that initiated the navigation, so destroying that tab destroys the prompt and
+// takes its cancel path — the app never launches. Every user meets that prompt on their first
+// hand-off (until they tick "always allow"), and nobody reads and answers it in a couple of seconds.
+// Hence a long backstop and nothing cleverer: closing on "the user came back to this page" would
+// kill a prompt they merely tabbed away from. A minute of silence means they walked away, so the
+// blank tab is just litter to sweep up.
 function fireSchemeLink(link) {
   const w = window.open("", "_blank");
   if (!w) { window.location.href = link; return; }  // popup blocked: fall back to this document
   w.location.href = link;
-  setTimeout(() => { try { w.close(); } catch (_) {} }, 2000);
+  setTimeout(() => { try { w.close(); } catch (_) {} }, 60000);
 }
 
 function desktopLink(keys) {
