@@ -420,9 +420,11 @@ function wireChipScroll(row) {
   row.addEventListener("scroll", () => updateChipFades(row), { passive: true });
   if (!_chipResizeWired) {
     _chipResizeWired = true;
-    window.addEventListener("resize", () => {
-      document.querySelectorAll(".filter-chips").forEach(updateChipFades);
-    });
+    const rescan = () => document.querySelectorAll(".filter-chips").forEach(updateChipFades);
+    window.addEventListener("resize", rescan);
+    // Chips are first laid out in the fallback face; when Cinzel swaps in their widths change and
+    // the row can cross the overflow threshold without any scroll/resize event to notice it.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(rescan);
   }
 
   row.addEventListener("wheel", (e) => {
@@ -435,25 +437,30 @@ function wireChipScroll(row) {
     const down = e.deltaY > 0;
     if (down ? row.scrollLeft >= max - 1 : row.scrollLeft <= 1) return;
     e.preventDefault();
-    // deltaMode 1 = lines (Firefox): convert to roughly one chip-height of pixels.
-    row.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    // Normalize the delta unit: 0 = pixels, 1 = lines (Firefox), 2 = pages (rare, but if left as
+    // pixels its deltaY of ~1 would swallow the wheel and move the row a single pixel).
+    const step = e.deltaMode === 1 ? e.deltaY * 16
+               : e.deltaMode === 2 ? e.deltaY * row.clientWidth
+               : e.deltaY;
+    row.scrollLeft += step;
   }, { passive: false });
 
-  // Click-drag panning (mouse/pen only — touch already scrolls natively). A drag that moved
-  // past the slop threshold swallows its trailing click so it doesn't also fire the chip underneath.
+  // Click-drag panning (mouse/pen only — touch already scrolls natively). A drag that moved past the
+  // slop threshold swallows its trailing click so it doesn't also fire the chip underneath.
   const SLOP = 4;
-  let startX = 0, startLeft = 0, moved = 0, down = false;
+  let startX = 0, startLeft = 0, moved = 0, down = false, swallowClick = false;
   row.addEventListener("pointerdown", (e) => {
-    // Clear the previous interaction's distance BEFORE the guard: a drag that ends off the row
-    // never fires click here (so the click handler below doesn't get to reset it), and the next
-    // press could be a touch tap, which returns early — leaving a stale `moved` that would make
-    // the click handler swallow a perfectly good tap.
-    moved = 0;
     if (e.pointerType === "touch" || e.button !== 0) return;
-    down = true; startX = e.clientX; startLeft = row.scrollLeft;
+    down = true; moved = 0; swallowClick = false;
+    startX = e.clientX; startLeft = row.scrollLeft;
   });
   row.addEventListener("pointermove", (e) => {
     if (!down) return;
+    // The button can come up somewhere we never hear about: below the SLOP threshold no pointer
+    // capture is set yet, so a press that leaves the row and releases elsewhere never delivers its
+    // pointerup here. Without this check `down` would stay true and the row would then pan along
+    // with a bare, unpressed cursor the moment it re-entered.
+    if (e.buttons === 0) { endDrag(); return; }
     const dx = e.clientX - startX;
     if (Math.abs(dx) <= SLOP && !moved) return;
     if (!moved) {
@@ -463,13 +470,21 @@ function wireChipScroll(row) {
     moved = Math.max(moved, Math.abs(dx));
     row.scrollLeft = startLeft - dx;
   });
-  const endDrag = () => { down = false; row.classList.remove("dragging"); };
-  row.addEventListener("pointerup", endDrag);
-  row.addEventListener("pointercancel", endDrag);
+  // Only a pointerUP after a real drag is followed by a click — so that is the only case that arms
+  // the swallow. A pointercancel (the browser stealing the gesture for a native text/image drag)
+  // produces no click at all, and arming it there would leave the flag set to eat someone's next
+  // click — including a keyboard Enter on a chip, which fires a click with no pointer sequence.
+  function endDrag(armSwallow) {
+    if (armSwallow === true && moved > SLOP) swallowClick = true;
+    down = false;
+    row.classList.remove("dragging");
+  }
+  row.addEventListener("pointerup", () => endDrag(true));
+  row.addEventListener("pointercancel", () => endDrag(false));
   // Capture phase: stopping here keeps the click from ever reaching the chip's own listener.
   row.addEventListener("click", (e) => {
-    if (moved > SLOP) { e.stopPropagation(); e.preventDefault(); }
-    moved = 0;
+    if (swallowClick) { e.stopPropagation(); e.preventDefault(); }
+    swallowClick = false;
   }, true);
 }
 

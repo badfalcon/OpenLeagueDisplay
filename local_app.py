@@ -108,6 +108,12 @@ MAX_BODY_BYTES = 1 * 1024 * 1024
 _wp_progress = {"done": 0, "total": 0}
 _wp_progress_lock = threading.Lock()
 
+# The pywebview window, once created — the /api/handoff endpoint steers it so a selection sent from
+# the web while the app is already running lands in the window the user is looking at (see
+# hand_off_to_running). Empty in --no-window / browser-fallback mode, which /api/handoff reports back
+# so the caller opens a browser tab instead.
+_NATIVE_WINDOW: dict = {}
+
 
 def set_wp_progress(done: int, total: int) -> None:
     with _wp_progress_lock:
@@ -679,6 +685,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = self._read_json()
             if path == "/api/wallpaper":
                 self._handle_wallpaper(body)
+            elif path == "/api/handoff":
+                self._handle_handoff(body)
             else:
                 self._json(404, {"ok": False, "error": "not found"})
         except Exception as e:  # always reply in JSON whatever happens (the frontend checks ok)
@@ -690,6 +698,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             raise ValueError("request body too large")
         raw = self.rfile.read(length) if length else b""
         return json.loads(raw or b"{}")
+
+    def _handle_handoff(self, body: dict) -> None:
+        """Take a selection from a second instance and show it in THIS instance's native window.
+
+        Called by hand_off_to_running() when the user fires an openleaguedisplay:// link while the
+        app is already up: the second process can't bind the port (and its own window would be a
+        different origin/storage anyway), so it posts the keys here and exits, and the window the
+        user is looking at navigates to the import fragment.
+
+        The caller is a local process, but the same /api gates still apply (CSRF header + loopback
+        Host, checked in do_POST), so a web page can't drive this. We build the URL ourselves from
+        the keys — the caller never gets to say where the window navigates.
+        """
+        keys = [k for k in (body.get("keys") or []) if isinstance(k, str)][:MAX_IMPORT_KEYS]
+        window = _NATIVE_WINDOW.get("window")
+        if not window:
+            # No native window to steer (browser mode): tell the caller to open a tab instead. Same
+            # browser profile, same origin, so the import lands where the user is actually looking.
+            self._json(409, {"ok": False, "error": "no window"})
+            return
+        window.load_url(f"http://{HOST}:{self.server.server_address[1]}/{import_fragment(keys)}")
+        try:
+            window.restore()  # un-minimize / bring forward, best-effort (backend-dependent)
+        except Exception:
+            pass
+        self._json(200, {"ok": True, "count": len(keys)})
 
     def _handle_wallpaper(self, body: dict) -> None:
         """Download the selected URLs into the current folder and dispatch to static/slideshow by count.
@@ -746,8 +780,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 #     "--no-window 9999" can't change how the app runs.
 #   * the payload only ever preselects skins in the gallery (keys not in data.json are dropped
 #     frontend-side). Nothing is downloaded and no wallpaper is set without the user clicking.
+# re.ASCII: without it, IGNORECASE on a unicode pattern quietly widens [A-Za-z] to also match
+# İ / ı / ſ / K (CPython's unicode case-folding). \Z rather than $ so a trailing newline can't
+# ride along. The optional "/" covers a launcher that normalizes the URL to "//import/?keys=".
 IMPORT_LINK_RE = re.compile(
-    rf"^{URL_SCHEME}:(?://)?import\?keys=([A-Za-z0-9_-]{{1,{MAX_LINK_CHARS}}})$", re.IGNORECASE)
+    rf"\A{re.escape(URL_SCHEME)}:(?://)?import/?\?keys=([A-Za-z0-9_-]{{1,{MAX_LINK_CHARS}}})\Z",
+    re.IGNORECASE | re.ASCII)
 
 
 def _scheme_link(argv: list) -> str | None:
@@ -755,42 +793,78 @@ def _scheme_link(argv: list) -> str | None:
     return next((a for a in argv if a.lower().startswith(URL_SCHEME + ":")), None)
 
 
-def import_hash_from_argv(argv: list) -> str:
-    """Turn an openleaguedisplay:// argument (if any) into the frontend's "#import=..." fragment.
-
-    Returns "" when there's no link, it doesn't match the strict form, or it carries no usable keys.
-    The fragment format is owned by js/desktop.js (applyImportFromHash), which already merges the
-    keys on startup — so the whole hand-off is just "open the page at this hash", and no new
-    endpoint or frontend path is needed.
-    """
-    link = _scheme_link(argv)
-    m = IMPORT_LINK_RE.match(link) if link else None
+def keys_from_link(link: str) -> list:
+    """The selection keys carried by an openleaguedisplay:// link, or [] if it isn't a valid one."""
+    m = IMPORT_LINK_RE.match(link or "")
     if not m:
         if link:
             print(f"[scheme] ignoring malformed link: {link[:80]}", file=sys.stderr)
-        return ""
+        return []
     payload = m.group(1)
     try:
         text = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode("utf-8")
         keys = json.loads(text)
     except (ValueError, UnicodeDecodeError):
-        return ""
+        return []
     if not isinstance(keys, list):
-        return ""
-    keys = [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
-    if not keys:
-        return ""
-    return "#import=" + urllib.parse.quote(json.dumps(keys), safe="")
+        return []
+    return [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
+
+
+def import_fragment(keys: list) -> str:
+    """The frontend's "#import=..." fragment for a key list ("" for none).
+
+    The fragment format is owned by js/desktop.js (applyImportFromHash), which already merges the
+    keys on load — so a hand-off is just "open the page at this hash". quote(safe="") escapes #, /,
+    ? and quotes, so nothing in a key can break out of the fragment.
+    """
+    return "#import=" + urllib.parse.quote(json.dumps(keys), safe="") if keys else ""
+
+
+def import_hash_from_argv(argv: list) -> str:
+    """The "#import=..." fragment for an openleaguedisplay:// argument, or "" if there isn't one."""
+    link = _scheme_link(argv)
+    return import_fragment(keys_from_link(link)) if link else ""
 
 
 def is_our_server(port: int) -> bool:
-    """Is the thing already holding `port` an OpenLeagueDisplay instance? (asks /api/ping)"""
+    """Is an OpenLeagueDisplay instance already holding `port`? (asks /api/ping)
+
+    Asked BEFORE binding, not after a bind failure: http.server sets SO_REUSEADDR, which on Windows
+    lets a second process bind a port another one is actively listening on (that is what
+    SO_EXCLUSIVEADDRUSE exists to prevent). So the bind SUCCEEDS and we would silently end up with
+    two instances fighting over :8000 and over the shared wallpaper folder. Verified on Windows.
+
+    Not an authentication check — any local process can answer /api/ping. It only tells apart "our
+    own instance" from "nothing there", which is all the hand-off needs.
+    """
     try:
         with urllib.request.urlopen(f"http://{HOST}:{port}/api/ping", timeout=2) as r:
             info = json.loads(r.read(4096) or b"{}")
     except Exception:
         return False
     return info.get("app") == "OpenLeagueDisplay"
+
+
+def hand_off_to_running(port: int, keys: list) -> bool:
+    """Give an already-running instance the selection. True if it took it.
+
+    Why not just open a browser at http://127.0.0.1:port/#import=… : the running instance is normally
+    a native pywebview window, which keeps its own storage partition. A system-browser tab is a
+    different localStorage even at the same origin, so the import would land in the browser and the
+    window the user is actually looking at would still show an empty gallery. POST /api/handoff makes
+    the running instance navigate its OWN window instead. It replies 409 when it has no window
+    (browser mode), in which case a browser tab IS the right place and the caller opens one.
+    """
+    body = json.dumps({"keys": keys}).encode("utf-8")
+    req = urllib.request.Request(
+        f"http://{HOST}:{port}/api/handoff", data=body, method="POST",
+        headers={"Content-Type": "application/json", CSRF_HEADER: "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return bool(json.loads(r.read(4096) or b"{}").get("ok"))
+    except Exception:
+        return False  # older instance without the endpoint, or browser mode → caller falls back
 
 
 # ---------------------------------------------------------------------------
@@ -812,8 +886,9 @@ def main() -> None:
     # browser (i.e. from a web page, i.e. untrusted), so it gets no say in HOW the app runs: the rest
     # of argv is discarded and the defaults stand. Belt and braces against a link that manages to
     # smuggle extra argv entries past the registry command's "%1" quoting.
-    frag = import_hash_from_argv(args)
-    if _scheme_link(args):
+    link = _scheme_link(args)
+    keys = keys_from_link(link) if link else []
+    if link:
         args = []
 
     no_window = "--no-window" in args
@@ -821,19 +896,24 @@ def main() -> None:
     port = int(ports[0]) if ports else 8000
 
     url = f"http://{HOST}:{port}"
-    try:
-        httpd = _serve(port)
-    except OSError:
-        # The port is taken. If it's our own already-running instance (the common case: a second
-        # link click), don't fight it for the port — point the browser at the running one so the
-        # hand-off still lands. Anything else holding the port is a real error.
-        if not is_our_server(port):
-            raise
-        print(f"OpenLeagueDisplay is already running on {url} — opening the selection there")
-        webbrowser.open(url + "/" + frag)
+    # Ask BEFORE binding whether an instance is already up. Waiting for a bind failure doesn't work:
+    # http.server sets SO_REUSEADDR, and on Windows that lets this process bind a port the running
+    # instance is actively listening on — two servers on :8000, both pruning the same wallpaper
+    # folder out from under each other.
+    if is_our_server(port):
+        if keys and hand_off_to_running(port, keys):
+            print(f"OpenLeagueDisplay is already running on {url} — sent the selection to its window")
+        else:
+            # Running in browser mode (no window to steer) or a build without /api/handoff: a tab at
+            # the same origin is the right destination, and it's also how the user gets back to an
+            # app they already have open.
+            print(f"OpenLeagueDisplay is already running on {url} — opening it")
+            webbrowser.open(url + "/" + import_fragment(keys))
         return
+
+    httpd = _serve(port)
     print(f"OpenLeagueDisplay (local mode, wallpaper enabled) — {url}  (Ctrl+C to stop)")
-    url += "/" + frag
+    url += "/" + import_fragment(keys)
 
     # Native window if pywebview is present. GUIs require the main thread
     # (especially on macOS), so run the server on a separate (daemon) thread and
@@ -851,7 +931,11 @@ def main() -> None:
             server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
             server_thread.start()
             try:
-                webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
+                # Keep the handle: /api/handoff navigates this window when a link fires while we're
+                # already running (a second process can't bind the port, and its own window would be
+                # a different storage partition, so the import has to land in THIS one).
+                _NATIVE_WINDOW["window"] = webview.create_window(
+                    "OpenLeagueDisplay", url, width=1280, height=800)
                 # Explicitly specify the Windows taskbar/titlebar icon. With nothing
                 # specified, pywebview extracts the icon from the running exe
                 # (winforms.py), but if extraction fails (e.g. under UPX compression)
@@ -865,6 +949,9 @@ def main() -> None:
                 webview.start(**start_kwargs)
             except Exception as e:
                 print(f"(native window unavailable: {e}) opening browser instead", file=sys.stderr)
+                # The window never came up, so drop the handle: /api/handoff must answer "no window"
+                # and let a hand-off open a browser tab (where the user actually is).
+                _NATIVE_WINDOW.pop("window", None)
                 webbrowser.open(url)
                 try:
                     server_thread.join()

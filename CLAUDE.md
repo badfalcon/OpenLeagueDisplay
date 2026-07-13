@@ -28,6 +28,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── app.js                       #   エントリ: data.json fetch + イベント配線 + hash ルーティング (#/...)
 │   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
+│   ├── i18n-failsafe.js             #   3秒後に html.i18n-loading を外す保険 (classic script、CSP の unsafe-inline 回避のため別ファイル)
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
 │   ├── hero.js                      #   ホームのヒーロー (新着スプラッシュ6件を7秒回転 + Ken Burns)
 │   ├── zip.js                       #   ZIP DL (JSZip)
@@ -249,25 +250,36 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
   - **カスタム URL スキーム `openleaguedisplay://`** (Web → デスクトップ版の受け渡し口):
     Web 版の「デスクトップ版に送る」が投げる `openleaguedisplay://import?keys=<base64url JSON>`
-    を受ける。`import_hash_from_argv()` が argv の中のスキーム URL を探して
-    `#import=<percent-encoded JSON>` に変換し、**起動する窓/ブラウザの URL のフラグメントに
-    そのまま載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口なので、新しい
-    エンドポイントもフロントの分岐も要らない)。**多重起動**: ポートが埋まっていたら
-    `is_our_server()` (= `/api/ping`) で相手が自分自身か確かめ、そうならポートを奪い合わず
-    既存インスタンスの URL をブラウザで開いて受け渡しを成立させる (別プロセスが握っていたら
-    従来どおりエラー)。Windows 限定 (mac/Linux は Info.plist / .desktop が要るので未対応 =
-    リンクは Windows のみ。フロント側も `isWindows()` でしか投げない)
+    を受ける。`keys_from_link()` が argv 中のスキーム URL から keys を取り出し、
+    `import_fragment()` が `#import=<percent-encoded JSON>` に変換して**起動する窓/ブラウザの
+    URL のフラグメントに載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口)。
+    Windows 限定 (mac/Linux は Info.plist / .desktop が要るので未対応。フロント側も
+    `isWindows()` でしか投げない)
+  - **多重起動の扱い (バインド前に ping する)**: `is_our_server()` (= `/api/ping`) を**バインドの前**に
+    叩き、既に自分が動いていたら二重起動しない。**bind の失敗を待つ実装ではダメ**: http.server は
+    `SO_REUSEADDR` を立てるので、**Windows では listen 中のポートに2つ目が bind できてしまう**
+    (実測済み) → :8000 に2プロセスが並び、共有の壁紙フォルダ (`current`) を互いに prune し合う。
+    受け渡し先も注意: 既存インスタンスは通常 **pywebview のネイティブ窓**で、システムブラウザとは
+    **localStorage のパーティションが別**(同一オリジンでも)。だからブラウザで開くだけでは
+    ユーザーが見ている窓のギャラリーに入らない。**`POST /api/handoff`** (`hand_off_to_running`) で
+    既存インスタンスに keys を渡し、**向こうが自分の窓を `load_url` で `#import=` に飛ばす**。
+    窓が無い (ブラウザモード / `--no-window`) 時は 409 を返し、呼び出し側がブラウザタブで開く
+    (その場合は同一プロファイル・同一オリジンなので正しく届く)。ナビゲート先 URL は**受け側が
+    keys から組み立てる** (呼び出し側に URL を指定させない)
   - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
-    レジストリを一切書かない**: 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
+    `Software\Classes` を一切書かない** (壁紙のレガシー fallback が `Control Panel\Desktop` を
+    書くのは別件): 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
     入れている人が一度でも `python local_app.py` / ポータブル exe を起動すると、その時点で
     ハンドラの宛先がそっちに差し替わる (= 意図しない乗っ取り) ため採らなかった。副作用として
-    ポータブル exe と直起動ではリンクが効かない (= 「インストーラ版の機能」と割り切る)
+    ポータブル exe と直起動ではリンクが効かない (= 「インストーラ版の機能」と割り切る。README /
+    ハンドオフのモーダル文言も「インストーラ版 (setup.exe) なら」と明記している)
   - **スキームの脅威モデル** (登録した以上、**任意の Web ページがこのアプリを起動できる**。
     ブラウザは確認ダイアログを出すが、押し通されると仮定して設計する): ①リンク全体を
     `IMPORT_LINK_RE` の**厳格一致**でしか受けない (action は `import` 1つ、payload は base64url
     charset のみ、長さ上限 `MAX_LINK_CHARS`。素の JSON payload・追加クエリ・他 action は全部
     拒否) ②レジストリのコマンドは `"exe" "%1"` なので、リンクにダブルクォートを混ぜて
-    argv を注入する古典手が効かないよう、**charset にクォートを含めない** + スキーム起動時は
+    argv を注入する古典手が効かないよう、**charset にクォートを含めない** (`re.ASCII` も付ける。
+    無いと IGNORECASE の unicode 畳み込みで `İ`/`ı`/`ſ`/`K` まで通る) + スキーム起動時は
     **argv の残りを丸ごと捨てる** (`--no-window` や port を後付けさせない) ③リンクにできるのは
     「ギャラリーにスキンを選択済みにする」ことだけ (data.json に無いキーはフロントで落ちる)。
     画像の取得も壁紙の適用もユーザーのクリックが要る (`/api/wallpaper` の CSRF ヘッダ +

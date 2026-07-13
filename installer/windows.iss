@@ -76,13 +76,20 @@ Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; Register the openleaguedisplay:// URL scheme so the web version (GitHub Pages) can hand a gallery
 ; to this app with a link — it launches the app whether or not it's already running (the old
 ; http://127.0.0.1:8000 deep link only reached an already-running instance).
+; THIS IS THE ONLY PLACE THE SCHEME IS REGISTERED. local_app.py deliberately never writes it: an
+; app that re-registered on every start would let a portable exe / from-source run silently steal the
+; handler from an installed copy. Consequence, by design: the portable exe does not get link launching.
 ; HKA = HKCU for the normal per-user install, HKLM if the user elevated to per-machine
 ; (PrivilegesRequiredOverridesAllowed=dialog). uninsdeletekey on the root drops the whole tree on uninstall.
-; local_app.py re-registers the same keys at startup, which self-heals a moved install and covers the
-; portable exe; the entries here make the link work before the app has ever been run.
+; The HKCU delete below runs first and only in admin mode: HKCU\Software\Classes SHADOWS HKLM in the
+; HKCR merge, so a leftover per-user registration from an earlier non-elevated install would keep
+; pointing the scheme at the old (now removed) {localappdata} exe.
+Root: HKCU; Subkey: "Software\Classes\openleaguedisplay"; ValueType: none; Flags: deletekey; Check: IsAdminInstallMode
 Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: ""; ValueData: "URL:OpenLeagueDisplay Protocol"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
-Root: HKA; Subkey: "Software\Classes\openleaguedisplay\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\icon.ico"
+; Quoted + icon index: an elevated install defaults to a Program Files path, and an unquoted path
+; with a space there fails to resolve (generic icon in the browser's "Open OpenLeagueDisplay?" prompt).
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\icon.ico"",0"
 Root: HKA; Subkey: "Software\Classes\openleaguedisplay\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
 
 [Icons]
