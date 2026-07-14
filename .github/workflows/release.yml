@@ -102,11 +102,12 @@ jobs:
             out/${{ matrix.asset }}
             installer/out/OpenLeagueDisplay-windows-setup.exe
           # Let GitHub auto-aggregate PRs/commits since the previous tag into the
-          # Release notes (categorization rules in .github/release.yml). Each OS in
-          # the matrix calls action-gh-release for the same tag, but since it's an
-          # upsert to the same Release, the first generated notes are shared
-          # (overwriting 3 times yields identical content).
-          generate_release_notes: true
+          # Release notes (categorization rules in .github/release.yml). Generated on
+          # exactly ONE matrix leg: action-gh-release APPENDS generated notes to an
+          # existing Release's body rather than overwriting, so all three legs doing it
+          # tripled the changelog (bitten on v1.1.0, fixed by hand). Asset uploads are
+          # unaffected — every leg still attaches its own binary to the same Release.
+          generate_release_notes: ${{ runner.os == 'Windows' }}
 
       - name: Upload as workflow artifact
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}

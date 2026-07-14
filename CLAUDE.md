@@ -390,9 +390,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     SmartScreen で「詳細情報 → 実行」が要る (README に明記)。証明書を入手したら
     `[Setup] SignTool` と署名ステップを足す
 - **changelog は GitHub 自動生成ノートで持つ**: `release.yml` の
-  `generate_release_notes: true` で、`v*` タグ時に前回タグからマージされた PR を
+  `generate_release_notes` で、`v*` タグ時に前回タグからマージされた PR を
   `.github/release.yml` の分類 (新機能/修正/ドキュメント/セキュリティ/その他) で集約
-  して Release ノートにする。**手書き `CHANGELOG.md` は持たない** (同期ズレを避ける /
+  して Release ノートにする。**生成はマトリクスの Windows レッグ1本だけ**:
+  action-gh-release は既存 Release の本文に生成ノートを**追記** (上書きではない) する
+  ので、3 レッグ全部で生成すると changelog が三重になる (v1.1.0 で実際に踏んで手で修正)。
+  アセット添付は全レッグがそれぞれ行う (こちらは重複しない)。**手書き `CHANGELOG.md` は持たない** (同期ズレを避ける /
   「changelog が無いから作る」と誤って手書きファイルを足さないこと)。カテゴリ分けは
   PR ラベル依存なので、ラベルはリリース時に手で貼るか、必要になったら PR タイトルの
   prefix (`feat:`/`fix:`/...) からラベルを自動付与する workflow を足す (現状は未導入)。
