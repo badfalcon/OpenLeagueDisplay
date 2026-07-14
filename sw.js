@@ -10,10 +10,13 @@
 // - data.json / i18n/*.json are network-first too (keeps the weekly-updated data fresh).
 // - Images (raw.communitydragon.org) and CDNs (fonts / jsdelivr): never intercepted.
 //   The splashes total ~600MB, so they are intentionally not cached.
+//   Same for the desktop-app detection fetches (http://127.0.0.1:8000, js/desktop.js):
+//   cross-origin, so the origin guard below passes them through untouched — a cached
+//   "running" answer would defeat the whole point of a liveness probe.
 // - Offline operation (PWA) survives via the cache fallback. SHELL is precached
 //   on install. Bump CACHE_VERSION whenever the shell changes.
 
-const CACHE_VERSION = "v18";
+const CACHE_VERSION = "v19";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).

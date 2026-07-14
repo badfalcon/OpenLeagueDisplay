@@ -12,7 +12,9 @@ import { state, $ } from "./state.js";
 // When two or more images are selected, the server passes this interval to the OS-native slideshow.
 export const WALLPAPER_INTERVAL_DEFAULT = 5 * 60 * 1000;
 
-const CSRF_HEADERS = { "Content-Type": "application/json", "X-OLD-Local": "1" };
+// Exported because desktop.js's cross-origin hand-off (Pages → 127.0.0.1) must send the
+// same CSRF header — one definition, not two that could drift apart.
+export const CSRF_HEADERS = { "Content-Type": "application/json", "X-OLD-Local": "1" };
 
 // Detect local run mode and set state.local. Failure (Pages / no backend) is silently ignored.
 // Short timeout so a hang (e.g. corporate proxy) doesn't hold up the first render.

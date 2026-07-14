@@ -146,7 +146,24 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   必ず失敗するので、render.js が「Open in desktop app」メニュー項目自体を mobile で隠す (すぐ下の
   Export 項目がスマホ→PC 経路を担う。`openInDesktop` 内にも mobile→Export フォールバックの保険
   あり)。**受動的な ④`mountFooterCTA` と Export はモバイルでも残す** (スマホで見て後で PC で使う
-  動機になる / 割り込まない)
+  動機になる / 割り込まない)。**デスクトップ版の本物の起動検知もここ** (`probeDesktop` /
+  `desktopStatus` / `startDesktopWatch` / `wireDesktopChip`): Pages から
+  `http://127.0.0.1:8000/api/ping` を `mode:"cors"` で直接 fetch する (loopback は https ページ
+  からでも mixed content にならない。Safari だけはブロック → 従来動作に劣化。CSP connect-src と
+  local_app.py の CORS allowlist が対応済み)。My Gallery ツールバーの状態チップ (`#desktop-chip`、
+  接続中/未検出/確認中) は **markup を render.js が出し、状態・文言・click は desktop.js が持つ**
+  (state が module 内にあるため)。**自動 probe は `LS_DESKTOP_SEEN` (一度でも検知成功) がある
+  ときだけ** (Chrome 138+ は 127.0.0.1 fetch に Local Network Access 許可プロンプトを出すので、
+  アプリ未所持ユーザーに無断で出さない。初検知はチップ click か送信操作の明示ジェスチャ起点。
+  検知成功時は watch を遅延起動する — render 時はフラグ無しで watch が始まっていないため、
+  これが無いとチップが「接続中」のまま固まる)。ポーリングはギャラリー表示中のみ 10 秒間隔、
+  `document.hidden` 中は tick スキップ (interval は張ったまま = listener leak なし)。
+  ②`openInDesktop` は **検知済みなら choiceModal を出さず `POST /api/handoff` で直接送信**し、
+  サーバ応答の count で本物の成功トースト。409 (窓なし=ブラウザモード) は deep link タブへ、
+  接続失敗は probe (明示操作なので 20 秒 timeout = LNA プロンプト応答待ちを生存) → だめなら
+  従来のスキーム起動モーダル。スキーム発火後は `watchLaunch` が ping を 2 秒×45 秒ポーリングし、
+  起動確認で成功トースト + スクラッチタブを成功文言に書き換えて掃除、タイムアウトで
+  setup.exe 誘導 (keys はスキームリンクが運搬済みなので**再送しない**)
 - **hero.js**: ホームの「新着スプラッシュ」ヒーローバンド。import は state / i18n のみで、
   ナビ (`openChampion`) と壁紙アクションは render.js がコールバック注入する (hero→render の
   直接辺を作らない。hero→i18n→render の循環は render↔i18n と同じ hoist 前提で安全)。
@@ -253,6 +270,18 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     限定** (DNS リバインディングで same-origin 化されカスタムヘッダ防御を抜けてくる
     攻撃を `_host_ok()` で遮断) ④保存名は URL の sha1 (path traversal 回避)、壁紙設定は
     subprocess を argv list で呼ぶ (shell 不使用 → コマンドインジェクション無し)
+  - **CORS は Pages オリジン限定の2口だけ** (`CORS_ALLOWED_ORIGINS` = badfalcon.github.io /
+    `CORS_API_PATHS` = /api/ping + /api/handoff): Web 版からの**本物の起動検知と直接送信**用
+    (js/desktop.js の項参照)。`_json()` が ACAO を注入するので **409/403 のエラーにも付く**
+    (ACAO の無いエラーは fetch が status を見せずに reject し、フロントが「409=窓なし→deep link
+    タブ」と「接続失敗=未起動」を区別できない)。preflight は `do_OPTIONS` が受け、
+    `Access-Control-Request-Private-Network` には `Allow-Private-Network: true` を返す
+    (Chrome の PNA は public→local だと GET でも preflight する)。Allow-Headers に X-OLD-Local
+    を載せるのが「この1オリジンへの明示的な信頼」で、CSRF ヘッダ必須と `_host_ok()` は全経路で
+    従来どおり。**/api/wallpaper と /api/quit には付けない** (壁紙・終了は same-origin 限定の
+    まま)。実行時フラグにはしない (ローカルプロセスにインストール済みコピーの信頼境界を広げ
+    させないため定数)。**フォークは定数を自オリジンに書き換えて再ビルドが必要** (README に記載。
+    放置しても旧来の fire-and-forget に劣化するだけで壊れない)
   - **永続キャッシュ必須**: Linux(gsettings)/macOS/Windows いずれも純正スライドショーは
     壁紙を「フォルダ/パス参照」で設定する (コピーしない) ので、`/tmp` だと再起動で
     壁紙が消える。ユーザ専用の永続 dir

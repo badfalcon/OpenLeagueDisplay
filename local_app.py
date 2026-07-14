@@ -87,10 +87,24 @@ BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 ALLOWED_HOST = "raw.communitydragon.org"
 
 # CSRF gate. POSTs to /api require this header. A cross-site "simple request"
-# cannot set a custom header (adding one triggers a CORS preflight, and this
-# server returns no allow for OPTIONS so it gets rejected) = only same-origin
-# (= our own frontend) can hit it.
+# cannot set a custom header (adding one triggers a CORS preflight, and the
+# preflight below only ever approves CORS_ALLOWED_ORIGINS) = only same-origin
+# (= our own frontend) and the allowlisted web origin can hit it.
 CSRF_HEADER = "X-OLD-Local"
+
+# CORS allowlist: the ONLY web origin allowed to call the CORS_API_PATHS endpoints
+# cross-origin. This is what lets the Pages site detect a running desktop app and hand a
+# selection over with a real, confirmable response instead of a fire-and-forget scheme
+# link. Forks deploying to their own GitHub Pages must change this to their origin
+# (https://<user>.github.io) and rebuild, or the web→desktop detection silently degrades
+# to the old fire-and-forget behaviour. Deliberately NOT a runtime flag: a flag would let
+# any local process widen the trust boundary of an installed copy.
+CORS_ALLOWED_ORIGINS = ("https://badfalcon.github.io",)
+# CORS is granted ONLY to these two endpoints. Presence detection (ping) and pushing a
+# selection into the gallery (handoff) are safe to hand our own web origin; setting
+# wallpapers (/api/wallpaper) or quitting the app (/api/quit) from a web page is not a
+# capability we expose, so those stay same-origin only.
+CORS_API_PATHS = ("/api/ping", "/api/handoff")
 
 # Server-side minimum interval for the wallpaper slideshow (runaway guard). UI default is 5 min.
 MIN_INTERVAL_S = 10
@@ -629,6 +643,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        # CORS on every response for the allowlisted origin+path, ERRORS INCLUDED: without
+        # ACAO on the 409 "no window" reply, fetch() rejects before exposing the status and
+        # the web frontend can't tell "browser mode → open a deep-link tab" apart from
+        # "app not running".
+        origin = self._cors_origin()
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
 
@@ -644,6 +666,40 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         host = self.headers.get("Host", "")
         hostname = host.rsplit(":", 1)[0].strip("[]") if host else ""
         return hostname in ("127.0.0.1", "localhost", "::1")
+
+    def _cors_origin(self) -> str | None:
+        # Echo the Origin back only when BOTH the origin and the path are allowlisted;
+        # anything else gets no CORS headers at all (= the browser refuses to share the
+        # response, same as before CORS existed here). Same-origin requests carry no
+        # Origin header and correctly fall through to None.
+        if self._path() not in CORS_API_PATHS:
+            return None
+        origin = self.headers.get("Origin", "")
+        return origin if origin in CORS_ALLOWED_ORIGINS else None
+
+    def do_OPTIONS(self) -> None:
+        # CORS preflight for the allowlisted web origin. Chrome's Private Network Access
+        # preflights public→local GETs too (not just the POST), so /api/ping needs this
+        # as much as /api/handoff does.
+        if not self._host_ok():
+            self._json(403, {"ok": False, "error": "bad host"})
+            return
+        origin = self._cors_origin()
+        if not origin:
+            self._json(403, {"ok": False, "error": "forbidden"})
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        # Listing the CSRF header here IS the trust decision: it stays mandatory on the
+        # POST, and only the allowlisted origin is ever allowed to attach it.
+        self.send_header("Access-Control-Allow-Headers", f"Content-Type, {CSRF_HEADER}")
+        self.send_header("Access-Control-Max-Age", "600")  # cache preflights across the ~10s polling
+        if self.headers.get("Access-Control-Request-Private-Network") == "true":
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Vary", "Origin")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self) -> None:
         path = self._path()

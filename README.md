@@ -340,6 +340,13 @@ committed.)
    branch", Branch = `main`, Folder = `/ (root)` → Save.
 5. After a minute or two it's live at
    `https://<your-username>.github.io/<repo>/`.
+6. *(Only if you also build the desktop app)* The web→desktop detection and
+   direct hand-off are CORS-gated to the official Pages origin. Change
+   `CORS_ALLOWED_ORIGINS` in `local_app.py` to your own origin
+   (`https://<your-username>.github.io`) and rebuild the desktop binaries, or
+   your deployment falls back to the old fire-and-forget scheme link (still
+   works — you just get no connection status or send confirmation). The CSP in
+   `index.html` already allows `http://127.0.0.1:8000`, no change needed there.
 
 ### Disabling the auto-update
 

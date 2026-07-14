@@ -27,10 +27,13 @@
     select arrow / body::after noise). blob: is not added since none are generated.
     CDragon + flag CDN are allowed as external images
   - connect-src: ZIP creation fetches from raw.communitydragon.org, i18n/data.json are self,
-    cloudflareinsights.com is the Web Analytics beacon destination
+    cloudflareinsights.com is the Web Analytics beacon destination.
+    http://127.0.0.1:8000 lets the Pages site detect / hand a selection to the desktop app
+    (js/desktop.js) — loopback is exempt from mixed-content blocking even on an https page
+    (except Safari, which blocks it and degrades to the old fire-and-forget behaviour)
   - manifest-src: the PWA manifest.webmanifest is same-origin
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://raw.communitydragon.org https://flagcdn.com; connect-src 'self' https://raw.communitydragon.org https://cloudflareinsights.com http://127.0.0.1:8000; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'">
 <meta name="description" content="OpenLeagueDisplay — the community successor to LeagueDisplays. Browse every League of Legends champion and skin, and set any splash as your desktop wallpaper in one click with the desktop app. The web version is the no-install way to browse (and grab ZIPs).">
 <!-- OGP / Twitter Card: og:image / twitter:image use absolute URLs because crawlers
      can't resolve relative ones. ogp.png is 1200x630 (the 1.91:1 ratio recommended for

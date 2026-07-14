@@ -187,6 +187,11 @@ export const LS_TUTORIAL_KEY = "old.tutorial.seen";
 // desktop app (which sets wallpaper directly) instead of a ZIP; once the user has chosen, we
 // never interrupt the download again. Value is "1" (set after the first choice); unset = unseen.
 export const LS_DL_PROMPT_SEEN = "old.dlPrompt.seen";
+// Set once the desktop app has EVER been detected from this browser (Web only). Gates the
+// ambient gallery-view probe: Chrome 138+ shows a Local Network Access permission prompt on
+// the first 127.0.0.1 fetch, so we never auto-probe users who never had the app — the first
+// detection only happens on an explicit gesture (status-chip click / hand-off attempt).
+export const LS_DESKTOP_SEEN = "old.desktop.seen";
 
 // Best-effort persistence: can throw under QuotaExceeded / private browsing / read-only
 // environments, so swallow failures and return the fallback.

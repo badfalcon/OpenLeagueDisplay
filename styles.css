@@ -1630,6 +1630,34 @@
     background: linear-gradient(180deg, rgba(7, 6, 11, 0.96) 70%, rgba(7, 6, 11, 0));
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   }
+  /* Desktop-app presence chip (Web only). A status readout, not a peer action button, so it's
+     styled as a quiet pill instead of a .btn — but it IS clickable (re-checks / first-time
+     detection), hence the pointer + hover. State comes from desktop.js via data-state. */
+  .desktop-chip {
+    margin-left: auto;  /* park the status at the toolbar's far end, away from the actions */
+    height: calc(var(--ctrl-h) - 10px);
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-mute);
+    font: 12px/1 var(--font-body);
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .desktop-chip:hover { border-color: var(--rule-bold); color: var(--ink-soft); }
+  .desktop-chip[data-state="on"] {
+    border-color: var(--rule-bold);
+    color: var(--gold-hi);
+    background: rgba(212, 168, 87, 0.08);
+  }
+  .desktop-chip[data-state="checking"] { animation: chip-pulse 1.2s ease-in-out infinite; }
+  @keyframes chip-pulse { 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) {
+    .desktop-chip[data-state="checking"] { animation: none; opacity: 0.7; }
+  }
+
   /* Empty-state hint on how to add (small, under gallery_empty) */
   .gallery-hint {
     margin-top: 8px;

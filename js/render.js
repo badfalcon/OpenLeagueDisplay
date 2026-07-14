@@ -15,7 +15,10 @@ import { downloadChampion, downloadLine, downloadSelected } from "./zip.js";
 import { openLightbox, startGlobalSlideshow } from "./lightbox.js";
 import { isLocal, isLocalWallpaper, toast, applyWallpaper } from "./local.js";
 import { openWallpaperConfirm } from "./wallpaper.js";
-import { gateDownload, openInDesktop, exportSelection, pickSelectionFile, choiceModal } from "./desktop.js";
+import {
+  gateDownload, openInDesktop, exportSelection, pickSelectionFile, choiceModal,
+  wireDesktopChip, startDesktopWatch, stopDesktopWatch,
+} from "./desktop.js";
 import { mountHero, destroyHero } from "./hero.js";
 
 // BCP-47 tag passed to localeCompare. "default" maps to English; otherwise convert
@@ -225,6 +228,9 @@ export function render() {
   // The hero (home only) is re-mounted by renderHome when applicable; kill its timer
   // and hide the persistent node unconditionally first so no rotation survives a view switch
   destroyHero();
+  // Same treatment for the desktop-app presence poll: it belongs to the gallery view only,
+  // and renderSelected re-starts it when its chip is (re)built.
+  stopDesktopWatch();
   const heroEl = $("hero");
   if (heroEl) heroEl.hidden = true;
   // Tabs are top-level switches. back-btn shows in detail views (champion / line / selected) or while searching.
@@ -1123,6 +1129,10 @@ function renderSelected(root) {
   // "Open in desktop app" deep-links 127.0.0.1, which can't work on a phone (no local server there) —
   // and the Export item right below already covers the phone → PC path — so hide it on mobile too.
   const handoffItem = (isLocal() || isMobile()) ? "" : `<li><button id="menu-handoff">${t("open_in_desktop")}</button></li>`;
+  // Desktop-app presence chip (Web only, same audience as the hand-off item). Markup only —
+  // desktop.js owns its text/state/click (wireDesktopChip below), since the state lives there.
+  const desktopChip = (isLocal() || isMobile()) ? ""
+    : `<button type="button" class="desktop-chip" id="desktop-chip" data-state="off"></button>`;
   // Button ranks follow the mock on the Web (Slideshow gold-primary, ZIP ghost);
   // in local mode wallpaper stays the primary (it IS the product there)
   const ssClass = isLocalWallpaper() ? "btn" : "btn primary";
@@ -1140,8 +1150,11 @@ function renderSelected(root) {
         </ul>
       </div>
       <button class="btn" id="gallery-clear">${t("clear")}</button>
+      ${desktopChip}
     </div>
     <div class="skin-grid gallery-grid">${cards}</div>`;
+  const dchip = $("desktop-chip");
+  if (dchip) { wireDesktopChip(dchip); startDesktopWatch(); }
   const dl = $("gallery-dl");
   if (dl) dl.addEventListener("click", () => gateDownload(downloadSelected));
   const handoff = $("menu-handoff");
