@@ -43,7 +43,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
 ├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
-├── build_installer.py               # installer/windows.iss を ISCC で叩くローカルビルド用ラッパー (stdlib)
+├── build_installer.py               # exe 再ビルド (PyInstaller) → installer/windows.iss (ISCC) の一括ローカルビルド (stdlib)
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
@@ -284,6 +284,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     `load_url` は**同一ドキュメント内のフラグメント遷移**になるので init は再実行されない →
     `js/app.js` の `maybeHandleImportHash()` を popstate / hashchange に張って、起動後に飛んで
     きた `#import=` も取り込む (取り込んだら `#/gallery` に書き換え + 先頭へスクロール)
+  - **`POST /api/quit` = 自主終了の口** (ゲートは他の POST と同じ CSRF ヘッダ + Host 制限)。
+    応答を返してから 0.3 秒後に、窓があれば `window.destroy()` (→ `webview.start()` が戻り
+    main() の finally が後始末 = 通常の終了経路)、窓が無ければ `server.shutdown()`。存在理由は
+    インストーラ (下記): onefile PyInstaller はブートローダ+子の2プロセスで、Inno の
+    Restart Manager による丁寧なクローズが**いつまでも終わらない**ことがある (実際に踏んだ)。
+    「アプリに終了を頼む」のが exe のロック解放の確実な方法
   - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
     `Software\Classes` を一切書かない** (壁紙のレガシー fallback が `Control Panel\Desktop` を
     書くのは別件): 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
@@ -332,6 +338,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     なったら「登録するかを尋ねるインストーラ的な導線」を別途足すこと (黙って書かない)
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
     ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
+  - **起動中インスタンスは自分で退かせる** (`[Code] QuitRunningApp`): ファイルコピー直前
+    (`PrepareToInstall`) とアンインストール開始時に、`/api/ping` で相手が本当にこのアプリだと
+    確認してから `POST /api/quit` (WinHttp COM で X-OLD-Local ヘッダ付き) → ping が消えるまで
+    ~5秒ポーリング。**Restart Manager 任せにしない理由**: onefile PyInstaller の
+    ブートローダ+子ペアは RM の丁寧なクローズが終わらないことがある (「強制終了が終わらない」
+    として実際に踏んだ)。届かなかった場合 (別ポート / /api/quit の無い旧ビルド) の
+    バックストップが `[Setup] CloseApplications=force` (待ち続けずに強制終了。未保存データは
+    無いので安全)。Pascal の `{ }` コメント内にリテラル波括弧を書かないこと (`{app}` と書くと
+    コメントがそこで閉じる)
   - **既インストール検知 (`[Code] InitializeSetup`)**: setup 再実行時に挙動を分ける。
     **同一バージョンが既に入っている** → 「修復(再インストール)/アンインストール/
     キャンセル」の 3択 MsgBox。**別バージョン** (上げ/下げ) → 何も出さず黙って上書き
@@ -544,7 +559,10 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 - **Build desktop exe (PyInstaller)** — `python -m PyInstaller --noconfirm local_app.spec`。
   `dist/OpenLeagueDisplay.exe` を生成 (要 `pip install pyinstaller pywebview`)
 - **Build installer (Inno Setup)** — `build_installer.py` を実行し `installer/out/...setup.exe` を生成。
-  先に exe をビルドしておくこと + Inno Setup 6 が必要 (`winget install JRSoftware.InnoSetup`)
+  **exe も毎回作り直してから包む** (インストーラは dist の exe を同梱するだけ + exe はフロント一式を
+  内蔵しているので、exe が古いままだと「ビルド成功したのに中身が古い setup.exe」が黙って出来上がる
+  — 実際に踏んだ罠)。既存 exe をそのまま包みたい時だけ `--skip-exe` (exe のビルド日時を表示する)。
+  要 `pip install pyinstaller pywebview` + Inno Setup 6 (`winget install JRSoftware.InnoSetup`)
 
 exe / installer ビルドはあくまで**手元確認用**。配布は従来どおり `release.yml` が tag push 時に
 CI で行う (バイナリは非コミット。`dist/` `build/` `installer/out/` は .gitignore 済み)。

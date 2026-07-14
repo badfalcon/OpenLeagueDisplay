@@ -687,6 +687,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._handle_wallpaper(body)
             elif path == "/api/handoff":
                 self._handle_handoff(body)
+            elif path == "/api/quit":
+                self._handle_quit()
             else:
                 self._json(404, {"ok": False, "error": "not found"})
         except Exception as e:  # always reply in JSON whatever happens (the frontend checks ok)
@@ -698,6 +700,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             raise ValueError("request body too large")
         raw = self.rfile.read(length) if length else b""
         return json.loads(raw or b"{}")
+
+    def _handle_quit(self) -> None:
+        """Shut this instance down cleanly. The installer/uninstaller calls this before touching
+        {app}: a onefile PyInstaller app is a bootloader+child pair, and Inno's Restart Manager
+        close can wait on it forever — asking the app to exit itself is what reliably releases the
+        exe. Same gates as every other POST (CSRF header + loopback Host), so a web page can't
+        call it; a local process could, but a local process could kill us anyway.
+
+        Respond first, THEN exit on a short timer — dying mid-response would make the caller treat
+        a successful quit as an error.
+        """
+        self._json(200, {"ok": True})
+        server = self.server
+
+        def _bye() -> None:
+            window = _NATIVE_WINDOW.get("window")
+            if window:
+                try:
+                    # Unwinds webview.start(); main()'s finally then shuts the server down and the
+                    # process exits through its normal path.
+                    window.destroy()
+                    return
+                except Exception:
+                    pass
+            # Windowless (browser mode / --no-window): stopping the server is the exit path —
+            # main() is blocked in serve_forever/join and falls through once it returns.
+            server.shutdown()
+
+        threading.Timer(0.3, _bye).start()
 
     def _handle_handoff(self, body: dict) -> None:
         """Take a selection from a second instance and show it in THIS instance's native window.
