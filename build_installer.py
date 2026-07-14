@@ -68,18 +68,42 @@ def find_iscc() -> str | None:
     return None
 
 
+def find_build_python() -> str | None:
+    """The interpreter to run PyInstaller with: this one if it has PyInstaller, else the repo venv.
+
+    The fallback exists because IDE run configurations can launch this script with an unrelated
+    interpreter (a stale SDK pin from another project did exactly that), and "No module named
+    PyInstaller" would then fail a build that the repo's own .venv could complete just fine.
+    """
+    candidates = [sys.executable, str(ROOT / ".venv" / "Scripts" / "python.exe")]
+    for cand in candidates:
+        if not cand or not pathlib.Path(cand).is_file():
+            continue
+        probe = subprocess.run([cand, "-m", "PyInstaller", "--version"],
+                               capture_output=True, text=True)
+        if probe.returncode == 0:
+            return cand
+    return None
+
+
 def build_exe() -> bool:
-    """Rebuild dist/OpenLeagueDisplay.exe with PyInstaller (same interpreter as this script)."""
-    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", str(ROOT / "local_app.spec")]
-    print("[1/2] Rebuilding the exe:", " ".join(cmd), flush=True)
-    result = subprocess.run(cmd, cwd=ROOT)
-    if result.returncode != 0:
+    """Rebuild dist/OpenLeagueDisplay.exe with PyInstaller."""
+    python = find_build_python()
+    if python is None:
         print(
-            "\nPyInstaller failed (or isn't installed). Install the build deps:\n"
+            "PyInstaller not found (checked this interpreter and .venv). Install the build deps:\n"
             "  pip install pyinstaller pywebview\n"
             "or, to wrap the existing dist exe as-is: python build_installer.py --skip-exe",
             file=sys.stderr,
         )
+        return False
+    if python != sys.executable:
+        print(f"(this interpreter has no PyInstaller; using the repo venv: {python})")
+    cmd = [python, "-m", "PyInstaller", "--noconfirm", str(ROOT / "local_app.spec")]
+    print("[1/2] Rebuilding the exe:", " ".join(cmd), flush=True)
+    result = subprocess.run(cmd, cwd=ROOT)
+    if result.returncode != 0:
+        print("\nPyInstaller failed — see its output above.", file=sys.stderr)
         return False
     return True
 
