@@ -299,16 +299,22 @@ ISCC.exe /DAppVersion=1.2.3 installer\windows.iss
 # → installer\out\OpenLeagueDisplay-windows-setup.exe
 ```
 
-`build_installer.py` is a small stdlib wrapper for step 2: it checks the exe was
-built, locates `ISCC.exe` (PATH, `Program Files`, or winget's per-user
-`%LOCALAPPDATA%\Programs\Inno Setup 6`), and runs it — e.g.
-`python build_installer.py 1.2.3` (version defaults to `dev`). Inno Setup is
-free/open-source: `winget install JRSoftware.InnoSetup`.
+`build_installer.py` does both steps for you — it **rebuilds the exe first**,
+then locates `ISCC.exe` (PATH, `Program Files`, or winget's per-user
+`%LOCALAPPDATA%\Programs\Inno Setup 6`) and compiles the installer — e.g.
+`python build_installer.py 1.2.3` (version defaults to `dev`). The rebuild is
+the default on purpose: the installer just wraps whatever
+`dist/OpenLeagueDisplay.exe` already is, and the exe bundles the whole frontend,
+so compiling the installer against a stale exe "succeeds" while silently
+shipping old code. Pass `--skip-exe` to wrap the existing exe as-is (its build
+time is printed so you can tell how old it is). Inno Setup is free/open-source:
+`winget install JRSoftware.InnoSetup`.
 
-In PyCharm, **Run ▸ "Build desktop exe (PyInstaller)"** and
-**"Build installer (Inno Setup)"** do these two steps; **"Run desktop app
-(local_app.py)"** launches the local wallpaper mode. (Build outputs `dist/`,
-`build/`, `installer/out/` are git-ignored — binaries aren't committed.)
+In PyCharm, **Run ▸ "Build installer (Inno Setup)"** runs the whole chain
+(**"Build desktop exe (PyInstaller)"** still exists for building just the exe);
+**"Run desktop app (local_app.py)"** launches the local wallpaper mode. (Build
+outputs `dist/`, `build/`, `installer/out/` are git-ignored — binaries aren't
+committed.)
 
 ### Deploying it to your own account
 

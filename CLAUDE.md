@@ -43,7 +43,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
 ├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
-├── build_installer.py               # installer/windows.iss を ISCC で叩くローカルビルド用ラッパー (stdlib)
+├── build_installer.py               # exe 再ビルド (PyInstaller) → installer/windows.iss (ISCC) の一括ローカルビルド (stdlib)
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
@@ -544,7 +544,10 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 - **Build desktop exe (PyInstaller)** — `python -m PyInstaller --noconfirm local_app.spec`。
   `dist/OpenLeagueDisplay.exe` を生成 (要 `pip install pyinstaller pywebview`)
 - **Build installer (Inno Setup)** — `build_installer.py` を実行し `installer/out/...setup.exe` を生成。
-  先に exe をビルドしておくこと + Inno Setup 6 が必要 (`winget install JRSoftware.InnoSetup`)
+  **exe も毎回作り直してから包む** (インストーラは dist の exe を同梱するだけ + exe はフロント一式を
+  内蔵しているので、exe が古いままだと「ビルド成功したのに中身が古い setup.exe」が黙って出来上がる
+  — 実際に踏んだ罠)。既存 exe をそのまま包みたい時だけ `--skip-exe` (exe のビルド日時を表示する)。
+  要 `pip install pyinstaller pywebview` + Inno Setup 6 (`winget install JRSoftware.InnoSetup`)
 
 exe / installer ビルドはあくまで**手元確認用**。配布は従来どおり `release.yml` が tag push 時に
 CI で行う (バイナリは非コミット。`dist/` `build/` `installer/out/` は .gitignore 済み)。
