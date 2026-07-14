@@ -59,6 +59,11 @@ SetupIconFile=..\icon.ico
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
+; Backstop for a running instance that the graceful /api/quit (see [Code] QuitRunningApp) didn't
+; reach (custom port etc.). The app is a onefile PyInstaller bootloader+child pair, and Restart
+; Manager's polite close can wait on it forever — "force" terminates instead of hanging the wizard.
+; Nothing is lost: the app holds no unsaved state (wallpaper settings live in the OS).
+CloseApplications=force
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -71,6 +76,26 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+
+[Registry]
+; Register the openleaguedisplay:// URL scheme so the web version (GitHub Pages) can hand a gallery
+; to this app with a link — it launches the app whether or not it's already running (the old
+; http://127.0.0.1:8000 deep link only reached an already-running instance).
+; THIS IS THE ONLY PLACE THE SCHEME IS REGISTERED. local_app.py deliberately never writes it: an
+; app that re-registered on every start would let a portable exe / from-source run silently steal the
+; handler from an installed copy. Consequence, by design: the portable exe does not get link launching.
+; HKA = HKCU for the normal per-user install, HKLM if the user elevated to per-machine
+; (PrivilegesRequiredOverridesAllowed=dialog). uninsdeletekey on the root drops the whole tree on uninstall.
+; The HKCU delete below runs first and only in admin mode: HKCU\Software\Classes SHADOWS HKLM in the
+; HKCR merge, so a leftover per-user registration from an earlier non-elevated install would keep
+; pointing the scheme at the old (now removed) {localappdata} exe.
+Root: HKCU; Subkey: "Software\Classes\openleaguedisplay"; ValueType: none; Flags: deletekey; Check: IsAdminInstallMode
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: ""; ValueData: "URL:OpenLeagueDisplay Protocol"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+; Quoted + icon index: an elevated install defaults to a Program Files path, and an unquoted path
+; with a space there fails to resolve (generic icon in the browser's "Open OpenLeagueDisplay?" prompt).
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\icon.ico"",0"
+Root: HKA; Subkey: "Software\Classes\openleaguedisplay\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\icon.ico"
@@ -90,6 +115,66 @@ english.AlreadyInstalled=OpenLeagueDisplay is already installed.%n%nYes = Reinst
 japanese.AlreadyInstalled=OpenLeagueDisplay は既にインストールされています。%n%n[はい] = 再インストール（修復）%n[いいえ] = アンインストール%n[キャンセル] = 何もしない
 
 [Code]
+{ Ask a running OpenLeagueDisplay (default port 8000) to exit before we touch the install dir.
+  (NB: this is a Pascal comment, so no literal braces in here.) The app is a
+  onefile PyInstaller bootloader+child pair, which Restart Manager's polite close can wait on
+  forever — the app's own /api/quit is what reliably releases the exe. GET /api/ping first and
+  check the answer really is our app (something else on :8000 shouldn't get a surprise POST);
+  the POST carries the X-OLD-Local header the API requires (its CSRF gate). Then poll ping until
+  the server is gone, and give the process a moment to fully exit. Every step is best-effort:
+  no server / an old build without the endpoint -> fall through to CloseApplications=force. }
+procedure QuitRunningApp();
+var
+  WinHttp: Variant;
+  Resp: String;
+  I: Integer;
+  Alive: Boolean;
+begin
+  try
+    WinHttp := CreateOleObject('WinHttp.WinHttpRequest.5.1');
+    WinHttp.SetTimeouts(500, 500, 500, 1000);
+    WinHttp.Open('GET', 'http://127.0.0.1:8000/api/ping', False);
+    WinHttp.Send('');
+    { Pos() wants Strings — the Variant from COM needs an explicit hop through one }
+    Resp := WinHttp.ResponseText;
+    if Pos('OpenLeagueDisplay', Resp) = 0 then
+      Exit;
+    WinHttp.Open('POST', 'http://127.0.0.1:8000/api/quit', False);
+    WinHttp.SetRequestHeader('X-OLD-Local', '1');
+    WinHttp.SetRequestHeader('Content-Type', 'application/json');
+    WinHttp.Send('{}');
+    { Wait (up to ~5s) for the server to actually go away, then a beat for process teardown. }
+    for I := 1 to 10 do
+    begin
+      Sleep(500);
+      Alive := True;
+      try
+        WinHttp.Open('GET', 'http://127.0.0.1:8000/api/ping', False);
+        WinHttp.Send('');
+      except
+        Alive := False;
+      end;
+      if not Alive then
+        Break;
+    end;
+    Sleep(500);
+  except
+    { nothing listening — no running instance to quit }
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  QuitRunningApp();
+  Result := '';   { empty = proceed with the install }
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  QuitRunningApp();
+  Result := True;
+end;
+
 { Read the existing install's DisplayVersion / UninstallString. Per-user installs
   register under HKCU, so prefer HKCU and fall back to HKLM in case it was elevated
   to per-machine via PrivilegesRequiredOverridesAllowed=dialog (this is a 32-bit

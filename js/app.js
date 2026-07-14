@@ -17,6 +17,7 @@ import {
 import {
   render, goHome, goBack, openLines, openSelected,
   imgLoaded, imgErr, setRouteListener, setNavListener, closeTransferMenu,
+  initSelectionBar,
 } from "./render.js";
 import {
   hideProgress,
@@ -193,9 +194,10 @@ async function init() {
   render();
 
   // Now that the gallery is on screen, announce the hand-off result (see the deferral note above).
-  // A 0-count here means the link's picks were already in the gallery (re-imported your own selection),
-  // so use the reassuring "already up to date" message rather than the file path's "nothing new".
-  if (imported !== null) toast(imported > 0 ? t("import_done", imported) : t("handoff_uptodate"));
+  // A 0 here means the link's picks were already in the gallery (re-imported your own selection), so
+  // it gets the reassuring "already up to date" rather than the file path's "nothing new"; -1 is a
+  // link we couldn't read.
+  if (imported !== null) showImportToast(imported);
 
   // On a first visit, auto-open the tutorial after a short delay (after the UI fades in)
   maybeAutoOpenTutorial();
@@ -401,7 +403,45 @@ function syncBackFab() {
   fab.hidden = !show;
 }
 
+// A hand-off (#import=<keys>) can also arrive at a page that is ALREADY loaded: the desktop app's
+// /api/handoff points its own window at the import URL when a second openleaguedisplay:// link fires
+// while it's running. That's a same-document fragment navigation — init() has long since run, so
+// without this the keys would never be merged and routing would just read "#import=…" as an unknown
+// route and drop the user on home. Returns true when it consumed the hash.
+// (Idempotent: it rewrites the hash to #/gallery, so the follow-up event sees nothing to do.)
+function maybeHandleImportHash() {
+  if (!/^#import=/.test(location.hash || "")) return false;
+  // The app may have been left with a splash open. The gallery would then render *behind* the
+  // lightbox (and its scroll lock pins the body, so the scrollTo below would be a no-op and the
+  // user would land mid-page when they finally closed it). The hand-off is the new subject: close it.
+  if ($("lightbox").classList.contains("open")) closeLightbox();
+  const imported = applyImportFromHash();  // -1 unreadable / 0 nothing new / n added
+  history.replaceState(null, "", "#/gallery");
+  // A fresh entry from the fragment nav, so nothing is worth restoring: land at the top of the
+  // gallery rather than at whatever scroll offset the previous view happened to be at. Bumping
+  // navSeq also cancels any deferred font-reflow re-scroll applyRoute may still have in flight.
+  navSeq++;
+  setStateFromRoute("#/gallery");
+  render();
+  window.scrollTo(0, 0);
+  showImportToast(imported);
+  return true;
+}
+
+// Shared by the two hand-off paths (startup deep link and a link arriving at a live window).
+// -1 = unreadable payload: that's an error, so it gets the error styling and the assertive live
+// region — the same treatment the file-import path gives the same string. Announcing a broken link
+// in the calm gold "ok" toast is exactly what the -1/0 split was introduced to stop.
+function showImportToast(n) {
+  if (n < 0) { toast(t("import_invalid"), "err"); return; }
+  toast(n > 0 ? t("import_done", n) : t("handoff_uptodate"));
+}
+
 function wirePopstate() {
+  // Both events fire for a fragment navigation (popstate first). Whichever gets there does the work;
+  // the other then sees the rewritten #/gallery hash and no-ops. A backend that reloads the document
+  // instead of doing a same-document nav is covered by init()'s own applyImportFromHash.
+  window.addEventListener("hashchange", maybeHandleImportHash);
   window.addEventListener("popstate", (e) => {
     // (1) If the lightbox is open, Back is spent on "close". By this point history has already
     // unwound (state.lb is gone), so closeLightbox's history.back() doesn't fire and there's no
@@ -410,7 +450,10 @@ function wirePopstate() {
       closeLightbox();
       return;
     }
-    // (2) Otherwise, reflect the current hash into state. But for the case fired by a UI-driven
+    // (2) A hand-off landing on the live page (see maybeHandleImportHash) — it renders the gallery
+    // itself, so don't also route the raw #import= hash (which would bounce the user to home).
+    if (maybeHandleImportHash()) return;
+    // (3) Otherwise, reflect the current hash into state. But for the case fired by a UI-driven
     // lightbox close (history.back inside closeLightbox), the URL already matches the view, so
     // re-render and scroll reset are wasted (= flicker / position jump). If they match, do nothing.
     if ((location.hash || "#/") === routeFromState()) return;
@@ -546,6 +589,9 @@ function wireEvents() {
   $("lb-close").addEventListener("click", closeLightbox);
   $("lb-prev").addEventListener("click", prevSlide);
   $("lb-next").addEventListener("click", nextSlide);
+  // Dock arrows (slideshow mode): same nav as the big side arrows, which CSS hides during the slideshow
+  $("dock-prev").addEventListener("click", prevSlide);
+  $("dock-next").addEventListener("click", nextSlide);
   $("ss-pause").addEventListener("click", () => {
     state.lb.paused = !state.lb.paused;
     syncPauseButton();
@@ -560,29 +606,13 @@ function wireEvents() {
     $("ss-interval").textContent = t("ss_interval", state.lb.interval / 1000);
     if (state.lb.mode === "slideshow") startSlideshow();
   });
-  // Open/close the ⚙ menu. Interval and caption are grouped into one to limit the number of toolbar buttons.
-  // So both can be adjusted while it stays open, a click inside the menu doesn't close it (outside click / Esc closes it).
-  const closeSsMenu = () => {
-    $("ss-menu").hidden = true;
-    $("ss-options").setAttribute("aria-expanded", "false");
-  };
-  $("ss-options").addEventListener("click", (e) => {
-    // Stop it from being caught by the parent lightbox click (outside-click detection) and closing immediately
-    e.stopPropagation();
-    const willOpen = $("ss-menu").hidden;
-    $("ss-menu").hidden = !willOpen;
-    $("ss-options").setAttribute("aria-expanded", String(willOpen));
-  });
+  // Caption verbosity cycles full → name → none. Lives in the slideshow dock (the old ⚙ menu is gone).
   $("ss-caption").addEventListener("click", () => {
     const modes = ["full", "name", "none"];
     const i = modes.indexOf(state.lb.caption);
     state.lb.caption = modes[(i + 1) % modes.length];
     syncCaptionButton();
     applyCaption();
-  });
-  // Collapse on a click outside the menu (caught across the whole lightbox, excluding inside the ⚙ menu)
-  $("lightbox").addEventListener("click", (e) => {
-    if (!$("ss-menu").hidden && !$("ss-options-wrap").contains(e.target)) closeSsMenu();
   });
   // Image fit toggle (contain ↔ cover). Kills the black bars on tall phones.
   // The .fill class switches CSS object-fit, and the setting is persisted to localStorage.
@@ -697,15 +727,12 @@ function wireEvents() {
     }
   }, { passive: true });
   // Tapping the stage (image area) bulk-toggles the control UI, the standard image-viewer gesture.
-  // - When the ⚙ menu is open, defer to the existing "close on outside click" (the handler caught
-  //   across the whole lightbox) and do nothing here (= the tap is spent on the close action)
   // - Ignore exactly one click completed by the preceding swipe (no double-fire with next/prev)
   // - The handler is attached directly to .lb-stage, so by DOM structure clicks on the toolbar/arrows/
-  //   overlay don't reach here. lb-overlay is pointer-events:none so taps pass through to the stage,
-  //   but a tap in the overlay area is fine to toggle too.
+  //   dock/overlay don't reach here. lb-overlay is pointer-events:none so taps pass through to the
+  //   stage, but a tap in the overlay area is fine to toggle too.
   document.querySelector(".lb-stage").addEventListener("click", () => {
     if (swipeConsumedClick) { swipeConsumedClick = false; return; }
-    if (!$("ss-menu").hidden) return;
     $("lightbox").classList.toggle("chrome-hidden");
   });
 
@@ -749,8 +776,6 @@ function wireEvents() {
       }
       return;
     }
-    // If the ⚙ menu is open, Esc first collapses the menu (doesn't close the lightbox)
-    if (e.key === "Escape" && !$("ss-menu").hidden) { closeSsMenu(); return; }
     if (e.key === "Escape") closeLightbox();
     else if (e.key === "ArrowRight") nextSlide();
     else if (e.key === "ArrowLeft") prevSlide();
@@ -788,6 +813,9 @@ function registerSW() {
 
 function bootstrap() {
   wireEvents();
+  // The floating selection bar's buttons are static DOM; wire them once (render.js owns the
+  // handlers since it already imports the ZIP/wallpaper/clear actions)
+  initSelectionBar();
   // Attach the grid image load/error delegated listener before the first render (#root is in the initial HTML)
   wireImgDelegation();
   // Attach the hash-routing popstate wiring + the post-render URL sync hook first.

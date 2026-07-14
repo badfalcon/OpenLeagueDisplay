@@ -18,14 +18,22 @@ Wallpaper setting and image fetching use only the Python standard library
 pywebview is the only optional dependency: when present it gives a native window,
 otherwise it falls back to the default browser, so it is never required.
 
+The Windows installer registers the openleaguedisplay:// URL scheme against this app, so the web
+version (GitHub Pages) can hand a gallery straight over: openleaguedisplay://import?keys=<base64url
+JSON> LAUNCHES the installed app with that selection preloaded, whether or not it was already
+running. The registration lives in the installer alone — this app never writes the registry — so a
+portable / from-source run can't take the handler over from an installed copy.
+
 Run:
     python local_app.py            # port 8000, native window (if pywebview is present)
     python local_app.py 8080       # specify port
     python local_app.py --no-window   # server only, no window (for CI / curl tests)
+    python local_app.py "openleaguedisplay://import?keys=..."   # what the OS passes for a scheme link
 """
 
 from __future__ import annotations
 
+import base64
 import ctypes
 import functools
 import hashlib
@@ -34,6 +42,7 @@ import json
 import os
 import pathlib
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -56,6 +65,18 @@ for _stream in (sys.stdout, sys.stderr):
 
 HOST = "127.0.0.1"  # never exposed externally (first gate against SSRF / hijacking)
 
+# Custom URL scheme this app answers to. It is claimed ONLY by the Windows installer
+# (installer/windows.iss [Registry]) — the app never touches the registry itself, so running the
+# portable exe or `python local_app.py` can't hijack an installed copy's handler (and a from-source
+# run can't quietly become the machine's OpenLeagueDisplay). The web build fires
+# openleaguedisplay://import?keys=... to hand its gallery over.
+URL_SCHEME = "openleaguedisplay"
+# Sanity caps on a hand-off. A gallery is a few hundred skins at most; anything beyond this is a
+# malformed or hostile link, and the frontend already falls back to the file export past its own
+# limit (MAX_LINK_LEN in js/desktop.js, deliberately smaller than the cap here).
+MAX_IMPORT_KEYS = 5000
+MAX_LINK_CHARS = 24000
+
 # PyInstaller onefile extracts its payload to sys._MEIPASS. For a normal run it's
 # this file's directory. Using it as the static-serving root removes the cwd dependency.
 BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -66,10 +87,24 @@ BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 ALLOWED_HOST = "raw.communitydragon.org"
 
 # CSRF gate. POSTs to /api require this header. A cross-site "simple request"
-# cannot set a custom header (adding one triggers a CORS preflight, and this
-# server returns no allow for OPTIONS so it gets rejected) = only same-origin
-# (= our own frontend) can hit it.
+# cannot set a custom header (adding one triggers a CORS preflight, and the
+# preflight below only ever approves CORS_ALLOWED_ORIGINS) = only same-origin
+# (= our own frontend) and the allowlisted web origin can hit it.
 CSRF_HEADER = "X-OLD-Local"
+
+# CORS allowlist: the ONLY web origin allowed to call the CORS_API_PATHS endpoints
+# cross-origin. This is what lets the Pages site detect a running desktop app and hand a
+# selection over with a real, confirmable response instead of a fire-and-forget scheme
+# link. Forks deploying to their own GitHub Pages must change this to their origin
+# (https://<user>.github.io) and rebuild, or the web→desktop detection silently degrades
+# to the old fire-and-forget behaviour. Deliberately NOT a runtime flag: a flag would let
+# any local process widen the trust boundary of an installed copy.
+CORS_ALLOWED_ORIGINS = ("https://badfalcon.github.io",)
+# CORS is granted ONLY to these two endpoints. Presence detection (ping) and pushing a
+# selection into the gallery (handoff) are safe to hand our own web origin; setting
+# wallpapers (/api/wallpaper) or quitting the app (/api/quit) from a web page is not a
+# capability we expose, so those stay same-origin only.
+CORS_API_PATHS = ("/api/ping", "/api/handoff")
 
 # Server-side minimum interval for the wallpaper slideshow (runaway guard). UI default is 5 min.
 MIN_INTERVAL_S = 10
@@ -86,6 +121,12 @@ MAX_BODY_BYTES = 1 * 1024 * 1024
 # the GET on another thread during the POST. Only one apply is expected at a time.
 _wp_progress = {"done": 0, "total": 0}
 _wp_progress_lock = threading.Lock()
+
+# The pywebview window, once created — the /api/handoff endpoint steers it so a selection sent from
+# the web while the app is already running lands in the window the user is looking at (see
+# hand_off_to_running). Empty in --no-window / browser-fallback mode, which /api/handoff reports back
+# so the caller opens a browser tab instead.
+_NATIVE_WINDOW: dict = {}
 
 
 def set_wp_progress(done: int, total: int) -> None:
@@ -602,6 +643,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        # CORS on every response for the allowlisted origin+path, ERRORS INCLUDED: without
+        # ACAO on the 409 "no window" reply, fetch() rejects before exposing the status and
+        # the web frontend can't tell "browser mode → open a deep-link tab" apart from
+        # "app not running".
+        origin = self._cors_origin()
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
 
@@ -617,6 +666,40 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         host = self.headers.get("Host", "")
         hostname = host.rsplit(":", 1)[0].strip("[]") if host else ""
         return hostname in ("127.0.0.1", "localhost", "::1")
+
+    def _cors_origin(self) -> str | None:
+        # Echo the Origin back only when BOTH the origin and the path are allowlisted;
+        # anything else gets no CORS headers at all (= the browser refuses to share the
+        # response, same as before CORS existed here). Same-origin requests carry no
+        # Origin header and correctly fall through to None.
+        if self._path() not in CORS_API_PATHS:
+            return None
+        origin = self.headers.get("Origin", "")
+        return origin if origin in CORS_ALLOWED_ORIGINS else None
+
+    def do_OPTIONS(self) -> None:
+        # CORS preflight for the allowlisted web origin. Chrome's Private Network Access
+        # preflights public→local GETs too (not just the POST), so /api/ping needs this
+        # as much as /api/handoff does.
+        if not self._host_ok():
+            self._json(403, {"ok": False, "error": "bad host"})
+            return
+        origin = self._cors_origin()
+        if not origin:
+            self._json(403, {"ok": False, "error": "forbidden"})
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        # Listing the CSRF header here IS the trust decision: it stays mandatory on the
+        # POST, and only the allowlisted origin is ever allowed to attach it.
+        self.send_header("Access-Control-Allow-Headers", f"Content-Type, {CSRF_HEADER}")
+        self.send_header("Access-Control-Max-Age", "600")  # cache preflights across the ~10s polling
+        if self.headers.get("Access-Control-Request-Private-Network") == "true":
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Vary", "Origin")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self) -> None:
         path = self._path()
@@ -658,6 +741,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = self._read_json()
             if path == "/api/wallpaper":
                 self._handle_wallpaper(body)
+            elif path == "/api/handoff":
+                self._handle_handoff(body)
+            elif path == "/api/quit":
+                self._handle_quit()
             else:
                 self._json(404, {"ok": False, "error": "not found"})
         except Exception as e:  # always reply in JSON whatever happens (the frontend checks ok)
@@ -669,6 +756,70 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             raise ValueError("request body too large")
         raw = self.rfile.read(length) if length else b""
         return json.loads(raw or b"{}")
+
+    def _handle_quit(self) -> None:
+        """Shut this instance down cleanly. The installer/uninstaller calls this before touching
+        {app}: a onefile PyInstaller app is a bootloader+child pair, and Inno's Restart Manager
+        close can wait on it forever — asking the app to exit itself is what reliably releases the
+        exe. Same gates as every other POST (CSRF header + loopback Host), so a web page can't
+        call it; a local process could, but a local process could kill us anyway.
+
+        Respond first, THEN exit on a short timer — dying mid-response would make the caller treat
+        a successful quit as an error.
+        """
+        self._json(200, {"ok": True})
+        server = self.server
+
+        def _bye() -> None:
+            window = _NATIVE_WINDOW.get("window")
+            if window:
+                try:
+                    # Unwinds webview.start(); main()'s finally then shuts the server down and the
+                    # process exits through its normal path.
+                    window.destroy()
+                    return
+                except Exception:
+                    pass
+            # Windowless (browser mode / --no-window): stopping the server is the exit path —
+            # main() is blocked in serve_forever/join and falls through once it returns.
+            server.shutdown()
+
+        threading.Timer(0.3, _bye).start()
+
+    def _handle_handoff(self, body: dict) -> None:
+        """Take a selection from a second instance and show it in THIS instance's native window.
+
+        Called by hand_off_to_running() when the user fires an openleaguedisplay:// link while the
+        app is already up: the second process can't bind the port (and its own window would be a
+        different origin/storage anyway), so it posts the keys here and exits, and the window the
+        user is looking at navigates to the import fragment.
+
+        The caller is a local process, but the same /api gates still apply (CSRF header + loopback
+        Host, checked in do_POST), so a web page can't drive this. We build the URL ourselves from
+        the keys — the caller never gets to say where the window navigates.
+        """
+        keys = [k for k in (body.get("keys") or []) if isinstance(k, str)][:MAX_IMPORT_KEYS]
+        window = _NATIVE_WINDOW.get("window")
+        if not window:
+            # No native window to steer (browser mode): tell the caller to open a tab instead. Same
+            # browser profile, same origin, so the import lands where the user is actually looking.
+            self._json(409, {"ok": False, "error": "no window"})
+            return
+        # No keys = a plain relaunch: just surface the window. Navigating it would reload the app for
+        # no reason (and throw away whatever view the user was on).
+        if keys:
+            window.load_url(f"http://{HOST}:{self.server.server_address[1]}/{import_fragment(keys)}")
+        # BOTH calls, in this order, and each best-effort (they're backend-dependent):
+        # restore() only un-minimizes (winforms: WindowState = Normal; cocoa: deminiaturize_) — on a
+        # window that is merely buried behind the browser it is a no-op, which is the common case
+        # here and would make the whole hand-off look like it did nothing. show() is the one that
+        # raises and activates (winforms: Show() + Activate(); cocoa: makeKeyAndOrderFront).
+        for surface in ("restore", "show"):
+            try:
+                getattr(window, surface)()
+            except Exception:
+                pass
+        self._json(200, {"ok": True, "count": len(keys)})
 
     def _handle_wallpaper(self, body: dict) -> None:
         """Download the selected URLs into the current folder and dispatch to static/slideshow by count.
@@ -712,26 +863,180 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 # ---------------------------------------------------------------------------
+# openleaguedisplay:// URL scheme (web → native gallery hand-off)
+# ---------------------------------------------------------------------------
+# A registered URL scheme means ANY web page can make Windows start this app (the browser asks the
+# user first, but assume they click through). So the link is treated as fully untrusted input:
+#
+#   * the whole link must match IMPORT_LINK_RE — the single "import" action and a base64url payload,
+#     nothing else. No raw-JSON payloads, no other actions, no extra query parameters.
+#   * a link that contains a double quote could otherwise break out of the "%1" in the registry
+#     command and inject further argv entries. The regex charset can't express one, and
+#     _scheme_link() below makes a scheme launch ignore every other argument anyway, so an injected
+#     "--no-window 9999" can't change how the app runs.
+#   * the payload only ever preselects skins in the gallery (keys not in data.json are dropped
+#     frontend-side). Nothing is downloaded and no wallpaper is set without the user clicking.
+# re.ASCII: without it, IGNORECASE on a unicode pattern quietly widens [A-Za-z] to also match
+# İ / ı / ſ / K (CPython's unicode case-folding). \Z rather than $ so a trailing newline can't
+# ride along. The optional "/" covers a launcher that normalizes the URL to "//import/?keys=".
+IMPORT_LINK_RE = re.compile(
+    rf"\A{re.escape(URL_SCHEME)}:(?://)?import/?\?keys=([A-Za-z0-9_-]{{1,{MAX_LINK_CHARS}}})\Z",
+    re.IGNORECASE | re.ASCII)
+
+
+def _scheme_link(argv: list) -> str | None:
+    """The openleaguedisplay:// argument, if this process was started by a link."""
+    return next((a for a in argv if a.lower().startswith(URL_SCHEME + ":")), None)
+
+
+def keys_from_link(link: str) -> list:
+    """The selection keys carried by an openleaguedisplay:// link, or [] if it isn't a valid one."""
+    m = IMPORT_LINK_RE.match(link or "")
+    if not m:
+        if link:
+            print(f"[scheme] ignoring malformed link: {link[:80]}", file=sys.stderr)
+        return []
+    payload = m.group(1)
+    try:
+        text = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode("utf-8")
+        keys = json.loads(text)
+    except (ValueError, UnicodeDecodeError):
+        return []
+    if not isinstance(keys, list):
+        return []
+    return [k for k in keys if isinstance(k, str)][:MAX_IMPORT_KEYS]
+
+
+def import_fragment(keys: list) -> str:
+    """The frontend's "#import=..." fragment for a key list ("" for none).
+
+    The fragment format is owned by js/desktop.js (applyImportFromHash), which already merges the
+    keys on load — so a hand-off is just "open the page at this hash". quote(safe="") escapes #, /,
+    ? and quotes, so nothing in a key can break out of the fragment.
+    """
+    return "#import=" + urllib.parse.quote(json.dumps(keys), safe="") if keys else ""
+
+
+def import_hash_from_argv(argv: list) -> str:
+    """The "#import=..." fragment for an openleaguedisplay:// argument, or "" if there isn't one."""
+    link = _scheme_link(argv)
+    return import_fragment(keys_from_link(link)) if link else ""
+
+
+def is_our_server(port: int) -> bool:
+    """Is the process already holding `port` an OpenLeagueDisplay instance? (asks /api/ping)
+
+    Only called once the bind has already failed, so it costs nothing on a normal start.
+    Not an authentication check — any local process can answer /api/ping. It only tells apart "our
+    own instance" from "some other server", which is all the hand-off needs.
+    """
+    try:
+        with urllib.request.urlopen(f"http://{HOST}:{port}/api/ping", timeout=2) as r:
+            info = json.loads(r.read(4096) or b"{}")
+    except Exception:
+        return False
+    return info.get("app") == "OpenLeagueDisplay"
+
+
+def hand_off_to_running(port: int, keys: list) -> bool:
+    """Give an already-running instance the selection. True if it took it.
+
+    Why not just open a browser at http://127.0.0.1:port/#import=… : the running instance is normally
+    a native pywebview window, which keeps its own storage partition. A system-browser tab is a
+    different localStorage even at the same origin, so the import would land in the browser and the
+    window the user is actually looking at would still show an empty gallery. POST /api/handoff makes
+    the running instance navigate its OWN window instead. It replies 409 when it has no window
+    (browser mode), in which case a browser tab IS the right place and the caller opens one.
+    """
+    # Windows only lets the process that currently owns the foreground hand it over. THIS process is
+    # the one the browser/Explorer just launched, so it has that right — the long-running instance
+    # doesn't, and its Activate() would only flash a taskbar button. Waive the right to anyone
+    # (ASFW_ANY) so the running instance's show() can actually raise the window. Best-effort.
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY
+        except Exception:
+            pass
+    body = json.dumps({"keys": keys}).encode("utf-8")
+    req = urllib.request.Request(
+        f"http://{HOST}:{port}/api/handoff", data=body, method="POST",
+        headers={"Content-Type": "application/json", CSRF_HEADER: "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return bool(json.loads(r.read(4096) or b"{}").get("ok"))
+    except Exception:
+        return False  # older instance without the endpoint, or browser mode → caller falls back
+
+
+# ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
+class _Server(http.server.ThreadingHTTPServer):
+    """ThreadingHTTPServer whose bind is authoritative about "am I the only instance?".
+
+    http.server sets allow_reuse_address (SO_REUSEADDR), and on Windows that flag has hijack
+    semantics: a second process can bind a port the first is actively LISTENING on. The bind then
+    succeeds and we get two instances on :8000, pruning the same wallpaper folder out from under
+    each other. Turning it off on Windows makes the second bind fail deterministically, so
+    "already running?" is answered by an atomic bind instead of a probe — no startup latency and no
+    TOCTOU window between checking and binding.
+
+    Kept ON elsewhere: POSIX SO_REUSEADDR does NOT allow stealing a listening socket (it only skips
+    the TIME_WAIT wait), and dropping it would make a quick restart fail with "address in use".
+    """
+    allow_reuse_address = os.name != "nt"
+
+
 def _serve(port: int) -> http.server.ThreadingHTTPServer:
-    # ThreadingHTTPServer: serve other requests (stop / static) even during an
-    # image download (up to ~20s). directory= makes the serving root explicit and
-    # removes the cwd dependency (supports PyInstaller bundling).
+    # Threading: serve other requests (stop / static) even during an image download (up to ~20s).
+    # directory= makes the serving root explicit and removes the cwd dependency (PyInstaller).
     handler = functools.partial(Handler, directory=BASE_DIR)
-    httpd = http.server.ThreadingHTTPServer((HOST, port), handler)
-    return httpd
+    return _Server((HOST, port), handler)
 
 
 def main() -> None:
     args = [a for a in sys.argv[1:]]
+    # A gallery handed over from the web rides in on an openleaguedisplay:// argument; it becomes the
+    # fragment of the page we open, and the frontend imports it on load. A link launch comes from the
+    # browser (i.e. from a web page, i.e. untrusted), so it gets no say in HOW the app runs: the rest
+    # of argv is discarded and the defaults stand. Belt and braces against a link that manages to
+    # smuggle extra argv entries past the registry command's "%1" quoting.
+    link = _scheme_link(args)
+    keys = keys_from_link(link) if link else []
+    if link:
+        args = []
+
     no_window = "--no-window" in args
     ports = [a for a in args if a.isdigit()]
     port = int(ports[0]) if ports else 8000
 
-    httpd = _serve(port)
     url = f"http://{HOST}:{port}"
+    try:
+        # The bind is the "am I already running?" check — _Server makes it authoritative on Windows
+        # too (see its docstring). Doing it this way costs nothing on a normal start and leaves no
+        # window for two simultaneous launches to both decide the port was free.
+        httpd = _serve(port)
+    except OSError:
+        # Port taken. If it's our own instance, hand the selection over rather than fight for the
+        # port; anything else holding it is a real error.
+        if not is_our_server(port):
+            raise
+        # Not gated on `keys`: a plain relaunch (Start Menu / shortcut / double-click while the app
+        # is open) has none, and it must still surface the window the user already has — opening a
+        # browser tab instead would hand them a second UI on a different storage partition, i.e. an
+        # empty-looking gallery, while their real window stayed buried.
+        if hand_off_to_running(port, keys):
+            what = "sent the selection to its window" if keys else "brought its window forward"
+            print(f"OpenLeagueDisplay is already running on {url} — {what}")
+        else:
+            # Browser mode (no native window to steer) or an older build without /api/handoff: a tab
+            # at the same origin is the right destination, and it also surfaces the app the user
+            # already has open.
+            print(f"OpenLeagueDisplay is already running on {url} — opening it")
+            webbrowser.open(url + "/" + import_fragment(keys))
+        return
     print(f"OpenLeagueDisplay (local mode, wallpaper enabled) — {url}  (Ctrl+C to stop)")
+    url += "/" + import_fragment(keys)
 
     # Native window if pywebview is present. GUIs require the main thread
     # (especially on macOS), so run the server on a separate (daemon) thread and
@@ -749,7 +1054,11 @@ def main() -> None:
             server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
             server_thread.start()
             try:
-                webview.create_window("OpenLeagueDisplay", url, width=1280, height=800)
+                # Keep the handle: /api/handoff navigates this window when a link fires while we're
+                # already running (a second process can't bind the port, and its own window would be
+                # a different storage partition, so the import has to land in THIS one).
+                _NATIVE_WINDOW["window"] = webview.create_window(
+                    "OpenLeagueDisplay", url, width=1280, height=800)
                 # Explicitly specify the Windows taskbar/titlebar icon. With nothing
                 # specified, pywebview extracts the icon from the running exe
                 # (winforms.py), but if extraction fails (e.g. under UPX compression)
@@ -763,6 +1072,9 @@ def main() -> None:
                 webview.start(**start_kwargs)
             except Exception as e:
                 print(f"(native window unavailable: {e}) opening browser instead", file=sys.stderr)
+                # The window never came up, so drop the handle: /api/handoff must answer "no window"
+                # and let a hand-off open a browser tab (where the user actually is).
+                _NATIVE_WINDOW.pop("window", None)
                 webbrowser.open(url)
                 try:
                     server_thread.join()

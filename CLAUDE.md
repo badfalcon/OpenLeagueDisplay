@@ -28,10 +28,12 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── app.js                       #   エントリ: data.json fetch + イベント配線 + hash ルーティング (#/...)
 │   ├── state.js                     #   共有 state / DATA / インデックス / 汎用ユーティリティ
 │   ├── i18n.js                      #   UI_STRINGS / locale ローダー / 名前マップ
+│   ├── i18n-failsafe.js             #   3秒後に html.i18n-loading を外す保険 (classic script、CSP の unsafe-inline 回避のため別ファイル)
 │   ├── render.js                    #   view レンダリング (home / champion / lines / line)
+│   ├── hero.js                      #   ホームのヒーロー (新着スプラッシュ6件を7秒回転 + Ken Burns)
 │   ├── zip.js                       #   ZIP DL (JSZip)
 │   ├── lightbox.js                  #   ライトボックス + (全画面) スライドショー
-│   ├── tutorial.js                  #   初回訪問チュートリアル (4ステップ。? ボタン / ? キーで再表示)
+│   ├── tutorial.js                  #   初回訪問チュートリアル (5ステップ。? ボタン / ? キーで再表示)
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   ├── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
@@ -41,7 +43,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
 ├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
-├── build_installer.py               # installer/windows.iss を ISCC で叩くローカルビルド用ラッパー (stdlib)
+├── build_installer.py               # exe 再ビルド (PyInstaller) → installer/windows.iss (ISCC) の一括ローカルビルド (stdlib)
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
@@ -74,13 +76,15 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 - **zip.js**: JSZip 連携。`pMap` / `downloadAsZip` は module 内 private、
   公開は `downloadChampion` / `downloadLine` / `downloadSelected` の 3 つ
 - **lightbox.js**: 拡大表示とスライドショー。state.lb をすべての関数で共有。
-  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。**操作系は上部の
-  1 本のバー (`.lb-toolbar`) に集約**: 左に counter、右に 一時停止 (`#ss-pause`、
-  スライドショー時のみ) / 画像フィット (`#lb-fit`、contain↔cover) / ⚙ メニュー
-  (`#ss-options`、スライドショー時のみ) / 閉じる (`#lb-close`) を並べ、`#lb-close`
-  が右端。`.lb-toolbar-spacer` (flex:1) が左右を押し分ける。ナビ矢印 (`.lb-nav`
-  ‹ ›) だけはタップしやすさ優先で左右中央に大きく残す (モバイルは下隅)。間隔と
-  キャプションは ⚙ メニュー (`#ss-menu`) にまとめてボタン数を抑える。キャプションは
+  `shuffle` / `buildSelectedList` も内製 (render.js からは独立)。**上部バー
+  (`.lb-toolbar`) はビューア用**: 左に counter、右に 画像フィット (`#lb-fit`、
+  contain↔cover) / 壁紙 (`#lb-wallpaper`、ローカルのみ) / 閉じる (`#lb-close`)。
+  `.lb-toolbar-spacer` (flex:1) が左右を押し分ける。**スライドショー操作は下部中央の
+  ドック `#lb-dock`** (`#dock-prev` ‹ / `#ss-pause` ▶⏸ / `#dock-next` › / `#ss-interval` /
+  `#ss-caption`。旧 ⚙ メニューは廃止、display:none 切替で viewer 時は Tab 対象からも
+  外れる)。ナビ矢印 (`.lb-nav` ‹ ›) はビューアモード専用でスライドショー中は CSS で
+  非表示 (ドックが担う。キーボード ←/→ は両モードで有効)。スキン名の隣に rarity チップ
+  (`#lb-rarity`、RARITY_LABELS で翻訳、無ければ hidden)。キャプションは
   `applyCaption()` が lightbox ルートに `caption-name` (説明文だけ畳む) /
   `caption-none` (オーバーレイごと隠す) を付与し、full は class なし。ビューアモード
   では常に full 扱い (⚙ を出さないので none のまま閉じても拡大表示に波及しない)
@@ -99,13 +103,34 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   再描画は呼び出し側 app.js が持つ)。公開は4つ: ①`gateDownload(fn)` = 初回 ZIP DL 時に
   「デスクトップ版を入手 / このまま ZIP」を1回だけ尋ね、選択を `LS_DL_PROMPT_SEEN` に記憶
   (以降は素通し。ローカル実行時も素通し)。render.js の DL 3口を包む ②`openInDesktop()` =
-  My Gallery の選択を deep link `http://127.0.0.1:8000/#import=<JSON keys>` にして
-  デスクトップ版で開く。**選択は URL のフラグメントに載せる** (ローカルサーバに送られない
-  = リクエスト長制限なし)。localStorage はオリジン別 (github.io ≠ 127.0.0.1) で共有
-  できないための明示受け渡し ③`applyImportFromHash()` = 受け側。`#import=` を読んで
-  SKIN_BY_KEY に在るキーだけ選択へマージし件数を返す (app.js 起動時に buildIndexes 後・
-  ルーティング前に1回呼ぶ。終わったら hash を `#/gallery` に書換えて再取り込みを防ぐ)。
-  ローカル限定にはしない (手貼りリンクでも動くように) ④`mountFooterCTA()` = フッターに
+  My Gallery の選択を**カスタム URL スキーム** `openleaguedisplay://import?keys=<base64url の
+  JSON keys>` にしてデスクトップ版に渡す (`desktopLink()`)。旧 deep link
+  `http://127.0.0.1:8000/#import=` は「既に起動中のインスタンス」にしか届かず、未起動だと
+  接続エラーのタブが開くだけだった。スキームなら OS がアプリを**起動**するので起動中かどうかを
+  問わない (インストール済みであればよい)。**ただしスキームを名乗れるのは Windows だけ**
+  (mac は .app バンドルの Info.plist、Linux は .desktop エントリが要り、単一バイナリ配布には
+  無い) なので、`isWindows()` で分岐し **非 Windows では旧 deep link のまま**にする
+  (従来挙動を維持)。localStorage はオリジン別
+  (github.io ≠ 127.0.0.1) で共有できないための明示受け渡し、という位置づけは同じ。
+  ペイロードは **base64url** (キーは `/` と空白だらけで、percent-encode すると約3倍になる。
+  リンクは OS のコマンドライン長 32767 に載る必要がある)。`MAX_LINK_LEN` (16000) を超える
+  巨大ギャラリーは**リンクを諦めてファイル書き出しにフォールバック**する (押しても何も
+  起きないボタンを出さない)。**発火は使い捨てタブから** (`fireSchemeLink`): 現在のドキュメントを
+  `location.href` で飛ばすと、ハンドラ未登録のブラウザが**本文をエラーページに差し替える**こと
+  がある (Chrome は黙殺するが Firefox は unknown-protocol ページを出しうる)。使い捨てタブなら
+  それを吸収でき、後で閉じれば空タブも残らない。**閉じるのを急がないこと**: ブラウザの
+  「OpenLeagueDisplay を開きますか？」プロンプトは**発火したタブが所有**しているので、短い
+  タイマーでタブを閉じるとプロンプトごと消えて cancel 扱いになる (= 初回ユーザーは必ず起動に
+  失敗する。実際 2秒で閉じる実装をしてこれを踏んだ)。60秒のバックストップで、かつ **まだ
+  about:blank のまま = 誰も触っていないタブのときだけ**閉じる (ポップアップがブロックされた
+  時だけ `location.href` にフォールバック) ③`applyImportFromHash()` = 受け側。`#import=` を読んで
+  SKIN_BY_KEY に在るキーだけ選択へマージし、**追加件数 / 0 (全部既に在った) / -1 (payload が
+  読めない)** を返す (`pickSelectionFile` と同じ契約。0 と -1 を分けないと、壊れたリンクに
+  「最新です ✓」と嘘をつく)。呼ぶのは app.js の2箇所: 起動時 (buildIndexes 後・ルーティング前) と
+  `maybeHandleImportHash()` (起動後に飛んできたフラグメントを popstate/hashchange で拾う。
+  デスクトップ版の `/api/handoff` がこの経路)。どちらも終わったら hash を `#/gallery` に
+  書換えて再取り込みを防ぐ。ローカル限定にはしない (手貼りリンクでも動くように)
+  ④`mountFooterCTA()` = フッターに
   デスクトップ版 CTA を1回注入 (ローカル時は no-op)。**別端末 (スマホ→PC) 向けに
   `exportSelection()` / `pickSelectionFile()` = 選択を JSON ファイル (`{v,keys}`) で
   書き出し/読み込み** (deep link が使えないクロスマシン経路。モード非依存で双方向)。
@@ -117,11 +142,40 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   lightbox.js (isLocalWallpaper)、クリック処理は app.js (`applyWallpaper([現在のsrc])`)。
   **モバイル (`isMobile()`) では「その端末で今すぐデスクトップ版を使え」と促す割り込み導線を
   抑制する**: ①`gateDownload` はモーダルを挟まず素通し (スマホにデスクトップ版は入れられない /
-  `LS_DL_PROMPT_SEEN` も汚さない) ②`openInDesktop` の deep link は localhost が立たないスマホでは
+  `LS_DL_PROMPT_SEEN` も汚さない) ②`openInDesktop` のリンクはデスクトップ版を入れられないスマホでは
   必ず失敗するので、render.js が「Open in desktop app」メニュー項目自体を mobile で隠す (すぐ下の
   Export 項目がスマホ→PC 経路を担う。`openInDesktop` 内にも mobile→Export フォールバックの保険
   あり)。**受動的な ④`mountFooterCTA` と Export はモバイルでも残す** (スマホで見て後で PC で使う
-  動機になる / 割り込まない)
+  動機になる / 割り込まない)。**デスクトップ版の本物の起動検知もここ** (`probeDesktop` /
+  `desktopStatus` / `startDesktopWatch` / `wireDesktopChip`): Pages から
+  `http://127.0.0.1:8000/api/ping` を `mode:"cors"` で直接 fetch する (loopback は https ページ
+  からでも mixed content にならない。Safari だけはブロック → 従来動作に劣化。CSP connect-src と
+  local_app.py の CORS allowlist が対応済み)。My Gallery ツールバーの状態チップ (`#desktop-chip`、
+  接続中/未検出/確認中) は **markup を render.js が出し、状態・文言・click は desktop.js が持つ**
+  (state が module 内にあるため)。**自動 probe は `LS_DESKTOP_SEEN` (一度でも検知成功) がある
+  ときだけ** (Chrome 138+ は 127.0.0.1 fetch に Local Network Access 許可プロンプトを出すので、
+  アプリ未所持ユーザーに無断で出さない。初検知はチップ click か送信操作の明示ジェスチャ起点。
+  検知成功時は watch を遅延起動する — render 時はフラグ無しで watch が始まっていないため、
+  これが無いとチップが「接続中」のまま固まる)。ポーリングはギャラリー表示中のみ 10 秒間隔、
+  `document.hidden` 中は tick スキップ (interval は張ったまま = listener leak なし)。
+  ②`openInDesktop` は **検知済みなら choiceModal を出さず `POST /api/handoff` で直接送信**し、
+  サーバ応答の count で本物の成功トースト。409 (窓なし=ブラウザモード) は deep link タブへ、
+  接続失敗は probe (明示操作なので 20 秒 timeout = LNA プロンプト応答待ちを生存) → だめなら
+  従来のスキーム起動モーダル。スキーム発火後は `watchLaunch` が ping を 2 秒×45 秒ポーリングし、
+  起動確認で成功トースト + スクラッチタブを成功文言に書き換えて掃除、タイムアウトで
+  setup.exe 誘導 (keys はスキームリンクが運搬済みなので**再送しない**)
+- **hero.js**: ホームの「新着スプラッシュ」ヒーローバンド。import は state / i18n のみで、
+  ナビ (`openChampion`) と壁紙アクションは render.js がコールバック注入する (hero→render の
+  直接辺を作らない。hero→i18n→render の循環は render↔i18n と同じ hoist 前提で安全)。
+  `render()` が冒頭で必ず `destroyHero()` を呼び、renderHome (検索なし時のみ) が
+  `mountHero()` で再生成する — #view-content は毎 render で innerHTML ごと作り直される
+  ため DOM は残せず、featured プールと現在位置だけ module 変数で永続。プール = 各スキンの
+  `release` 降順6件 (無い/少ない時は Ultimate/Mythic ランダムにフォールバック)。7秒
+  setInterval は document.hidden・**ホバー中**・ライトボックス表示中はスキップ、
+  reduced-motion では張らない (Ken Burns も CSS 側で停止)。次スライドは事前 preload、
+  ステージ全面クリック = View Splash (ボタンが accessible path、全面は利便)、
+  タッチスワイプで前後送り (ライトボックスと同じ閾値 + click 漏れ吸収)。home と
+  Skin Lines の素のリスト両方に出る (`mountFeaturedHero`、検索中は非表示)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/
@@ -216,12 +270,73 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     限定** (DNS リバインディングで same-origin 化されカスタムヘッダ防御を抜けてくる
     攻撃を `_host_ok()` で遮断) ④保存名は URL の sha1 (path traversal 回避)、壁紙設定は
     subprocess を argv list で呼ぶ (shell 不使用 → コマンドインジェクション無し)
+  - **CORS は Pages オリジン限定の2口だけ** (`CORS_ALLOWED_ORIGINS` = badfalcon.github.io /
+    `CORS_API_PATHS` = /api/ping + /api/handoff): Web 版からの**本物の起動検知と直接送信**用
+    (js/desktop.js の項参照)。`_json()` が ACAO を注入するので **409/403 のエラーにも付く**
+    (ACAO の無いエラーは fetch が status を見せずに reject し、フロントが「409=窓なし→deep link
+    タブ」と「接続失敗=未起動」を区別できない)。preflight は `do_OPTIONS` が受け、
+    `Access-Control-Request-Private-Network` には `Allow-Private-Network: true` を返す
+    (Chrome の PNA は public→local だと GET でも preflight する)。Allow-Headers に X-OLD-Local
+    を載せるのが「この1オリジンへの明示的な信頼」で、CSRF ヘッダ必須と `_host_ok()` は全経路で
+    従来どおり。**/api/wallpaper と /api/quit には付けない** (壁紙・終了は same-origin 限定の
+    まま)。実行時フラグにはしない (ローカルプロセスにインストール済みコピーの信頼境界を広げ
+    させないため定数)。**フォークは定数を自オリジンに書き換えて再ビルドが必要** (README に記載。
+    放置しても旧来の fire-and-forget に劣化するだけで壊れない)
   - **永続キャッシュ必須**: Linux(gsettings)/macOS/Windows いずれも純正スライドショーは
     壁紙を「フォルダ/パス参照」で設定する (コピーしない) ので、`/tmp` だと再起動で
     壁紙が消える。ユーザ専用の永続 dir
     (`%LOCALAPPDATA%` / `~/Library/Application Support` / `~/.local/share`) に保存する
   - **配布**: `local_app.spec` (PyInstaller) を `release.yml` が tag push 時に各 OS で
     ビルドして Release に添付。**バイナリはリポジトリにコミットしない** (no-binaries)
+  - **カスタム URL スキーム `openleaguedisplay://`** (Web → デスクトップ版の受け渡し口):
+    Web 版の「デスクトップ版に送る」が投げる `openleaguedisplay://import?keys=<base64url JSON>`
+    を受ける。`keys_from_link()` が argv 中のスキーム URL から keys を取り出し、
+    `import_fragment()` が `#import=<percent-encoded JSON>` に変換して**起動する窓/ブラウザの
+    URL のフラグメントに載せる**だけ (フロントの `applyImportFromHash` が既に取り込み口)。
+    Windows 限定 (mac/Linux は Info.plist / .desktop が要るので未対応。フロント側も
+    `isWindows()` でしか投げない)
+  - **多重起動の判定は bind そのもの** (`_Server.allow_reuse_address = os.name != "nt"`):
+    http.server は既定で `SO_REUSEADDR` を立てるが、**Windows のそれは奪取セマンティクス**で
+    **listen 中のポートに2つ目が bind できてしまう** (実測済み) → :8000 に2プロセスが並び、共有の
+    壁紙フォルダ (`current`) を互いに prune し合う。そこで **Windows だけ OFF** にして bind を
+    権威にする (POSIX の `SO_REUSEADDR` は listen 中のソケットを奪えず、切ると Ctrl+C 直後の
+    再起動が TIME_WAIT で失敗するので ON のまま)。bind は原子的なので、起動のたびに ping する案
+    (= 通常起動に毎回レイテンシ + 同時起動で両方が「空いている」と判断する TOCTOU) より良い。
+    bind が失敗したときだけ `is_our_server()` (= `/api/ping`) で相手が自分かを確かめる
+  - **受け渡し先の落とし穴 (`POST /api/handoff`)**: 既存インスタンスは通常 **pywebview のネイティブ窓**
+    で、システムブラウザとは**同一オリジンでも localStorage のパーティションが別**。だから
+    「ブラウザで `#import=` を開く」だけではユーザーが見ている窓のギャラリーに入らない。
+    `hand_off_to_running()` が keys を POST し、**受け側が自分の窓を `load_url` で `#import=` に
+    飛ばす** (ナビゲート先 URL は受け側が keys から組み立てる = 呼び出し側に URL を指定させない)。
+    窓が無い (ブラウザモード / `--no-window`) 時は 409 を返し、呼び出し側がブラウザタブで開く
+    (その場合は同一プロファイル・同一オリジンなので正しく届く)。**フロント側にも受け口が要る**:
+    `load_url` は**同一ドキュメント内のフラグメント遷移**になるので init は再実行されない →
+    `js/app.js` の `maybeHandleImportHash()` を popstate / hashchange に張って、起動後に飛んで
+    きた `#import=` も取り込む (取り込んだら `#/gallery` に書き換え + 先頭へスクロール)
+  - **`POST /api/quit` = 自主終了の口** (ゲートは他の POST と同じ CSRF ヘッダ + Host 制限)。
+    応答を返してから 0.3 秒後に、窓があれば `window.destroy()` (→ `webview.start()` が戻り
+    main() の finally が後始末 = 通常の終了経路)、窓が無ければ `server.shutdown()`。存在理由は
+    インストーラ (下記): onefile PyInstaller はブートローダ+子の2プロセスで、Inno の
+    Restart Manager による丁寧なクローズが**いつまでも終わらない**ことがある (実際に踏んだ)。
+    「アプリに終了を頼む」のが exe のロック解放の確実な方法
+  - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
+    `Software\Classes` を一切書かない** (壁紙のレガシー fallback が `Control Panel\Desktop` を
+    書くのは別件): 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
+    入れている人が一度でも `python local_app.py` / ポータブル exe を起動すると、その時点で
+    ハンドラの宛先がそっちに差し替わる (= 意図しない乗っ取り) ため採らなかった。副作用として
+    ポータブル exe と直起動ではリンクが効かない (= 「インストーラ版の機能」と割り切る。README /
+    ハンドオフのモーダル文言も「インストーラ版 (setup.exe) なら」と明記している)
+  - **スキームの脅威モデル** (登録した以上、**任意の Web ページがこのアプリを起動できる**。
+    ブラウザは確認ダイアログを出すが、押し通されると仮定して設計する): ①リンク全体を
+    `IMPORT_LINK_RE` の**厳格一致**でしか受けない (action は `import` 1つ、payload は base64url
+    charset のみ、長さ上限 `MAX_LINK_CHARS`。素の JSON payload・追加クエリ・他 action は全部
+    拒否) ②レジストリのコマンドは `"exe" "%1"` なので、リンクにダブルクォートを混ぜて
+    argv を注入する古典手が効かないよう、**charset にクォートを含めない** (`re.ASCII` も付ける。
+    無いと IGNORECASE の unicode 畳み込みで `İ`/`ı`/`ſ`/`K` まで通る) + スキーム起動時は
+    **argv の残りを丸ごと捨てる** (`--no-window` や port を後付けさせない) ③リンクにできるのは
+    「ギャラリーにスキンを選択済みにする」ことだけ (data.json に無いキーはフロントで落ちる)。
+    画像の取得も壁紙の適用もユーザーのクリックが要る (`/api/wallpaper` の CSRF ヘッダ +
+    Host 制限は従来どおり)
 - **Windows は正規インストーラも配る (Inno Setup)**: bare exe だけだとスタート
   メニューにも「アプリと機能」にも載らず "ちゃんとしたソフトウェア感" が無い。
   `installer/windows.iss` (Inno Setup 6) で setup.exe を作り、`release.yml` の
@@ -244,8 +359,23 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     `SetupIconFile` とショートカット `IconFilename` に使う
   - **bare exe (ポータブル) も残す**: setup.exe を推奨導線にしつつ、インストールを
     好まない人向けに従来の単一 exe も Release に併置 (生成コストはほぼゼロ)
+  - **`[Registry]` で `openleaguedisplay://` を登録** (Web からの受け渡し口。上の local_app.py の
+    項参照)。`Root: HKA` = 通常の per-user インストールでは HKCU、`PrivilegesRequiredOverridesAllowed`
+    で per-machine に昇格した場合は HKLM に書かれる。ルートキーに `uninsdeletekey` を付けて
+    あるのでアンインストールで丸ごと消える。**スキームを登録する唯一の場所がここ** (アプリ側は
+    レジストリを書かない = 理由は local_app.py の項)。ポータブル exe にリンク起動が要る、と
+    なったら「登録するかを尋ねるインストーラ的な導線」を別途足すこと (黙って書かない)
   - **アンインストールで壁紙キャッシュは消さない**: 現在設定中の壁紙ファイルを壊さ
     ないため `%LOCALAPPDATA%\OpenLeagueDisplay` は残し、アプリ本体のみ削除する
+  - **起動中インスタンスは自分で退かせる** (`[Code] QuitRunningApp`): ファイルコピー直前
+    (`PrepareToInstall`) とアンインストール開始時に、`/api/ping` で相手が本当にこのアプリだと
+    確認してから `POST /api/quit` (WinHttp COM で X-OLD-Local ヘッダ付き) → ping が消えるまで
+    ~5秒ポーリング。**Restart Manager 任せにしない理由**: onefile PyInstaller の
+    ブートローダ+子ペアは RM の丁寧なクローズが終わらないことがある (「強制終了が終わらない」
+    として実際に踏んだ)。届かなかった場合 (別ポート / /api/quit の無い旧ビルド) の
+    バックストップが `[Setup] CloseApplications=force` (待ち続けずに強制終了。未保存データは
+    無いので安全)。Pascal の `{ }` コメント内にリテラル波括弧を書かないこと (`{app}` と書くと
+    コメントがそこで閉じる)
   - **既インストール検知 (`[Code] InitializeSetup`)**: setup 再実行時に挙動を分ける。
     **同一バージョンが既に入っている** → 「修復(再インストール)/アンインストール/
     キャンセル」の 3択 MsgBox。**別バージョン** (上げ/下げ) → 何も出さず黙って上書き
@@ -322,6 +452,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   最新側に置き、`[警告] リリース日 未取得` を出す (次回更新で Wiki が追記されれば自動で
   埋まる。最新キャラが末尾に来るのは時系列的に正しいので順序は破綻しない)。`Array#sort`
   は安定なので同日付・欠落どうしは id 順を保つ
+- **スキン単位のリリース日も Wiki + 初見スタンプのハイブリッドで持つ**: ホームのヒーロー
+  「新着スプラッシュ」用に各スキンへ `release` ("YYYY-MM-DD") を埋める。ソースは wiki の
+  `Module:SkinData/data` (`fetch_skin_release_dates()`。probe 2026-07 で 1901/1901 スキンが
+  `["release"]` を保有と確認)。**突合は数値ペア (チャンピオン id, スキン番号 = CDragon skin
+  id % 1000)** で名前ゆれ無し。wiki の champ id にはコピペミス前歴があるため、id が重複した
+  ブロックだけ表示名で解決する二段構え。**ただし Fandom ミラーは ~2024-09 で凍結**
+  (本家 wiki.leagueoflegends.com は API/raw とも 403 で bot を弾く — 再 probe 済み) ので、
+  凍結後のスキンは①前回 data.json の値を引き継ぎ (`load_prev_skin_releases`)、②wiki にも
+  前回にも無い**トップレベル**スキンへ実行日をスタンプ (初見 ≒ リリース。週次 update.yml の
+  粒度で正確化していく。questSkinInfo のティアはスタンプ対象外 = 「新着」を汚さない)。
+  スタンプは wiki 取得が生きている時のみ (全滅時に全スキンが「今日」になる汚染を防ぐ)。
+  初回スタンプで凍結期間のコホート (~211件) が同日になるのは既知の近似で、以後のパッチで
+  自然に解消する。パーサはインデント桁で階層判定 (lore 文字列に波括弧が入るため brace
+  カウントは不可。champion=2桁 / skins=6桁 / フィールド=8桁、chromas は 10桁以深で除外)
 
 ## CDragon のパスマッピング (重要)
 
@@ -396,7 +540,10 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~表示言語の永続化~~ → `LS_LOCALE_KEY` で実装済み (初回は `navigator.languages` から推定)
 - [x] ~~キーボードショートカット一覧モーダル (? キーで表示)~~ → 専用モーダルは作らず
   チュートリアル第4ステップとして実装 (? キーで開く既存動線をそのまま流用)
-- [ ] 「最近追加されたスキン」セクション (data.json 差分から検出)
+- [x] ~~「最近追加されたスキン」セクション (data.json 差分から検出)~~ → ホームの
+  ヒーロー「新着スプラッシュ」(js/hero.js) として実装。データはスキン単位 `release`
+  (wiki SkinData + 初見スタンプ、上の設計判断参照) で、差分検出より正確な全履歴を持つ。
+  専用の一覧セクションを足したくなったら同じ `release` 降順で並べるだけ
 - [x] ~~universe-meeps から地域データが取れていない~~ → サーバ側 S3 IAM 不全と判明
   (probe で `AccessDenied` 確定)、CHAMPION_REGIONS 直書きに切り替え済み
 - [x] ~~REGION_LABELS の locale を増やす~~ → 地域名を実際に翻訳していると Web で
@@ -441,7 +588,10 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 - **Build desktop exe (PyInstaller)** — `python -m PyInstaller --noconfirm local_app.spec`。
   `dist/OpenLeagueDisplay.exe` を生成 (要 `pip install pyinstaller pywebview`)
 - **Build installer (Inno Setup)** — `build_installer.py` を実行し `installer/out/...setup.exe` を生成。
-  先に exe をビルドしておくこと + Inno Setup 6 が必要 (`winget install JRSoftware.InnoSetup`)
+  **exe も毎回作り直してから包む** (インストーラは dist の exe を同梱するだけ + exe はフロント一式を
+  内蔵しているので、exe が古いままだと「ビルド成功したのに中身が古い setup.exe」が黙って出来上がる
+  — 実際に踏んだ罠)。既存 exe をそのまま包みたい時だけ `--skip-exe` (exe のビルド日時を表示する)。
+  要 `pip install pyinstaller pywebview` + Inno Setup 6 (`winget install JRSoftware.InnoSetup`)
 
 exe / installer ビルドはあくまで**手元確認用**。配布は従来どおり `release.yml` が tag push 時に
 CI で行う (バイナリは非コミット。`dist/` `build/` `installer/out/` は .gitignore 済み)。
