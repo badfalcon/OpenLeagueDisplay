@@ -22,6 +22,12 @@ import { saveBlob } from "./zip.js";  // reuse the shared blob→download helper
 
 // Where the desktop builds live (GitHub Releases). Absolute URL since this runs on Pages.
 const RELEASES_URL = "https://github.com/badfalcon/OpenLeagueDisplay/releases";
+// Permanent "latest" alias to the Windows installer. The asset name comes from
+// installer/windows.iss (OutputBaseFilename) and is hardcoded in release.yml's installer
+// build/upload steps — rename all three together or this 404s. It also 404s while the latest
+// release is missing the asset (fail-fast:false lets the mac/linux legs publish a release whose
+// Windows leg failed) — re-run that leg; the CTAs keep a Releases-page path for that window.
+const SETUP_EXE_URL = `${RELEASES_URL}/latest/download/OpenLeagueDisplay-windows-setup.exe`;
 // Custom URL scheme claimed by the Windows installer. Firing openleaguedisplay://import LAUNCHES the
 // installed app — unlike the old http://127.0.0.1:8000 deep link, which only reached an
 // already-running instance and otherwise dead-ended on a connection error. local_app.py accepts the
@@ -32,6 +38,9 @@ const NATIVE_SCHEME = "openleaguedisplay";
 // keep the original deep link, which reaches an already-running instance on its default port.
 const NATIVE_URL = "http://127.0.0.1:8000";
 const isWindows = () => /win/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "");
+// setup.exe is Windows-only: direct-download it on Windows desktop, otherwise land on the
+// Releases page where the user picks the right asset (and can read the SmartScreen note).
+const desktopDownloadURL = () => (isWindows() && !isMobile()) ? SETUP_EXE_URL : RELEASES_URL;
 // The OS passes the whole link to the app as one argv entry, and Windows caps a command line at
 // 32767 chars. Stay well under it: past this the link is abandoned for the file export.
 const MAX_LINK_LEN = 16000;
@@ -58,22 +67,47 @@ const MAX_LINK_LEN = 16000;
 // polling settles — repainting replaces the previous message). about:blank is same-origin,
 // and mutating its DOM leaves location.href === "about:blank", so the cleanup guards still
 // recognise the tab as ours.
-function paintScratchTab(w, message) {
+function paintScratchTab(w, message, link) {
   try {
     const d = w.document;
     d.title = "OpenLeagueDisplay";
-    d.body.style.cssText = "margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+    d.body.style.cssText = "margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;"
       + "background:#07060b;color:#e8e3d9;font:16px/1.7 system-ui,sans-serif;text-align:center;padding:24px";
     d.body.textContent = "";
     const p = d.createElement("p");
     p.style.cssText = "max-width:46ch";
     p.textContent = message;
     d.body.appendChild(p);
+    if (link) {
+      const a = d.createElement("a");
+      a.href = link.href;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = link.label;
+      a.style.cssText = "margin-top:16px;color:#d4a857;font-weight:600";
+      d.body.appendChild(a);
+    }
   } catch (_) { /* a browser that won't let us touch the popup's document: the link still fires */ }
 }
 
 // Returns the scratch tab (null when the popup was blocked and the link fired from this
 // document instead) so watchLaunch can repaint it with the polling outcome.
+// Sweeps are per-tab, NOT single-slot like _launchTimer: a second hand-off (even a popup-blocked
+// one) must not disturb the first tab's pending cleanup. watchLaunch's timeout repaint cancels
+// only ITS OWN tab's sweep — the repainted tab still reads "about:blank", so an uncancelled
+// sweep would eat the install pointer 15s after it appeared (observed).
+const _sweeps = new WeakMap();
+// The tab owned by the running watchLaunch. The sweep defers to it: a watch tick can be starved
+// past the 60s mark by a concurrent long probe (every tick awaits the shared _inflight promise,
+// and Chrome's LNA prompt can park one for 20s), and closing the tab then would discard the
+// verdict repaint that watch is about to write.
+let _watchTab = null;
+
+function cancelSweep(w) {
+  const timer = w && _sweeps.get(w);
+  if (timer) { clearTimeout(timer); _sweeps.delete(w); }
+}
+
 function fireSchemeLink(link, message) {
   const w = window.open("", "_blank");
   if (!w) { window.location.href = link; return null; }  // popup blocked: fall back to this document
@@ -83,15 +117,18 @@ function fireSchemeLink(link, message) {
   // the user would just be staring at a blank tab.
   paintScratchTab(w, message);
   w.location.href = link;
-  setTimeout(() => {
+  const sweep = (delay) => setTimeout(() => {
     try {
+      if (w.closed) return;
+      if (w === _watchTab) { _sweeps.set(w, sweep(30000)); return; }  // verdict still pending: check back later
       // Sweep it up only if it's still OUR blank tab. The scratch tab is focused and empty, which
       // is exactly where someone starts typing a URL — and the scheme navigation never commits, so
       // a tab that is still "about:blank" is one nobody has touched. Once they've navigated it, the
       // cross-origin read throws and we correctly leave their tab alone.
-      if (!w.closed && w.location.href === "about:blank") w.close();
+      if (w.location.href === "about:blank") w.close();
     } catch (_) {}
-  }, 60000);
+  }, delay);
+  _sweeps.set(w, sweep(60000));
   return w;
 }
 
@@ -163,6 +200,10 @@ export function choiceModal({ title, body, primary, secondary, onDismiss, focus 
   const p = $("choice-primary"), s = $("choice-secondary");
   p.textContent = primary.label;
   s.textContent = secondary.label;
+  // Optional hover hints. Always assign (not just when given): the modal element is reused
+  // across openers, so a stale title from the previous dialog must not leak into this one.
+  p.title = primary.title || "";
+  s.title = secondary.title || "";
   // Re-bind per open since the handlers differ each call. Mark a real pick (so closeChoice doesn't
   // also fire onDismiss), close first, then act.
   p.onclick = () => { _choiceMade = true; closeChoice(); primary.onClick(); };
@@ -196,7 +237,9 @@ export function gateDownload(runDownload) {
     body: t("dl_choice_body"),
     primary: {
       label: t("dl_choice_get"),
-      onClick: () => { lsSet(LS_DL_PROMPT_SEEN, "1"); window.open(RELEASES_URL, "_blank", "noopener"); },
+      // Same forewarning as the footer CTA (clicking = an exe lands). English-only like there.
+      title: desktopDownloadURL() === SETUP_EXE_URL ? "Downloads the Windows installer (setup.exe)" : "",
+      onClick: () => { lsSet(LS_DL_PROMPT_SEEN, "1"); window.open(desktopDownloadURL(), "_blank", "noopener"); },
     },
     secondary: { label: t("dl_choice_zip"), onClick: proceedWithZip },
     onDismiss: proceedWithZip,
@@ -316,16 +359,23 @@ async function sendToDesktop(keys) {
 // ignoring the latter starves the polling and a successful launch reads as a timeout — the
 // degraded outcome equals the old fire-and-forget, so it's acceptable.
 let _launchTimer = null;
+let _watchGen = 0;  // ticks are async: a tick parked on a probe must not act for a replaced watch
 function watchLaunch(w, deadlineMs = 45000) {
   if (_launchTimer) clearInterval(_launchTimer);
+  const gen = ++_watchGen;
+  _watchTab = w;  // the sweep defers to the active watch (see fireSchemeLink)
   const startedAt = Date.now();
   _launchTimer = setInterval(async () => {
-    if (await probeDesktop()) {
+    const up = await probeDesktop();
+    if (gen !== _watchGen) return;  // superseded while awaiting — the newer watch owns the outcome
+    if (up) {
       clearInterval(_launchTimer); _launchTimer = null;
+      _watchTab = null;
       toast(t("handoff_launch_ok"));
       // The app is up, so the browser's scheme prompt has served its purpose — the scratch
       // tab may be swept early. Flip it to the success message first and give the user a
-      // beat to read it (same "still our about:blank" guard as the 60s backstop).
+      // beat to read it (same "still our about:blank" guard as the 60s backstop, which stays
+      // armed as the fallback closer in case this early close is refused).
       try {
         if (w && !w.closed && w.location.href === "about:blank") {
           paintScratchTab(w, t("handoff_launch_ok"));
@@ -334,10 +384,18 @@ function watchLaunch(w, deadlineMs = 45000) {
       } catch (_) {}
     } else if (Date.now() - startedAt > deadlineMs) {
       clearInterval(_launchTimer); _launchTimer = null;
+      _watchTab = null;
       toast(t("handoff_launch_timeout"), "err");
-      // Leave the tab open — the install pointer is the useful part of this outcome.
+      // Leave the tab open — the install pointer is the useful part of this outcome. Make the
+      // pointer clickable: this path only exists after a scheme launch (= Windows), so link the
+      // installer directly rather than the Releases page. Call off THIS tab's sweep (and only
+      // this tab's): the repainted tab still reads "about:blank", so the sweep would close it
+      // (observed) — exactly the tab we just told the user to look at.
+      cancelSweep(w);
       try {
-        if (w && !w.closed && w.location.href === "about:blank") paintScratchTab(w, t("handoff_launch_timeout"));
+        if (w && !w.closed && w.location.href === "about:blank") {
+          paintScratchTab(w, t("handoff_launch_timeout"), { href: SETUP_EXE_URL, label: t("dl_choice_get") });
+        }
       } catch (_) {}
     }
   }, 2000);
@@ -505,6 +563,13 @@ export function mountFooterCTA() {
   const p = document.createElement("p");
   p.id = "footer-cta";
   p.className = "footer-cta";
-  p.innerHTML = `🖥 Want one-click wallpaper? <a href="${RELEASES_URL}" target="_blank" rel="noopener">Get the desktop app</a> — set any splash directly, no download or extracting.`;
+  // On Windows desktop the link downloads setup.exe directly (clicking = an exe lands), so
+  // forewarn in the visible text — a title tooltip never reaches touch or keyboard users — and
+  // keep a Releases-page link alongside: the pinned /latest/download asset can 404 (see
+  // SETUP_EXE_URL) and the page is the escape hatch. English-only like the rest of the footer.
+  const url = desktopDownloadURL();
+  p.innerHTML = url === SETUP_EXE_URL
+    ? `🖥 Want one-click wallpaper? <a href="${url}" target="_blank" rel="noopener">Get the desktop app</a> — set any splash directly. Downloads the Windows installer (<a href="${RELEASES_URL}" target="_blank" rel="noopener">all versions</a>).`
+    : `🖥 Want one-click wallpaper? <a href="${url}" target="_blank" rel="noopener">Get the desktop app</a> — set any splash directly, no download or extracting.`;
   inner.insertBefore(p, inner.firstChild);  // top of the footer so it's seen
 }
