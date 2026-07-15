@@ -102,7 +102,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   zip.js も state/i18n しか import しないので循環しない。受け渡し後の画面遷移と
   再描画は呼び出し側 app.js が持つ)。公開は4つ: ①`gateDownload(fn)` = 初回 ZIP DL 時に
   「デスクトップ版を入手 / このまま ZIP」を1回だけ尋ね、選択を `LS_DL_PROMPT_SEEN` に記憶
-  (以降は素通し。ローカル実行時も素通し)。render.js の DL 3口を包む ②`openInDesktop()` =
+  (以降は素通し。ローカル実行時も素通し)。**「入手」のリンク先は `desktopDownloadURL()` で
+  OS 分岐**: Windows デスクトップは `SETUP_EXE_URL` (= `releases/latest/download/` の固定
+  アセット名で setup.exe を直DL)、それ以外は Releases ページ。アセット名の出所は
+  installer/windows.iss の OutputBaseFilename + release.yml のインストーラ手順のハードコード
+  (matrix が持つのはポータブル exe 名) — **改名は JS 定数と合わせて3箇所同時**。固定名リンクは
+  「latest にそのアセットが無い」と 404 になる (fail-fast:false なので Windows レッグだけ落ちた
+  リリースでも他レッグが publish する) — その時は Windows レッグを再実行。UI 側の逃げ道として
+  フッター CTA に Releases ページへの副リンクを常設。render.js の DL 3口を包む ②`openInDesktop()` =
   My Gallery の選択を**カスタム URL スキーム** `openleaguedisplay://import?keys=<base64url の
   JSON keys>` にしてデスクトップ版に渡す (`desktopLink()`)。旧 deep link
   `http://127.0.0.1:8000/#import=` は「既に起動中のインスタンス」にしか届かず、未起動だと
@@ -123,7 +130,14 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   タイマーでタブを閉じるとプロンプトごと消えて cancel 扱いになる (= 初回ユーザーは必ず起動に
   失敗する。実際 2秒で閉じる実装をしてこれを踏んだ)。60秒のバックストップで、かつ **まだ
   about:blank のまま = 誰も触っていないタブのときだけ**閉じる (ポップアップがブロックされた
-  時だけ `location.href` にフォールバック) ③`applyImportFromHash()` = 受け側。`#import=` を読んで
+  時だけ `location.href` にフォールバック)。**バックストップはタブごと** (`_sweeps` WeakMap。
+  単一スロットだと、ポップアップブロックされた2回目の発火のタイムアウトが1回目のタブの掃除を
+  誤って解除する): `watchLaunch` のタイムアウト再ペイント (インストールリンクを書く) が
+  **自分のタブの分だけ** `cancelSweep` する (再ペイントしても href は about:blank のままなので、
+  解除しないとリンクごと掃除される — 実際に踏んだ)。watch 進行中のタブ (`_watchTab`) は掃除を
+  30 秒延期 (tick は共有 `_inflight` promise を await するので、LNA プロンプトで停まった長い
+  probe がタイムアウト判定を 60 秒より後ろへ押しうる — 先に閉じると判定の書き込み先を失う)
+  ③`applyImportFromHash()` = 受け側。`#import=` を読んで
   SKIN_BY_KEY に在るキーだけ選択へマージし、**追加件数 / 0 (全部既に在った) / -1 (payload が
   読めない)** を返す (`pickSelectionFile` と同じ契約。0 と -1 を分けないと、壊れたリンクに
   「最新です ✓」と嘘をつく)。呼ぶのは app.js の2箇所: 起動時 (buildIndexes 後・ルーティング前) と
@@ -131,7 +145,9 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   デスクトップ版の `/api/handoff` がこの経路)。どちらも終わったら hash を `#/gallery` に
   書換えて再取り込みを防ぐ。ローカル限定にはしない (手貼りリンクでも動くように)
   ④`mountFooterCTA()` = フッターに
-  デスクトップ版 CTA を1回注入 (ローカル時は no-op)。**別端末 (スマホ→PC) 向けに
+  デスクトップ版 CTA を1回注入 (ローカル時は no-op)。リンク先は①と同じ `desktopDownloadURL()`
+  分岐で、直DLになる環境では**本文で「Windows インストーラが落ちる」と予告** (title 属性だけ
+  だとタッチ/キーボードに届かない) + Releases ページへの副リンク (all versions) を添える。**別端末 (スマホ→PC) 向けに
   `exportSelection()` / `pickSelectionFile()` = 選択を JSON ファイル (`{v,keys}`) で
   書き出し/読み込み** (deep link が使えないクロスマシン経路。モード非依存で双方向)。
   キーのマージは `mergeKeys()` に共通化し ③ファイル取り込み両方が使う (data に在る・
@@ -163,7 +179,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   接続失敗は probe (明示操作なので 20 秒 timeout = LNA プロンプト応答待ちを生存) → だめなら
   従来のスキーム起動モーダル。スキーム発火後は `watchLaunch` が ping を 2 秒×45 秒ポーリングし、
   起動確認で成功トースト + スクラッチタブを成功文言に書き換えて掃除、タイムアウトで
-  setup.exe 誘導 (keys はスキームリンクが運搬済みなので**再送しない**)
+  setup.exe 誘導 = スクラッチタブに `SETUP_EXE_URL` への直DLリンクを描く (keys はスキーム
+  リンクが運搬済みなので**再送しない**)。tick は async なので世代カウンタ (`_watchGen`) で
+  ガードし、watch が置き換えられた後に settle した古い tick が新しい watch の interval を
+  消さないようにしている
 - **hero.js**: ホームの「新着スプラッシュ」ヒーローバンド。import は state / i18n のみで、
   ナビ (`openChampion`) と壁紙アクションは render.js がコールバック注入する (hero→render の
   直接辺を作らない。hero→i18n→render の循環は render↔i18n と同じ hoist 前提で安全)。
