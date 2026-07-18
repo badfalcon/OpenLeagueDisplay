@@ -30,21 +30,34 @@ function shuffle(arr) {
 }
 
 export function openLightbox(list, idx, mode) {
-  // So that "back" (Android back gesture / browser back) closes the lightbox rather than
-  // leaving the site, push one history entry's worth without changing the URL. The popstate
-  // handler (app.js) calls closeLightbox if the lightbox is open. The check uses the DOM .open
-  // class, so a reload that leaves only history.state.lb behind won't misbehave.
-  history.pushState({ lb: 1 }, "", location.href);
+  const lb = $("lightbox");
+  // openLightbox must be idempotent about its one-time setup. The history entry, scroll lock and
+  // background inert below are reference-counted (state.js), and a single close only unwinds them
+  // once — so a second open while already open would stack a lock/inert that never clears, leaving
+  // the body scroll-locked and the whole page unclickable after the lightbox is visually gone (the
+  // triggers are inert-guarded, but an event-duplication race or a future caller can still double
+  // it). Run that setup only on the closed→open edge; the content swap below always runs.
+  const wasOpen = lb.classList.contains("open");
+  if (!wasOpen) {
+    // So that "back" (Android back gesture / browser back) closes the lightbox rather than
+    // leaving the site, push one history entry's worth without changing the URL. The popstate
+    // handler (app.js) calls closeLightbox if the lightbox is open. The check uses the DOM .open
+    // class, so a reload that leaves only history.state.lb behind won't misbehave.
+    history.pushState({ lb: 1 }, "", location.href);
+    state.lb.lastFocus = document.activeElement;  // where to restore focus on close (skip on re-entry so a lightbox-internal element isn't captured)
+  } else if (typeof console !== "undefined") {
+    console.warn("openLightbox called while already open — reusing the existing scroll lock");
+  }
   state.lb.list = list; state.lb.idx = idx; state.lb.mode = mode;
   state.lb.paused = false; state.lb.frontIsA = true;
-  state.lb.lastFocus = document.activeElement;
-  const lb = $("lightbox");
   lb.classList.add("open");
   lb.setAttribute("aria-hidden", "false");
   lb.inert = false;  // Clear the closed-state inert (re-enables focus/tab/interaction). Must come before focus()
   document.body.classList.add("lightbox-open");
-  lockScroll();
-  setBackgroundInert();
+  if (!wasOpen) {
+    lockScroll();
+    setBackgroundInert();
+  }
   lb.classList.toggle("slideshow", mode === "slideshow");
   // The chrome (controls hideable by tapping the stage) is always restored to visible on each open.
   // Unlike caption, a "kept hidden" state isn't carried over (not persisted), so clear it every time.
