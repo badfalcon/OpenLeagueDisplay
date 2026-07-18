@@ -321,7 +321,11 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     権威にする (POSIX の `SO_REUSEADDR` は listen 中のソケットを奪えず、切ると Ctrl+C 直後の
     再起動が TIME_WAIT で失敗するので ON のまま)。bind は原子的なので、起動のたびに ping する案
     (= 通常起動に毎回レイテンシ + 同時起動で両方が「空いている」と判断する TOCTOU) より良い。
-    bind が失敗したときだけ `is_our_server()` (= `/api/ping`) で相手が自分かを確かめる
+    bind が失敗したときだけ `is_our_server()` (= `/api/ping`) で相手が自分かを確かめる。
+    **自分以外が掴んでいたら起動拒否のまま、生トレースバックではなく明示メッセージで終了**
+    (`_fail_port_taken`: frozen な windowed exe は MessageBox、コンソール実行は stderr + exit 1。
+    置き忘れた serve.py が :8000 に居て PyInstaller の unhandled-exception ダイアログが出る、を
+    実際に踏んだ)
   - **受け渡し先の落とし穴 (`POST /api/handoff`)**: 既存インスタンスは通常 **pywebview のネイティブ窓**
     で、システムブラウザとは**同一オリジンでも localStorage のパーティションが別**。だから
     「ブラウザで `#import=` を開く」だけではユーザーが見ている窓のギャラリーに入らない。

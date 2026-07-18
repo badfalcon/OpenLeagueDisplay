@@ -938,6 +938,28 @@ def is_our_server(port: int) -> bool:
     return info.get("app") == "OpenLeagueDisplay"
 
 
+def _fail_port_taken(port: int, err: OSError) -> None:
+    """Exit with a human-readable explanation instead of a raw traceback.
+
+    Reached only when the bind failed AND the occupant is not one of ours — a real conflict the
+    user has to resolve (typically a dev server like serve.py sitting on :8000). Refusing to start
+    is the designed behavior; this only fixes how it looks: the installed exe is a windowed build
+    with no console, where an uncaught OSError surfaces as PyInstaller's "unhandled exception in
+    script" traceback dialog. Show a plain-language MessageBox there instead; console runs keep
+    the message on stderr. The original error is appended so nothing is lost for diagnosis.
+    """
+    msg = (f"Port {port} is already in use by another program (not OpenLeagueDisplay).\n"
+           f"Quit whatever is using it, then launch again.\n\n({err})")
+    if sys.stderr:  # windowed PyInstaller builds have no stderr at all
+        print(msg, file=sys.stderr)
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        try:
+            ctypes.windll.user32.MessageBoxW(None, msg, "OpenLeagueDisplay", 0x10)  # MB_ICONERROR
+        except Exception:
+            pass
+    raise SystemExit(1)
+
+
 def hand_off_to_running(port: int, keys: list) -> bool:
     """Give an already-running instance the selection. True if it took it.
 
@@ -1016,11 +1038,12 @@ def main() -> None:
         # too (see its docstring). Doing it this way costs nothing on a normal start and leaves no
         # window for two simultaneous launches to both decide the port was free.
         httpd = _serve(port)
-    except OSError:
+    except OSError as e:
         # Port taken. If it's our own instance, hand the selection over rather than fight for the
-        # port; anything else holding it is a real error.
+        # port; anything else holding it is a real error — but tell the user in words, not a
+        # traceback dialog (hit in practice with a forgotten serve.py on :8000).
         if not is_our_server(port):
-            raise
+            _fail_port_taken(port, e)
         # Not gated on `keys`: a plain relaunch (Start Menu / shortcut / double-click while the app
         # is open) has none, and it must still surface the window the user already has — opening a
         # browser tab instead would hand them a second UI on a different storage partition, i.e. an
