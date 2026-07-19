@@ -21,6 +21,7 @@ import ssl
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -1034,9 +1035,11 @@ def build_locale_index(
 # driven off the already-built manifest, so no extra CDragon fetches happen.
 SITE_URL = "https://badfalcon.github.io/OpenLeagueDisplay/"
 
-# Google Fonts + brand stylesheet, kept in sync with index.html's <head> so the
-# static landing pages render on-brand (styles.css is loaded via ../styles.css).
-_SEO_FONTS = (
+# Google Fonts <link>s for the static pages, so they render on-brand (styles.css
+# is loaded via ../styles.css). To avoid drift, the font list is read straight out
+# of index.html's <head> (single source of truth) and only falls back to this baked
+# copy if the file/lines can't be found.
+_SEO_FONTS_FALLBACK = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
     '<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600'
@@ -1044,15 +1047,45 @@ _SEO_FONTS = (
     '&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">'
 )
 
-# CSP for the static pages. They carry no executable JS (a <script type="application/
-# ld+json"> block is a data island, exempt from script-src), so script-src is omitted;
-# images come from CDragon, fonts from Google. Mirrors index.html's defense-in-depth.
+
+def _extract_fonts_from_index() -> str:
+    """Pull the Google Fonts <link>s (preconnects + css2 stylesheet) out of
+    index.html so the family list has one source of truth. Returns "" if the file
+    or the expected lines aren't present (caller falls back to the baked copy)."""
+    try:
+        src = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    links = re.findall(r"<link[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>", src)
+    return "\n".join(links)
+
+
+_SEO_FONTS = _extract_fonts_from_index() or _SEO_FONTS_FALLBACK
+
+# CSP for the static pages. Deliberately a DIFFERENT (stricter) policy than
+# index.html's — the static pages carry no executable JS (a <script type="application/
+# ld+json"> block is a data island, exempt from script-src) and don't load JSZip /
+# analytics, so script-src is omitted entirely; images come from CDragon, fonts from
+# Google. Not a copy to keep in sync — narrower on purpose.
 _SEO_CSP = (
     "default-src 'self'; img-src 'self' data: https://raw.communitydragon.org; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src https://fonts.gstatic.com; base-uri 'self'; form-action 'self'; "
     "frame-ancestors 'none'; object-src 'none'"
 )
+
+
+def _jsonld(obj: dict) -> str:
+    """Serialize a JSON-LD object for embedding in an inline <script>. Escape '<'
+    (plus '>' & '&') as \\uXXXX so a value that ever contains '</script>' can't
+    terminate the element early or inject markup. These chars only occur inside JSON
+    string values, so replacing them post-serialization is safe."""
+    return (
+        json.dumps(obj, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def _seo_skin_name(champ_name: str, label: str) -> str:
@@ -1066,6 +1099,9 @@ def _seo_champion_page(champ: dict) -> str:
     name = champ["name"]
     alias = champ["alias"]
     slug = alias.lower()
+    # The SPA builds its route with encodeURIComponent (js/app.js routeFromState);
+    # match that here so the hand-off link stays valid for any alias charset.
+    route_alias = urllib.parse.quote(alias, safe="")
     skins = champ.get("skins") or []
     n = len(skins)
     classic = next(
@@ -1160,7 +1196,7 @@ def _seo_champion_page(champ: dict) -> str:
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 {_SEO_FONTS}
 <link rel="stylesheet" href="../styles.css">
-<script type="application/ld+json">{json.dumps(jsonld, ensure_ascii=False)}</script>
+<script type="application/ld+json">{_jsonld(jsonld)}</script>
 </head>
 <body class="seo-page">
 <a class="skip-link" href="#content">Skip to content</a>
@@ -1171,7 +1207,7 @@ def _seo_champion_page(champ: dict) -> str:
 </nav>
 <main id="content" class="seo-main">
   <h1>{e(name)} Splash Art &amp; Skins</h1>
-{eyebrow_html}{bio_html}  <p class="seo-cta"><a href="../#/champion/{e(alias)}">Open {e(name)} in the interactive viewer →</a></p>
+{eyebrow_html}{bio_html}  <p class="seo-cta"><a href="../#/champion/{e(route_alias)}">Open {e(name)} in the interactive viewer →</a></p>
   <h2>All {n} {e(name)} skins</h2>
   <ul class="seo-grid">
 {cards_html}
@@ -1230,7 +1266,7 @@ def _seo_index_page(champs: list[dict]) -> str:
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 {_SEO_FONTS}
 <link rel="stylesheet" href="../styles.css">
-<script type="application/ld+json">{json.dumps(jsonld, ensure_ascii=False)}</script>
+<script type="application/ld+json">{_jsonld(jsonld)}</script>
 </head>
 <body class="seo-page">
 <a class="skip-link" href="#content">Skip to content</a>
@@ -1286,19 +1322,28 @@ def write_seo_pages(champions: list[dict], generated_at: str, out_dir: Path | No
     champ_dir = root / "champions"
     champ_dir.mkdir(parents=True, exist_ok=True)
     written = 0
+    expected = {"index.html"}  # the hub is written below; keep it
     for c in champions:
         if not c.get("skins"):
             continue
-        (champ_dir / f"{c['alias'].lower()}.html").write_text(
-            _seo_champion_page(c), encoding="utf-8"
-        )
+        fname = f"{c['alias'].lower()}.html"
+        (champ_dir / fname).write_text(_seo_champion_page(c), encoding="utf-8")
+        expected.add(fname)
         written += 1
     (champ_dir / "index.html").write_text(_seo_index_page(champions), encoding="utf-8")
+    # Prune pages for champions that were renamed/removed upstream, so orphaned
+    # files don't linger in the repo and stay crawlable (write-only would leak them).
+    pruned = 0
+    for stale in champ_dir.glob("*.html"):
+        if stale.name not in expected:
+            stale.unlink()
+            pruned += 1
     # lastmod = date portion of the manifest's generated_at_utc (YYYY-MM-DD)
     lastmod = (generated_at or "")[:10] or time.strftime("%Y-%m-%d", time.gmtime())
     (root / "sitemap.xml").write_text(_seo_sitemap(champions, lastmod), encoding="utf-8")
     print(
-        f"[SEO] wrote {written} champion pages + champions/index.html + sitemap.xml",
+        f"[SEO] wrote {written} champion pages + champions/index.html + sitemap.xml"
+        + (f" (pruned {pruned} stale)" if pruned else ""),
         flush=True,
     )
 
