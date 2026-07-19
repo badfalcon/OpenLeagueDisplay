@@ -85,9 +85,9 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.json i18n/
+          git add data.json i18n/ champions/ sitemap.xml
           if git diff --cached --quiet; then
-            echo "No changes to data.json or i18n/"
+            echo "No changes to data.json, i18n/, champions/ or sitemap.xml"
           else
             git commit -m "chore: auto-update data.json + i18n"
             git push

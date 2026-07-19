@@ -40,6 +40,8 @@
      twitter:card summary_large_image), a static asset at the repo root.
      When swapping it, update og:image:width/height to match -->
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenLeagueDisplay">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://badfalcon.github.io/OpenLeagueDisplay/">
 <meta property="og:title" content="OpenLeagueDisplay">
 <meta property="og:description" content="The community successor to LeagueDisplays: browse every champion & skin and set any splash as your wallpaper. The desktop app sets it in one click; the web version is the no-install way to browse.">
@@ -52,6 +54,18 @@
 <meta name="twitter:description" content="The community successor to LeagueDisplays — browse every champion & skin and set any splash as your wallpaper in one click with the desktop app">
 <meta name="twitter:image" content="https://badfalcon.github.io/OpenLeagueDisplay/ogp.png">
 <title>OpenLeagueDisplay</title>
+<!-- Canonical: the site lives at one URL; the SPA's hash routes (#/...) are the same
+     document to crawlers, so point every variant back to the root. -->
+<link rel="canonical" href="https://badfalcon.github.io/OpenLeagueDisplay/">
+<!-- Structured data (JSON-LD): describes the site + web app for search engines.
+     application/ld+json is a data island (not executed), so CSP script-src doesn't
+     block it. No SearchAction — client-side hash search has no crawlable target URL. -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"WebSite","@id":"https://badfalcon.github.io/OpenLeagueDisplay/#website","name":"OpenLeagueDisplay","url":"https://badfalcon.github.io/OpenLeagueDisplay/","description":"The community successor to LeagueDisplays: browse every League of Legends champion and skin, and set any splash as your wallpaper.","inLanguage":"en"},
+{"@type":"WebApplication","name":"OpenLeagueDisplay","url":"https://badfalcon.github.io/OpenLeagueDisplay/","applicationCategory":"MultimediaApplication","operatingSystem":"Web, Windows, macOS, Linux","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Browse every League of Legends champion and skin, download splashes as ZIP, and set any splash as your desktop wallpaper.","isPartOf":{"@id":"https://badfalcon.github.io/OpenLeagueDisplay/#website"}}
+]}
+</script>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!-- PWA: for add-to-home-screen / install. Icons are SVG (keeping the no-binaries-in-repo
      policy). theme-color matches the site's --bg.
@@ -171,6 +185,16 @@
 <!-- tabindex="-1" lets this be the skip link's landing target (programmatic focus) -->
 <main id="root" tabindex="-1">
   <div class="loading"><h2 id="loading-title">LOADING</h2><p id="loading-msg">Loading manifest…</p></div>
+  <!-- Fallback for crawlers / no-JS: the viewer renders client-side, so without JS the
+       page is otherwise just "LOADING". Give a real description and a crawlable path into
+       the pre-rendered per-champion pages (champions/), which link to every champion. -->
+  <noscript>
+    <div class="noscript-fallback">
+      <h2>OpenLeagueDisplay</h2>
+      <p>The community successor to LeagueDisplays — browse splash art for every League of Legends champion and skin, and set any splash as your desktop wallpaper. The interactive viewer needs JavaScript.</p>
+      <p><a href="champions/">Browse all champions →</a></p>
+    </div>
+  </noscript>
 </main>
 
 <div class="progress-overlay" id="progress-overlay" role="dialog" aria-modal="true" aria-hidden="true">
@@ -319,6 +343,10 @@
       by <a href="https://github.com/badfalcon" target="_blank" rel="noopener">@badfalcon</a>
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay" target="_blank" rel="noopener">Source</a>
       · <a href="https://github.com/badfalcon/OpenLeagueDisplay/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <!-- Internal crawlable link to the pre-rendered champion index (SEO link graph;
+           the JS-rendered grid isn't a reliable crawl path). English text mark, like
+           the rest of this footer, so applyStaticUIStrings leaves it untouched. -->
+      · <a href="champions/">All champions</a>
     </div>
     <!-- Policy basis + use scope. Kept in English (like footer-attribution above) rather than
          localized: machine-translating legal text across 20 locales risks worse accuracy than the

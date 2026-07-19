@@ -21,6 +21,7 @@ import ssl
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -1021,6 +1022,332 @@ def build_locale_index(
     }
 
 
+# ---------------------------------------------------------------------------
+# SEO: pre-rendered static landing pages
+# ---------------------------------------------------------------------------
+# The site is a client-side SPA that navigates with hash routes (#/champion/...).
+# Search engines ignore everything after "#", so every champion collapses into the
+# single homepage URL and none are individually indexable. To fix that we emit one
+# static, crawlable HTML page per champion (real content + its own meta/OG/canonical/
+# JSON-LD), a champions/ hub that links them all, and a root sitemap.xml. The pages
+# are English (default locale) only and hand off to the localized SPA via a CTA link;
+# per-locale pre-rendering (x20) is deliberately out of scope. Everything here is
+# driven off the already-built manifest, so no extra CDragon fetches happen.
+SITE_URL = "https://badfalcon.github.io/OpenLeagueDisplay/"
+
+# Google Fonts <link>s for the static pages, so they render on-brand (styles.css
+# is loaded via ../styles.css). To avoid drift, the font list is read straight out
+# of index.html's <head> (single source of truth) and only falls back to this baked
+# copy if the file/lines can't be found.
+_SEO_FONTS_FALLBACK = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+    '<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600'
+    "&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100"
+    '&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">'
+)
+
+
+def _extract_fonts_from_index() -> str:
+    """Pull the Google Fonts <link>s (preconnects + css2 stylesheet) out of
+    index.html so the family list has one source of truth. Returns "" if the file
+    or the expected lines aren't present (caller falls back to the baked copy)."""
+    try:
+        src = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    links = re.findall(r"<link[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>", src)
+    return "\n".join(links)
+
+
+_SEO_FONTS = _extract_fonts_from_index() or _SEO_FONTS_FALLBACK
+
+# CSP for the static pages. Deliberately a DIFFERENT (stricter) policy than
+# index.html's — the static pages carry no executable JS (a <script type="application/
+# ld+json"> block is a data island, exempt from script-src) and don't load JSZip /
+# analytics, so script-src is omitted entirely; images come from CDragon, fonts from
+# Google. Not a copy to keep in sync — narrower on purpose.
+_SEO_CSP = (
+    "default-src 'self'; img-src 'self' data: https://raw.communitydragon.org; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src https://fonts.gstatic.com; base-uri 'self'; form-action 'self'; "
+    "frame-ancestors 'none'; object-src 'none'"
+)
+
+
+def _jsonld(obj: dict) -> str:
+    """Serialize a JSON-LD object for embedding in an inline <script>. Escape '<'
+    (plus '>' & '&') as \\uXXXX so a value that ever contains '</script>' can't
+    terminate the element early or inject markup. These chars only occur inside JSON
+    string values, so replacing them post-serialization is safe."""
+    return (
+        json.dumps(obj, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
+def _seo_skin_name(champ_name: str, label: str) -> str:
+    """English display name for a skin. Non-base labels are already the English skin
+    name; the base skin's label is `<Alias>_Classic` (see collect_skins_from_skin_obj)."""
+    return f"Classic {champ_name}" if label.endswith("_Classic") else label
+
+
+def _seo_champion_page(champ: dict) -> str:
+    e = html.escape
+    name = champ["name"]
+    alias = champ["alias"]
+    slug = alias.lower()
+    # The SPA builds its route with encodeURIComponent (js/app.js routeFromState);
+    # match that here so the hand-off link stays valid for any alias charset.
+    route_alias = urllib.parse.quote(alias, safe="")
+    skins = champ.get("skins") or []
+    n = len(skins)
+    classic = next(
+        (s for s in skins if s["label"].endswith("_Classic")),
+        skins[0] if skins else {},
+    )
+    og_image = classic.get("splash") or classic.get("tile") or ""
+    bio = (champ.get("bio") or "").strip()
+    # roles are stored lowercase (mage/tank/...); capitalize for display
+    roles = [r.capitalize() for r in (champ.get("roles") or [])]
+    regions = [REGION_NAMES.get(r, r) for r in (champ.get("regions") or [])]
+    canonical = f"{SITE_URL}champions/{slug}.html"
+
+    # Meta description: intent phrase + skin count + a trimmed bio snippet
+    snippet = bio if len(bio) <= 160 else bio[:157].rstrip() + "…"
+    desc = (
+        f"Browse all {n} {name} splash arts and skins from League of Legends, "
+        f"and set any as your desktop wallpaper. {snippet}"
+    ).strip()
+
+    jsonld: dict = {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": f"{name} Splash Art & Skins",
+        "url": canonical,
+        "description": desc,
+        "isPartOf": {"@type": "WebSite", "name": "OpenLeagueDisplay", "url": SITE_URL},
+        "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "OpenLeagueDisplay", "item": SITE_URL},
+                {"@type": "ListItem", "position": 2, "name": "Champions", "item": f"{SITE_URL}champions/"},
+                {"@type": "ListItem", "position": 3, "name": name, "item": canonical},
+            ],
+        },
+    }
+    if og_image:
+        jsonld["primaryImageOfPage"] = {"@type": "ImageObject", "contentUrl": og_image}
+
+    # Skin cards: real <img> + name text so the splashes and skin names are crawlable.
+    # LoL uncentered splashes are 1215x717; the size hint just curbs layout shift.
+    cards = []
+    for s in skins:
+        sname = _seo_skin_name(name, s["label"])
+        img = s.get("splash") or s.get("tile") or ""
+        if img:
+            cards.append(
+                f'    <li class="seo-skin"><img loading="lazy" decoding="async" '
+                f'width="1215" height="717" src="{e(img)}" alt="{e(sname)} splash art">'
+                f"<span>{e(sname)}</span></li>"
+            )
+        else:
+            cards.append(f'    <li class="seo-skin"><span>{e(sname)}</span></li>')
+    cards_html = "\n".join(cards)
+
+    eyebrow_bits = []
+    if roles:
+        eyebrow_bits.append(", ".join(roles))
+    if regions:
+        eyebrow_bits.append(", ".join(regions))
+    eyebrow = e(" · ".join(eyebrow_bits))
+
+    og_img_tags = ""
+    if og_image:
+        og_img_tags = (
+            f'<meta property="og:image" content="{e(og_image)}">\n'
+            f'<meta name="twitter:image" content="{e(og_image)}">\n'
+        )
+
+    eyebrow_html = f'  <p class="seo-eyebrow">{eyebrow}</p>\n' if eyebrow else ""
+    bio_html = f'  <p class="seo-bio">{e(bio)}</p>\n' if bio else ""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="{_SEO_CSP}">
+<title>{e(name)} Splash Art &amp; Skins · OpenLeagueDisplay</title>
+<meta name="description" content="{e(desc)}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{e(canonical)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenLeagueDisplay">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="{e(canonical)}">
+<meta property="og:title" content="{e(name)} Splash Art &amp; Skins">
+<meta property="og:description" content="{e(desc)}">
+{og_img_tags}<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{e(name)} Splash Art &amp; Skins">
+<meta name="twitter:description" content="{e(desc)}">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+{_SEO_FONTS}
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">{_jsonld(jsonld)}</script>
+</head>
+<body class="seo-page">
+<a class="skip-link" href="#content">Skip to content</a>
+<nav class="seo-crumbs" aria-label="Breadcrumb">
+  <a href="../">OpenLeagueDisplay</a> <span aria-hidden="true">›</span>
+  <a href="./">Champions</a> <span aria-hidden="true">›</span>
+  <span>{e(name)}</span>
+</nav>
+<main id="content" class="seo-main">
+  <h1>{e(name)} Splash Art &amp; Skins</h1>
+{eyebrow_html}{bio_html}  <p class="seo-cta"><a href="../#/champion/{e(route_alias)}">Open {e(name)} in the interactive viewer →</a></p>
+  <h2>All {n} {e(name)} skins</h2>
+  <ul class="seo-grid">
+{cards_html}
+  </ul>
+  <p class="seo-back"><a href="./">← Browse all champions</a></p>
+</main>
+<footer class="seo-footer">
+  Images &amp; data from <a href="https://communitydragon.org" rel="noopener" target="_blank">Community Dragon</a>.
+  League of Legends © Riot Games, Inc. Fan-made under Riot Games'
+  <a href="https://www.riotgames.com/en/legal" rel="noopener" target="_blank">Legal Jibber Jabber</a> policy —
+  not endorsed by Riot Games. For personal, non-commercial use only.
+</footer>
+</body>
+</html>
+"""
+
+
+def _seo_index_page(champs: list[dict]) -> str:
+    e = html.escape
+    items = "\n".join(
+        f'    <li><a href="{c["alias"].lower()}.html">{e(c["name"])}</a></li>'
+        for c in sorted(champs, key=lambda x: x["name"].lower())
+    )
+    canonical = f"{SITE_URL}champions/"
+    desc = (
+        f"Browse all {len(champs)} League of Legends champions — splash art and "
+        "skins for every champion, free to view and download as wallpaper."
+    )
+    jsonld = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "All Champions · OpenLeagueDisplay",
+        "url": canonical,
+        "description": desc,
+        "isPartOf": {"@type": "WebSite", "name": "OpenLeagueDisplay", "url": SITE_URL},
+    }
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="{_SEO_CSP}">
+<title>All Champions Splash Art &amp; Skins · OpenLeagueDisplay</title>
+<meta name="description" content="{e(desc)}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="{e(canonical)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenLeagueDisplay">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="{e(canonical)}">
+<meta property="og:title" content="All League of Legends Champions — Splash Art &amp; Skins">
+<meta property="og:description" content="{e(desc)}">
+<meta property="og:image" content="{SITE_URL}ogp.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{SITE_URL}ogp.png">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+{_SEO_FONTS}
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">{_jsonld(jsonld)}</script>
+</head>
+<body class="seo-page">
+<a class="skip-link" href="#content">Skip to content</a>
+<nav class="seo-crumbs" aria-label="Breadcrumb">
+  <a href="../">OpenLeagueDisplay</a> <span aria-hidden="true">›</span>
+  <span>Champions</span>
+</nav>
+<main id="content" class="seo-main">
+  <h1>All League of Legends Champions</h1>
+  <p class="seo-bio">Splash art and skins for every champion. Pick a champion to see all splashes, or <a href="../">open the interactive viewer</a>.</p>
+  <ul class="seo-champ-list">
+{items}
+  </ul>
+</main>
+<footer class="seo-footer">
+  Images &amp; data from <a href="https://communitydragon.org" rel="noopener" target="_blank">Community Dragon</a>.
+  League of Legends © Riot Games, Inc. Not endorsed by Riot Games. For personal, non-commercial use only.
+</footer>
+</body>
+</html>
+"""
+
+
+def _seo_sitemap(champs: list[dict], lastmod: str) -> str:
+    e = html.escape
+    urls = [SITE_URL, f"{SITE_URL}champions/"]
+    urls += [
+        f"{SITE_URL}champions/{c['alias'].lower()}.html"
+        for c in sorted(champs, key=lambda x: x["alias"].lower())
+    ]
+    body = []
+    for i, u in enumerate(urls):
+        prio = "1.0" if i == 0 else ("0.8" if i == 1 else "0.6")
+        body.append(
+            f"  <url>\n    <loc>{e(u)}</loc>\n    <lastmod>{e(lastmod)}</lastmod>\n"
+            f"    <changefreq>weekly</changefreq>\n    <priority>{prio}</priority>\n  </url>"
+        )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(body)
+        + "\n</urlset>\n"
+    )
+
+
+def write_seo_pages(champions: list[dict], generated_at: str, out_dir: Path | None = None) -> None:
+    """Emit the static per-champion pages, the champions/ hub, and sitemap.xml.
+
+    Called from main() after data.json is written, and re-run weekly by update.yml
+    (which commits champions/ + sitemap.xml). Skips champions with no skins.
+    """
+    root = out_dir or Path(__file__).parent
+    champ_dir = root / "champions"
+    champ_dir.mkdir(parents=True, exist_ok=True)
+    written = 0
+    expected = {"index.html"}  # the hub is written below; keep it
+    for c in champions:
+        if not c.get("skins"):
+            continue
+        fname = f"{c['alias'].lower()}.html"
+        (champ_dir / fname).write_text(_seo_champion_page(c), encoding="utf-8")
+        expected.add(fname)
+        written += 1
+    (champ_dir / "index.html").write_text(_seo_index_page(champions), encoding="utf-8")
+    # Prune pages for champions that were renamed/removed upstream, so orphaned
+    # files don't linger in the repo and stay crawlable (write-only would leak them).
+    pruned = 0
+    for stale in champ_dir.glob("*.html"):
+        if stale.name not in expected:
+            stale.unlink()
+            pruned += 1
+    # lastmod = date portion of the manifest's generated_at_utc (YYYY-MM-DD)
+    lastmod = (generated_at or "")[:10] or time.strftime("%Y-%m-%d", time.gmtime())
+    (root / "sitemap.xml").write_text(_seo_sitemap(champions, lastmod), encoding="utf-8")
+    print(
+        f"[SEO] wrote {written} champion pages + champions/index.html + sitemap.xml"
+        + (f" (pruned {pruned} stale)" if pruned else ""),
+        flush=True,
+    )
+
+
 def main() -> int:
     # Only a non-flag argument is the output path (a bare `--locales=...` used to be
     # swallowed here and data.json got written to a file literally named "--locales=...")
@@ -1055,6 +1382,14 @@ def main() -> int:
         )
         size_kb = out_path.stat().st_size / 1024
         print(f"==> {out_path} ({size_kb:.1f} KB)")
+
+        # Pre-render static per-champion landing pages + sitemap so search engines
+        # can index each champion (the SPA's hash routes are invisible to crawlers).
+        write_seo_pages(
+            manifest["champions"],
+            manifest["generated_at_utc"],
+            out_dir=out_path.parent,
+        )
 
     # i18n: generate a name dict per locale. Continue even if one locale fails
     target_locales = LOCALES if locales_filter is None else [l for l in LOCALES if l in locales_filter]

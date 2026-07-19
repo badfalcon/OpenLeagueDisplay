@@ -16,13 +16,16 @@
 // - Offline operation (PWA) survives via the cache fallback. SHELL is precached
 //   on install. Bump CACHE_VERSION whenever the shell changes.
 
-const CACHE_VERSION = "v19";
+const CACHE_VERSION = "v20";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).
 const SHELL = [
   "./",
   "./index.html",
+  // The pre-rendered champion hub: keeps an offline deep link to a /champions/
+  // page landing on a relevant page (the hub) rather than the SPA home.
+  "./champions/index.html",
   "./styles.css",
   "./manifest.webmanifest",
   "./favicon.svg",
@@ -74,6 +77,13 @@ async function networkFirst(req) {
     const hit = await cache.match(req);
     if (hit) return hit;
     if (req.mode === "navigate") {
+      // For an uncached /champions/ deep link, prefer the pre-rendered champion
+      // hub (relevant, links to every champion) over the SPA shell, which would
+      // boot to the home view with no way to recover the champion from the path.
+      if (new URL(req.url).pathname.includes("/champions/")) {
+        const hub = await cache.match("./champions/index.html");
+        if (hub) return hub;
+      }
       const shell = await cache.match("./index.html");
       if (shell) return shell;
     }
