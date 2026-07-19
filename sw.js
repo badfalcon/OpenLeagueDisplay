@@ -16,7 +16,7 @@
 // - Offline operation (PWA) survives via the cache fallback. SHELL is precached
 //   on install. Bump CACHE_VERSION whenever the shell changes.
 
-const CACHE_VERSION = "v19";
+const CACHE_VERSION = "v20";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).

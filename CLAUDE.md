@@ -47,6 +47,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
 ├── i18n/<locale>.json               # 言語別の名前辞書 (1ファイル100-200KB、generate_data.py で同時生成)
+├── robots.txt                       # クロール許可 + sitemap.xml の場所 (静的、1回コミット)
+├── sitemap.xml                      # サイトマップ (root + champions/ + 全チャンピオンページ、generate_data.py で生成)
+├── champions/<alias>.html           # チャンピオン別の事前生成SEOページ (英語のみ、generate_data.py で生成)
+├── champions/index.html             # 全チャンピオン一覧ハブ (クロール用リンクグラフ、generate_data.py で生成)
 ├── .github/workflows/update.yml     # 週次 (月曜09:00 JST) で data.json 自動更新
 ├── .github/workflows/release.yml    # タグ push で各 OS のデスクトップバイナリを build & Release
 ├── .github/release.yml              # 自動生成リリースノート (changelog) の分類設定
@@ -548,6 +552,26 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
 - [x] ~~OGP/Twitter Card メタタグ追加 (シェア時のサムネ)~~ → `ogp.png`
   (1200x630 ブランドカード) を追加、`twitter:card` を `summary_large_image`
   に。og:image は絶対URL指定 (クローラは相対URLを解決しない)
+- [x] ~~SEO対策~~ → 2段構えで実装。**①トップページのオンページ SEO**: `index.html` に
+  canonical / `og:site_name` / `og:locale` / JSON-LD (WebSite + WebApplication) を追加、
+  `<noscript>` フォールバック (JS 無効/初回クロールで `LOADING` しか見えない問題の対策。
+  `champions/` ハブへの実リンク付き)、フッターに `champions/` への内部リンク。`robots.txt`
+  (静的) も追加。**②チャンピオン別の事前生成静的ページ**: SPA はハッシュルーティング
+  (`#/champion/...`) なのでクローラは `#` 以降を無視し全チャンピオンが1つのURLに潰れる。
+  対策として `generate_data.py` の `write_seo_pages()` が既存マニフェストから追加 fetch 無しで
+  `champions/<alias>.html` (約173枚。実コンテンツ = 名前 / bio / 全スキンのスプラッシュ `<img>` +
+  ページ個別の title/description/canonical/OG/JSON-LD(WebPage+BreadcrumbList)) と一覧ハブ
+  `champions/index.html`、ルートの `sitemap.xml` を出力する。設計判断: **フラット構成**
+  (`champions/<alias>.html`、1ディレクトリ・`../` の単純な相対パス) / **ファイル名は小文字**
+  (GitHub Pages はパス大文字小文字を区別。ただし CTA の `#/champion/{alias}` は SPA が照合する
+  元の大小を保つ) / **自動リダイレクトしない** (クローキング回避。静的ページ自体が本物の
+  ランディングページ。CTA リンクでローカライズ済み SPA に受け渡す) / **英語(default locale)のみ**
+  (locale 別事前生成 ×20 ≒ 3500ページ + hreflang は意図的にスコープ外)。`update.yml` が
+  週次で `champions/ sitemap.xml` も commit する (`git add` 対象に追加済み)。`sw.js` の
+  `CACHE_VERSION` は `<head>` 変更に合わせて v19→v20。`.seo-*` の CSS は `styles.css` に
+  集約 (各ページは `../styles.css` を読むので1ソース)。JSON-LD の `<script type=
+  "application/ld+json">` は data island で CSP の script-src 対象外 (実行されない) なので
+  `unsafe-inline` 不要
 - [x] ~~PWAマニフェスト追加してスマホでホーム画面追加可能に~~ → `manifest.webmanifest` +
   `icon-maskable.svg` で実装済み。アイコンは SVG (リポジトリにバイナリを置かない方針)。
   `sw.js` で同一オリジンの GET (アプリシェル + `data.json` / `i18n/*.json`) を一律

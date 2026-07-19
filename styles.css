@@ -2744,3 +2744,82 @@
     margin: 0 0 24px; letter-spacing: 0.04em;
   }
   .wp-done-dialog .wp-actions { justify-content: center; }
+
+  /* ===== Pre-rendered SEO landing pages (champions/*.html, champions/index.html) =====
+     Static, crawlable pages served outside the SPA. They load this stylesheet via
+     ../styles.css and reuse the palette/fonts so they read as the same site. Kept
+     self-contained under .seo-page so nothing here touches the app's own layout. */
+  .seo-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px var(--container-pad) 64px;
+  }
+  .seo-crumbs {
+    font-family: var(--font-eyebrow);
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 20px;
+  }
+  .seo-crumbs a { color: var(--gold); text-decoration: none; }
+  .seo-crumbs a:hover { color: var(--gold-hi); }
+  .seo-main h1 {
+    font-family: var(--font-display);
+    color: var(--gold-hi); font-size: clamp(28px, 5vw, 44px);
+    margin: 0 0 8px;
+  }
+  .seo-eyebrow {
+    font-family: var(--font-eyebrow);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--gold); font-size: 13px; margin: 0 0 16px;
+  }
+  .seo-bio { color: var(--ink); max-width: 68ch; line-height: 1.6; margin: 0 0 20px; }
+  .seo-bio a, .seo-back a, .noscript-fallback a { color: var(--gold); }
+  .seo-cta { margin: 0 0 32px; }
+  .seo-cta a {
+    display: inline-block;
+    font-family: var(--font-eyebrow); letter-spacing: 0.04em;
+    padding: 12px 22px; border: 1px solid var(--rule-bold); border-radius: 4px;
+    color: var(--gold-hi); text-decoration: none;
+  }
+  .seo-cta a:hover { border-color: var(--gold); background: var(--bg-2); }
+  .seo-main h2 {
+    font-family: var(--font-display); color: var(--ink);
+    font-size: 22px; margin: 40px 0 20px;
+    border-top: 1px solid var(--rule); padding-top: 24px;
+  }
+  .seo-grid {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .seo-skin { display: flex; flex-direction: column; gap: 8px; }
+  .seo-skin img {
+    width: 100%; height: auto; aspect-ratio: 1215 / 717;
+    object-fit: cover; border: 1px solid var(--card-outline); border-radius: 4px;
+    background: var(--bg-1);
+  }
+  .seo-skin span {
+    font-family: var(--font-eyebrow); font-size: 13px;
+    letter-spacing: 0.03em; color: var(--ink-soft);
+  }
+  .seo-champ-list {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: 4px 20px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+  .seo-champ-list a {
+    display: block; padding: 8px 4px;
+    color: var(--ink); text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-eyebrow); letter-spacing: 0.02em;
+  }
+  .seo-champ-list a:hover { color: var(--gold-hi); }
+  .seo-back { margin: 40px 0 0; }
+  .seo-footer {
+    margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule);
+    color: var(--ink-mute); font-size: 13px; line-height: 1.7;
+  }
+  .seo-footer a { color: var(--ink-soft); }
+  /* In-app no-JS fallback (index.html <noscript>) */
+  .noscript-fallback { max-width: 640px; margin: 64px auto; padding: 0 24px; text-align: center; }
+  .noscript-fallback h2 { font-family: var(--font-display); color: var(--gold-hi); }
+  .noscript-fallback p { color: var(--ink-soft); line-height: 1.6; }

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://badfalcon.github.io/OpenLeagueDisplay/sitemap.xml
