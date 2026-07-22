@@ -29,7 +29,7 @@ const TRIGGER_WORDS = new Set(["skinder", "lolskinder"]);
 
 let deck = [];          // [{ c, s, key }] shuffled likeable skins (splash-bearing)
 let idx = 0;            // index of the current top card in deck
-let history = [];       // decision stack for Undo: [{ added: bool }] (added = a like that was NEW to the gallery)
+let decisions = [];       // decision stack for Undo: [{ added: bool }] (added = a like that was NEW to the gallery)
 let addedKeys = new Set(); // keys this session newly added (for the done-screen count / undo)
 let committing = false; // a fly-out animation is in progress (blocks further input until it settles)
 let releaseTrap = null; // focus-trap release fn (set on open)
@@ -163,6 +163,9 @@ function renderDone(stage) {
   $("skinder-done-gallery").addEventListener("click", () => { closeSkinder(); openGallery(); });
   $("skinder-done-restart").addEventListener("click", restart);
   $("skinder-done-close").addEventListener("click", closeSkinder);
+  // The like/nope buttons that had focus are now disabled, so move focus to a live control
+  // rather than letting it drop to <body> (keeps a keyboard/SR anchor on the done screen).
+  $("skinder-done-gallery").focus();
 }
 
 // Enable/disable the action buttons. On the done screen everything but Undo is off; Undo stays
@@ -171,7 +174,7 @@ function setActionsEnabled(on, done = false) {
   const like = $("skinder-like"), nope = $("skinder-nope"), undoBtn = $("skinder-undo");
   if (like) like.disabled = done || !on;
   if (nope) nope.disabled = done || !on;
-  if (undoBtn) undoBtn.disabled = history.length === 0;
+  if (undoBtn) undoBtn.disabled = decisions.length === 0;
 }
 
 function updateCounter() {
@@ -236,7 +239,7 @@ function commit(dir, like, topEl) {
 
   // Record the like against the shared selection now (so the header count reacts immediately).
   const added = like ? addLike(item) : false;
-  history.push({ added });
+  decisions.push({ added });
   setActionsEnabled(false);  // freeze buttons during the fly-out; Undo re-enables on next render
 
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -263,8 +266,8 @@ function addLike(item) {
 }
 
 function undo() {
-  if (committing || history.length === 0) return;
-  const last = history.pop();
+  if (committing || decisions.length === 0) return;
+  const last = decisions.pop();
   idx = Math.max(0, idx - 1);
   if (last.added) {
     const item = deck[idx];
@@ -281,7 +284,7 @@ function undo() {
 function restart() {
   deck = buildDeck();
   idx = 0;
-  history = [];
+  decisions = [];
   addedKeys = new Set();
   refreshGalleryBtn();
   renderCards();
@@ -299,12 +302,23 @@ function onKeydown(e) {
   // Tab is intentionally left alone so trapFocus can keep focus inside the dialog.
 }
 
+// True if another overlay owns the screen. Opening on top of it would stack scroll-locks and
+// let a stray Konami sequence (its arrows are the lightbox's own nav) pop this over a live modal.
+function anyOverlayOpen() {
+  if (["lightbox", "tutorial-overlay", "progress-overlay"].some(id => {
+    const el = $(id); return el && el.classList.contains("open");
+  })) return true;
+  return ["wp-modal", "wp-done-modal", "choice-modal"].some(id => {
+    const el = $(id); return el && !el.hidden;
+  });
+}
+
 export function openSkinder() {
-  if (!DATA || isSkinderOpen()) return;
+  if (!DATA || isSkinderOpen() || anyOverlayOpen()) return;
   deck = buildDeck();
   if (!deck.length) return;  // no likeable skins (shouldn't happen with real data)
   idx = 0;
-  history = [];
+  decisions = [];
   addedKeys = new Set();
   ensureOverlay();
   renderCards();

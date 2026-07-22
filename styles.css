@@ -2823,6 +2823,9 @@
     z-index: 2;
     transition: transform 0.3s ease;
     will-change: transform;
+    /* We own every gesture on the top card, so keep the browser from claiming the horizontal
+       drag as a scroll/swipe on touch devices (the background is scroll-locked anyway). */
+    touch-action: none;
   }
   .skinder-card.is-top.dragging { transition: none; cursor: grabbing; }
   .skinder-img {
