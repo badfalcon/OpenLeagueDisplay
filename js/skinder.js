@@ -13,7 +13,7 @@
 // never imports this module, so the skinder→render edge is one-way (no cycle).
 
 import {
-  state, DATA, $, esc, saveSelected, SELECT_KEY,
+  state, DATA, $, esc, announce, saveSelected, SELECT_KEY,
   lockScroll, unlockScroll, trapFocus, setBackgroundInert, clearBackgroundInert,
 } from "./state.js";
 import { t, champName, skinLabel, RARITY_LABELS } from "./i18n.js";
@@ -32,6 +32,9 @@ let idx = 0;            // index of the current top card in deck
 let decisions = [];       // decision stack for Undo: [{ added: bool }] (added = a like that was NEW to the gallery)
 let addedKeys = new Set(); // keys this session newly added (for the done-screen count / undo)
 let committing = false; // a fly-out animation is in progress (blocks further input until it settles)
+let gen = 0;            // session generation, bumped on every open/close. A commit's deferred settle
+                        // captures it and bails if it no longer matches, so a fly-out left in flight
+                        // when the overlay is closed (Esc mid-animation) can't advance a later session's idx.
 let releaseTrap = null; // focus-trap release fn (set on open)
 let lastFocus = null;   // element focused before opening (restored on close)
 let keyHandler = null;  // capture-phase keydown listener while open (removed on close)
@@ -141,6 +144,9 @@ function renderCards() {
   wireDrag(topEl);
   setActionsEnabled(true);
   updateCounter();
+  // Announce the new card to screen readers (the counter is aria-hidden and the card art is
+  // decorative, so without this an SR user swiping has no idea which skin is up).
+  announce(`${champName(top.c)} — ${skinLabel(top.c, top.s)}`);
   // Warm the browser cache for the card two ahead so the reveal after a swipe is instant.
   const ahead = deck[idx + 2];
   if (ahead && ahead.s.splash) { const im = new Image(); im.src = ahead.s.splash; }
@@ -243,13 +249,16 @@ function commit(dir, like, topEl) {
   setActionsEnabled(false);  // freeze buttons during the fly-out; Undo re-enables on next render
 
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const myGen = gen;
   const finalize = () => { idx++; renderCards(); };
   if (reduce) { finalize(); return; }
   // Fly the card off in the swipe direction (transition is on .skinder-card.is-top in CSS).
   const off = dir === "right" ? 1 : -1;
   el.style.transform = `translate(${off * 130}%, 0) rotate(${off * 18}deg)`;
   let done = false;
-  const settle = () => { if (done) return; done = true; finalize(); };
+  // Bail if the overlay was closed/reopened while this fly-out was pending (stale settle must not
+  // touch a new session's idx). Both the transitionend and the timeout backstop route through here.
+  const settle = () => { if (done || myGen !== gen) return; done = true; finalize(); };
   el.addEventListener("transitionend", settle, { once: true });
   setTimeout(settle, FLY_MS + 60);  // backstop if transitionend doesn't fire
 }
@@ -317,9 +326,11 @@ export function openSkinder() {
   if (!DATA || isSkinderOpen() || anyOverlayOpen()) return;
   deck = buildDeck();
   if (!deck.length) return;  // no likeable skins (shouldn't happen with real data)
+  gen++;  // new session: invalidate any fly-out settle still pending from a prior open
   idx = 0;
   decisions = [];
   addedKeys = new Set();
+  committing = false;
   ensureOverlay();
   renderCards();
   lastFocus = document.activeElement;
@@ -337,6 +348,7 @@ export function openSkinder() {
 export function closeSkinder() {
   const el = $("skinder");
   if (!el || el.hidden) return;
+  gen++;  // invalidate any in-flight fly-out settle so it can't mutate a later session
   el.hidden = true;
   unlockScroll();
   clearBackgroundInert();

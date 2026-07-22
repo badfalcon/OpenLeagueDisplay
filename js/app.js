@@ -33,7 +33,7 @@ import {
 import { shareSite } from "./share.js";
 import { probeLocal, toast, applyWallpaper, isLocalWallpaper } from "./local.js";
 import { applyImportFromHash, mountFooterCTA } from "./desktop.js";
-import { openSkinder, isSkinderTrigger, wireKonami } from "./skinder.js";
+import { openSkinder, isSkinderTrigger, wireKonami, isSkinderOpen } from "./skinder.js";
 
 // Own scroll restoration ourselves (see applyRoute). The browser's default "auto" restoration
 // tries to re-apply a remembered scroll on a re-rendered SPA at the wrong time and would fight our
@@ -752,6 +752,10 @@ function wireEvents() {
     // goBack, navigating away underneath. Tab containment is handled by each modal's trapFocus.
     const wp = $("wp-modal"), wpDone = $("wp-done-modal"), choice = $("choice-modal");
     if ((wp && !wp.hidden) || (wpDone && !wpDone.hidden) || (choice && !choice.hidden)) return;
+    // Same deal for the hidden LoLSkinder overlay: it owns its own keys via a capture-phase
+    // listener (skinder.js), so the app's global shortcuts (? / / / Esc=goBack) must stand down
+    // while it's open — otherwise ? would open the tutorial on top of it.
+    if (isSkinderOpen()) return;
     // While the tutorial is shown, absorb keys with top priority (Esc/arrows/Enter only)
     if (isTutorialOpen()) {
       if (e.key === "Escape") closeTutorial();
