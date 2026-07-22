@@ -37,7 +37,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 │   ├── share.js                     #   サイト共有 (Web Share API / クリップボードコピーのフォールバック)
 │   ├── local.js                     #   ローカル実行検知 + 壁紙一括設定 API クライアント
 │   ├── wallpaper.js                 #   壁紙の確認モーダル (選択→確認→一括設定。ローカルのみ)
-│   └── desktop.js                   #   デスクトップ版の訴求 + Web→ネイティブの選択受け渡し (Web のみ)
+│   ├── desktop.js                   #   デスクトップ版の訴求 + Web→ネイティブの選択受け渡し (Web のみ)
+│   └── skinder.js                   #   隠し機能 LoLSkinder (スキン版Tinder。スワイプで選択→ギャラリー)
 ├── sw.js                            # Service Worker (アプリシェルのキャッシュ)
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
@@ -199,6 +200,20 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   ステージ全面クリック = View Splash (ボタンが accessible path、全面は利便)、
   タッチスワイプで前後送り (ライトボックスと同じ閾値 + click 漏れ吸収)。home と
   Skin Lines の素のリスト両方に出る (`mountFeaturedHero`、検索中は非表示)
+- **skinder.js**: **隠し機能 LoLSkinder** (スキン版 Tinder)。全スキン (splash 持ち) を
+  シャッフルした山札を1枚ずつカードで見せ、右スワイプ (♥ / →) で `state.selected` に追加 =
+  マイギャラリー入り、左スワイプ (✕ / ←) で見送り。**通常 UI からは一切リンクしない**
+  (オーバーレイ DOM は初回に遅延生成 = index.html を汚さない。toast / wallpaper.js と同手法)。
+  発見経路は2つで app.js が配線: ①**検索欄に秘密語** (`skinder` / `lolskinder`) をタイプ
+  (モバイルでも届く) ②**コナミコマンド** (↑↑↓↓←→←→BA。入力欄フォーカス中は無視)。import は
+  state / i18n と render.js の `render` / `refreshGalleryBtn` のみ (render.js は skinder を
+  import しない = 一方向辺で循環なし)。like は既存の `state.selected` Set を共有するので
+  `saveSelected` で永続化され、閉じると `render()` で背後のビューにも反映される。カードは
+  pointer ドラッグで 1:1 追従 + LIKE/NOPE スタンプ、閾値超えで commit / 未満はスプリングバック。
+  取り消し (↩ / z) は直近の判定を巻き戻す (新規追加した like だけ選択から除去)。キーボードは
+  capture フェーズで自前 keydown を張り、扱うキーだけ `stopImmediatePropagation` して app.js の
+  goBack / ? 等と衝突させない (lightbox 等と同じ isXxxOpen ガード方式)。reduced-motion では
+  fly アニメを飛ばす。山札を全部見ると done 画面 (マッチ数 + マイギャラリーへ / もう一度 / 完了)
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/

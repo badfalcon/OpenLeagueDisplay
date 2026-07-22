@@ -33,6 +33,7 @@ import {
 import { shareSite } from "./share.js";
 import { probeLocal, toast, applyWallpaper, isLocalWallpaper } from "./local.js";
 import { applyImportFromHash, mountFooterCTA } from "./desktop.js";
+import { openSkinder, isSkinderTrigger, wireKonami } from "./skinder.js";
 
 // Own scroll restoration ourselves (see applyRoute). The browser's default "auto" restoration
 // tries to re-apply a remembered scroll on a re-rendered SPA at the wrong time and would fight our
@@ -557,6 +558,14 @@ function wireEvents() {
       // Read the value at fire time, not at input-event time, so a stale query isn't written back if
       // goHome etc. cleared the input while the timer was pending.
       const value = $("search").value.trim();
+      // Hidden LoLSkinder easter egg: typing a secret word ("skinder"/"lolskinder") opens the
+      // swipe game instead of searching. Clear the box so the word isn't left behind as a query.
+      if (isSkinderTrigger(value)) {
+        $("search").value = "";
+        state.searchQuery = "";  // keep the (now-empty) box and the search state in sync
+        openSkinder();
+        return;
+      }
       if (value === state.searchQuery) return;
       // A search from a detail view flips to the list. Like the other view-entering navs, show the
       // filtered list from the top rather than leaving the detail view's leftover scroll in place.
@@ -823,6 +832,9 @@ function bootstrap() {
   // resolution, so no spurious pushState is emitted.
   wirePopstate();
   trackTopbarHeight();
+  // Hidden LoLSkinder easter egg: the Konami code (↑↑↓↓←→←→BA) opens it (the search-word
+  // trigger is wired in the search handler above).
+  wireKonami();
   init();
   registerSW();
 }
