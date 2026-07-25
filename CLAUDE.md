@@ -212,8 +212,18 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   pointer ドラッグで 1:1 追従 + LIKE/NOPE スタンプ、閾値超えで commit / 未満はスプリングバック。
   取り消し (↩ / z) は直近の判定を巻き戻す (新規追加した like だけ選択から除去)。キーボードは
   capture フェーズで自前 keydown を張り、扱うキーだけ `stopImmediatePropagation` して app.js の
-  goBack / ? 等と衝突させない (lightbox 等と同じ isXxxOpen ガード方式)。reduced-motion では
-  fly アニメを飛ばす。山札を全部見ると done 画面 (マッチ数 + マイギャラリーへ / もう一度 / 完了)
+  goBack / ? 等と衝突させない (lightbox 等と同じ isXxxOpen ガード方式)。app.js 側の keydown も
+  `isSkinderOpen()` で降りる (wp/choice モーダルと同じ作法。無いと `?` がチュートリアルを上に開く)。
+  reduced-motion では fly アニメを飛ばす。閉じる/開くで世代カウンタ (`gen`) を回し、飛行中の
+  fly-out の遅延 settle が次セッションの `idx` を進めないようにする (desktop.js の `_watchGen` と同型)。
+  山札を全部見ると done 画面 (マッチ数 + マイギャラリーへ / もう一度 / 完了)。
+  **意匠は Tinder のパスティーシュだが、素材は既存の意匠語彙から採る**: eyebrow は house 文法
+  (Cinzel 10.5px / weight 600 / 0.36em / `--gold`。`--gold-deep` は罫線・下線用の装飾色で本文には
+  使わない — 9.5px で 3.9:1 と AA 未満だった。`--ink-mute` を明るくしたのと同じ罠)、ワードマークは
+  header h1 と同じ Fraunces italic + optical settings (このサイトの一室に見せるため)、NOPE は
+  **`--crimson` を「印」= 枠と塗りに留め、前景は `.btn.danger` の淡いローズ `#e8a8a8`**
+  (crimson を字にすると 3.4:1、ローズなら 9.9:1。err トーストの `#f4c0c0` と同系)。done の ♥ は
+  `.gallery-empty-mark` の ◇ と同じ gold @ opacity 0.5 の控えめな置き方
 - **app.js**: 唯一の `<script type="module">` 読み込み対象。init + イベント配線 +
   `window.imgLoaded` / `window.imgErr` の露出だけを担当する。**hash ルーティング
   (`#/...`) の責務も app.js 持ち**: `routeFromState`/`setStateFromRoute`/`applyRoute`/

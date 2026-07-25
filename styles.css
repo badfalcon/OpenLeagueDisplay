@@ -2768,15 +2768,26 @@
     display: flex; align-items: center; gap: 14px;
   }
   .skinder-brand { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+  /* Eyebrow follows the house grammar (.hero-eyebrow / .banner-eyebrow): Cinzel 10.5px,
+     weight 600, 0.36em tracking, --gold. --gold-deep is a decoration color here (rules,
+     underlines, partial-selection borders), never body ink — at 9.5px it measured 3.9:1,
+     under WCAG AA, the same trap that forced --ink-mute to be lightened. */
   .skinder-eyebrow {
     font-family: var(--font-eyebrow);
-    font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase;
-    color: var(--gold-deep);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.36em; text-transform: uppercase;
+    color: var(--gold);
   }
+  /* The wordmark sits in the same slot as the site's own brand, so it wears the same
+     treatment as header h1 (Fraunces italic with the optical/SOFT variation settings) —
+     it should read as a room inside this site, not a generic app dropped on top. */
   .skinder-title {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 24px; letter-spacing: 0.04em;
+    font-size: 24px; font-weight: 500;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 500;
+    letter-spacing: -0.005em;
     color: var(--gold-hi);
   }
   .skinder-counter {
@@ -2843,7 +2854,8 @@
   }
   .skinder-champ {
     font-family: var(--font-eyebrow);
-    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase;
     color: var(--gold);
   }
   .skinder-skin {
@@ -2868,7 +2880,11 @@
     opacity: 0; pointer-events: none;
   }
   .skinder-stamp-like { left: 22px; transform: rotate(-14deg); color: var(--gold-hi); border-color: var(--gold-hi); }
-  .skinder-stamp-nope { right: 22px; transform: rotate(14deg); color: var(--crimson); border-color: var(--crimson); }
+  /* --crimson is the seal, not the ink: the codex uses it as a border/fill and pairs it with a
+     pale rose foreground (.btn.danger's #e8a8a8, the err toast's #f4c0c0). Crimson type on the
+     near-black card measured 3.4:1; the rose is 9.9:1 and is the color this palette already
+     reaches for when something says "no". */
+  .skinder-stamp-nope { right: 22px; transform: rotate(14deg); color: #e8a8a8; border-color: var(--crimson); }
 
   .skinder-actions {
     flex: 0 0 auto;
@@ -2887,8 +2903,10 @@
   .skinder-btn:not(:disabled):active { transform: scale(0.94); }
   .skinder-nope, .skinder-like { width: 64px; height: 64px; font-size: 26px; }
   .skinder-undo { width: 46px; height: 46px; font-size: 18px; color: var(--ink-soft); }
-  .skinder-nope { color: var(--crimson); }
-  .skinder-nope:not(:disabled):hover { border-color: var(--crimson); background: rgba(183, 58, 58, 0.14); }
+  /* Mirrors .btn.danger exactly (rose ink + translucent crimson edge at rest, crimson fill on
+     hover) so "reject" looks the same here as everywhere else in the app. */
+  .skinder-nope { color: #e8a8a8; border-color: rgba(183, 58, 58, 0.55); }
+  .skinder-nope:not(:disabled):hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
   .skinder-like { color: var(--gold-hi); }
   .skinder-like:not(:disabled):hover { border-color: var(--gold); background: rgba(212, 168, 87, 0.16); }
   .skinder-undo:not(:disabled):hover { border-color: var(--gold); color: var(--gold-hi); }
@@ -2903,7 +2921,9 @@
     display: flex; flex-direction: column; align-items: center; gap: 14px;
     padding: 20px;
   }
-  .skinder-done-mark { font-size: 52px; color: var(--gold); line-height: 1; }
+  /* Same muted treatment as .gallery-empty-mark's ◇ (gold at half opacity) — the site states
+     its marks quietly. ♥ rather than ◇ because this screen is the game's own punchline. */
+  .skinder-done-mark { font-size: 46px; color: var(--gold); opacity: 0.5; line-height: 1; }
   .skinder-done-title {
     margin: 0; font-family: var(--font-display);
     font-size: 26px; color: var(--gold-hi);
