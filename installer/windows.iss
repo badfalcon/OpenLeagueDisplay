@@ -1,8 +1,8 @@
 ; Inno Setup script — OpenLeagueDisplay Windows installer
 ; =============================================================
-; Installs the PyInstaller output (dist\OpenLeagueDisplay.exe) per-user, with a
-; Start Menu entry / optional desktop shortcut / uninstaller (registered in
-; "Apps & features"). The binaries (exe / ico) are not committed to the repo;
+; Installs the PyInstaller output (the dist\OpenLeagueDisplay ONEDIR folder: the exe plus its
+; _internal payload) per-user, with a Start Menu entry / optional desktop shortcut / uninstaller
+; (registered in "Apps & features"). The binaries (exe / ico) are not committed to the repo;
 ; CI (release.yml) builds and bundles them at build time.
 ;
 ; Compile (Inno Setup 6):
@@ -60,9 +60,10 @@ WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes
 ; Backstop for a running instance that the graceful /api/quit (see [Code] QuitRunningApp) didn't
-; reach (custom port etc.). The app is a onefile PyInstaller bootloader+child pair, and Restart
-; Manager's polite close can wait on it forever — "force" terminates instead of hanging the wizard.
-; Nothing is lost: the app holds no unsaved state (wallpaper settings live in the OS).
+; reach (custom port etc.): "force" terminates it instead of letting Restart Manager's polite close
+; hang the wizard. Nothing is lost — the app holds no unsaved state (wallpaper settings live in the
+; OS). This mattered most back when the app was a onefile bootloader+child process pair, which RM
+; could wait on forever; the onedir build is a single process, but the backstop stays either way.
 CloseApplications=force
 
 [Languages]
@@ -74,7 +75,13 @@ Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; The whole onedir output: {#AppExeName} at the top and its _internal payload beneath it.
+; recursesubdirs+createallsubdirs keeps that layout intact — PyInstaller resolves sys._MEIPASS
+; relative to the exe, so the folder must land in {app} exactly as it was built.
+Source: "..\dist\{#AppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; icon.ico ships inside _internal too (local_app.spec bundles it as a data file for the native
+; window), but the shortcuts and the URL-scheme DefaultIcon below point at {app}\icon.ico, so keep
+; this copy at the top level rather than making those paths reach into _internal.
 Source: "..\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
@@ -105,6 +112,13 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename:
 ; Show a "Launch OpenLeagueDisplay" checkbox on the install-complete screen.
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+; Inno removes what it installed and prunes the directories that empty out, so _internal normally
+; goes on its own. This is a belt-and-braces sweep so a stray file (a Python __pycache__ written at
+; runtime, a half-written update) can't leave the folder behind — the classic onedir uninstall
+; complaint. Scoped to the app's own payload directory; {app} itself is left to Inno.
+Type: filesandordirs; Name: "{app}\_internal"
+
 ; Note: uninstall removes only the app itself installed via [Files]. The wallpaper
 ; cache (%LOCALAPPDATA%\OpenLeagueDisplay\wallpapers) is intentionally kept so as not
 ; to break the currently-set wallpaper file. Users who want the data gone too delete it manually (see README).
@@ -116,9 +130,9 @@ japanese.AlreadyInstalled=OpenLeagueDisplay は既にインストールされて
 
 [Code]
 { Ask a running OpenLeagueDisplay (default port 8000) to exit before we touch the install dir.
-  (NB: this is a Pascal comment, so no literal braces in here.) The app is a
-  onefile PyInstaller bootloader+child pair, which Restart Manager's polite close can wait on
-  forever — the app's own /api/quit is what reliably releases the exe. GET /api/ping first and
+  (NB: this is a Pascal comment, so no literal braces in here.) Asking the app to close itself is
+  the reliable way to release the files — Restart Manager's polite close could wait forever on the
+  old onefile bootloader+child process pair. GET /api/ping first and
   check the answer really is our app (something else on :8000 shouldn't get a surprise POST);
   the POST carries the X-OLD-Local header the API requires (its CSRF gate). Then poll ping until
   the server is gone, and give the process a moment to fully exit. Every step is best-effort:

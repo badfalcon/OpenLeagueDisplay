@@ -7,8 +7,8 @@ This is the local equivalent, for building setup.exe by hand from PyCharm's
 (project policy; PyInstaller is invoked as a subprocess, not imported).
 
 The exe is REBUILT by default, every time. The installer only wraps whatever
-dist/OpenLeagueDisplay.exe already is — and the exe bundles the whole frontend
-(index.html / js / data.json), so a stale exe means the setup.exe silently ships
+dist/OpenLeagueDisplay/ already holds — and that build bundles the whole frontend
+(index.html / js / data.json), so a stale build means the setup.exe silently ships
 old code even though the installer build itself "succeeded". That failure mode is
 invisible at build time, so the default is the safe order (exe → installer) and
 skipping is the explicit exception.
@@ -21,7 +21,7 @@ Prerequisites:
 Usage:
   python build_installer.py                 # rebuild exe, then build setup.exe (AppVersion=dev)
   python build_installer.py 1.2.3           # same, with AppVersion=1.2.3
-  python build_installer.py --skip-exe      # wrap the existing dist exe as-is (shows its build time)
+  python build_installer.py --skip-exe      # wrap the existing dist build as-is (shows its build time)
 
 Output: installer/out/OpenLeagueDisplay-windows-setup.exe
 """
@@ -43,7 +43,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = pathlib.Path(__file__).resolve().parent
 ISS = ROOT / "installer" / "windows.iss"
-EXE = ROOT / "dist" / "OpenLeagueDisplay.exe"
+# Windows builds onedir (see local_app.spec), so the exe sits inside dist/OpenLeagueDisplay/
+# alongside its _internal payload — windows.iss copies that whole folder into {app}.
+DIST_DIR = ROOT / "dist" / "OpenLeagueDisplay"
+EXE = DIST_DIR / "OpenLeagueDisplay.exe"
 OUT = ROOT / "installer" / "out" / "OpenLeagueDisplay-windows-setup.exe"
 
 
@@ -87,7 +90,11 @@ def find_build_python() -> str | None:
 
 
 def build_exe() -> bool:
-    """Rebuild dist/OpenLeagueDisplay.exe with PyInstaller."""
+    """Rebuild the dist/OpenLeagueDisplay/ onedir build with PyInstaller.
+
+    --noconfirm makes PyInstaller wipe the output folder before rebuilding, so a file dropped from
+    the spec can't survive as a leftover in the next installer (the onedir equivalent of a stale exe).
+    """
     python = find_build_python()
     if python is None:
         print(
@@ -120,15 +127,15 @@ def main() -> int:
     if skip_exe:
         if not EXE.is_file():
             print(
-                f"--skip-exe, but there is no exe to wrap: {EXE} is missing\n"
+                f"--skip-exe, but there is no build to wrap: {EXE} is missing\n"
                 "  python -m PyInstaller --noconfirm local_app.spec",
                 file=sys.stderr,
             )
             return 2
-        # Skipping means shipping whatever this file happens to be — make its age visible so a
-        # stale exe (the exact trap the default rebuild exists to prevent) is at least on screen.
+        # Skipping means shipping whatever this build happens to be — make its age visible so a
+        # stale build (the exact trap the default rebuild exists to prevent) is at least on screen.
         built = datetime.datetime.fromtimestamp(EXE.stat().st_mtime)
-        print(f"[1/2] Skipping the exe rebuild — wrapping dist exe built {built:%Y-%m-%d %H:%M}")
+        print(f"[1/2] Skipping the exe rebuild — wrapping dist build from {built:%Y-%m-%d %H:%M}")
     elif not build_exe():
         return 2
 

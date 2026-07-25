@@ -144,9 +144,10 @@ tiny local helper that sets the wallpaper for you.
     info → Run anyway**. Uninstalling removes the app but **keeps your wallpaper
     cache** (`%LOCALAPPDATA%\OpenLeagueDisplay`) so the current wallpaper isn't
     broken; delete that folder by hand if you want it gone too.
-  - **Windows — portable:** `OpenLeagueDisplay-windows.exe` is the same app with
-    no installer — just download and run. One difference: it does **not** register the
-    `openleaguedisplay://` link (an app that claimed the link on every start could
+  - **Windows — portable:** `OpenLeagueDisplay-windows.zip` is the same app with no
+    installer — unzip it anywhere and run `OpenLeagueDisplay.exe` from the folder (keep the
+    `_internal` folder next to it; that's the app's payload). One difference: it does **not**
+    register the `openleaguedisplay://` link (an app that claimed the link on every start could
     silently steal it from an installed copy), so **🖥 Open in desktop app** on the web
     version won't reach it — use **⬆ Export selection** / **⬇ Import selection** instead.
   - **macOS / Linux:** `OpenLeagueDisplay-macos` / `-linux` — download and run.
@@ -269,13 +270,25 @@ hand-maintained `CHANGELOG.md` to keep in sync. To build one yourself:
 ```bash
 pip install pyinstaller pywebview
 pyinstaller local_app.spec
-# → dist/OpenLeagueDisplay(.exe)
+# Windows     → dist/OpenLeagueDisplay/OpenLeagueDisplay.exe (+ _internal/)
+# macOS/Linux → dist/OpenLeagueDisplay
 ```
 
 `local_app.spec` bundles the static assets (HTML/CSS/`js/`/`data.json`/`i18n/`),
-so the binary is self-contained. The bundled `data.json` is a **snapshot from
+so the build is self-contained. The bundled `data.json` is a **snapshot from
 build time** — cut a fresh release (or rerun `generate_data.py` + rebuild) to
 refresh it.
+
+**Windows builds one-dir, everything else one-file.** A one-file build
+re-extracts its entire payload to a temp directory on *every* launch, which
+costs startup time and is a well-known antivirus false-positive trigger.
+Windows is the platform with a real installer (it just copies the folder into
+the install dir), so the single-file packaging bought nothing there — dropping
+it made startup measurably faster (~3× in local testing) at no cost to the
+download size, since both the installer and the portable zip compress the
+folder anyway. macOS / Linux stay one-file on purpose: with no installer, the
+release asset *is* the thing you download and run, and a bare binary beats
+"unzip a folder first". UPX is disabled for the same antivirus reason.
 
 On Windows the workflow also produces a proper installer with
 [Inno Setup](https://jrsoftware.org/isinfo.php) (`installer/windows.iss`). The
@@ -292,23 +305,23 @@ uv run --with pillow python make_icon.py   # or: pip install pillow; python make
 To build the installer yourself:
 
 ```powershell
-# 1. build the exe (embeds icon.ico on Windows)
+# 1. build the app folder (embeds icon.ico on Windows)
 pyinstaller local_app.spec
 # 2. compile the installer (Inno Setup 6 → ISCC.exe)
 ISCC.exe /DAppVersion=1.2.3 installer\windows.iss
 # → installer\out\OpenLeagueDisplay-windows-setup.exe
 ```
 
-`build_installer.py` does both steps for you — it **rebuilds the exe first**,
+`build_installer.py` does both steps for you — it **rebuilds the app first**,
 then locates `ISCC.exe` (PATH, `Program Files`, or winget's per-user
 `%LOCALAPPDATA%\Programs\Inno Setup 6`) and compiles the installer — e.g.
 `python build_installer.py 1.2.3` (version defaults to `dev`). The rebuild is
 the default on purpose: the installer just wraps whatever
-`dist/OpenLeagueDisplay.exe` already is, and the exe bundles the whole frontend,
-so compiling the installer against a stale exe "succeeds" while silently
-shipping old code. Pass `--skip-exe` to wrap the existing exe as-is (its build
-time is printed so you can tell how old it is). Inno Setup is free/open-source:
-`winget install JRSoftware.InnoSetup`.
+`dist\OpenLeagueDisplay\` already holds, and that build bundles the whole
+frontend, so compiling the installer against a stale build "succeeds" while
+silently shipping old code. Pass `--skip-exe` to wrap the existing build as-is
+(its build time is printed so you can tell how old it is). Inno Setup is
+free/open-source: `winget install JRSoftware.InnoSetup`.
 
 In PyCharm, **Run ▸ "Build installer (Inno Setup)"** runs the whole chain
 (**"Build desktop exe (PyInstaller)"** still exists for building just the exe);
