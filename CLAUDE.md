@@ -459,14 +459,19 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     `[Setup] SignTool` と署名ステップを足す
 - **changelog は GitHub 自動生成ノートで持つ**: `release.yml` の
   `generate_release_notes` で、`v*` タグ時に前回タグからマージされた PR を
-  `.github/release.yml` の分類 (新機能/修正/ドキュメント/セキュリティ/その他) で集約
-  して Release ノートにする。**生成はマトリクスの Windows レッグ1本だけ**:
+  **フラットな1本のリスト**にして Release ノートにする。`.github/release.yml` に
+  残っているのは除外設定 (bot 著者 / `ignore-for-release` ラベル) だけ。
+  **カテゴリ分けは廃止した**: GitHub は PR ラベルでしかグループ化できず、このリポジトリは
+  PR にラベルを貼らない (最初にマージされた12件で0件) ため、全カテゴリが空のまま
+  catch-all の「その他」に全部落ちていた = 「これは一部です」と嘘をつく見出しにしか
+  なっていなかった。PR タイトルが `feat:`/`fix:` 前置で安定したら、**タイトルからラベルを
+  自動付与する workflow とセットで**復活させること (ラベルだけがこの機能が読む唯一のシグナル)。
+  **生成はマトリクスの Windows レッグ1本だけ**:
   action-gh-release は既存 Release の本文に生成ノートを**追記** (上書きではない) する
-  ので、3 レッグ全部で生成すると changelog が三重になる (v1.1.0 で実際に踏んで手で修正)。
+  ので、3 レッグ全部で生成すると changelog が三重になる (v1.1.0 で実際に踏んで手で修正、
+  v1.2.0 で再発しないことを確認済み)。
   アセット添付は全レッグがそれぞれ行う (こちらは重複しない)。**手書き `CHANGELOG.md` は持たない** (同期ズレを避ける /
-  「changelog が無いから作る」と誤って手書きファイルを足さないこと)。カテゴリ分けは
-  PR ラベル依存なので、ラベルはリリース時に手で貼るか、必要になったら PR タイトルの
-  prefix (`feat:`/`fix:`/...) からラベルを自動付与する workflow を足す (現状は未導入)。
+  「changelog が無いから作る」と誤って手書きファイルを足さないこと)。
   週次の data.json 自動更新は PR ではなく main への直 push なのでノートには出ない
 - **モバイルレスポンシブ**: `@media (max-width: 600px)` で列数とフォントサイズを調整
 - **デザイン**: 深い黒紫 (`--bg: #07060b` / `--bg-1: #0c0b14`) × 落ち着いた
@@ -620,7 +625,16 @@ CDragon の skin JSON で返るパス `/lol-game-data/assets/ASSETS/Characters/.
   stale-while-revalidate だったが、ソース編集や言語切替が「リロードするまで反映されない」
   (旧 JS が配られ続ける) 開発時の罠を避けるため network-first に統一した (静的ファイルは
   ETag で実体ほぼ 304 なので毎ロードの再取得は安い)。スプラッシュ画像 (CDragon) は
-  キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応
+  キャッシュ対象外。完全なオフライン動作 (画像込み) は未対応。
+  **プリキャッシュは `addAll` ではなく1件ずつ + `Promise.allSettled`**: `cache.addAll` は
+  オールオアナッシングで、SHELL に配信されないパスが1つでもあると Promise 全体が reject し
+  → `waitUntil` ごと失敗 → **SW が永久にインストールされない** (しかも無言)。デスクトップ版で
+  実際に踏んだ: `sw.js` の SHELL には `./champions/index.html` が居るのに `local_app.spec` が
+  `champions/` を同梱しておらず、`local_app.py` は素の `SimpleHTTPRequestHandler` (SPA
+  フォールバック無し) なので本物の 404 になっていた。spec 側にも `champions/` を足して
+  この穴は塞いだが、**SHELL と spec の datas は別ファイルで同期する仕組みが無い**ので、
+  install 自体が丸ごと落ちない形を維持すること。部分的にしか温まっていないキャッシュでも
+  損はしない (fetch は元々 network-first で、キャッシュはオフライン時しか効かない)
 - [x] ~~アニメーションスプラッシュ (`splashVideoPath`) を持つスキンは動画再生~~ →
   `generate_data.py` が `splashVideoPath` を `video` フィールドに取り込み、
   ライトボックスが `video` を持つスキンで `<img>` の代わりに `<video>` を再生

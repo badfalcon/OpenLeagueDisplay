@@ -15,7 +15,7 @@
 | 優先度 | 件数 | 内訳 |
 |---|---|---|
 | 高 (実害があり早めに直したい) | 7 | H1〜H7 — **全て対応済み** |
-| 中 (体験が明確に良くなる) | 20 | M1〜M20 — M19・M20 は対応済み |
+| 中 (体験が明確に良くなる) | 20 | M1〜M20 — M17・M19・M20 は対応済み |
 | 低 (磨き込み) | 13 | L1〜L13 |
 | 要オーナー判断 (既存の設計判断と衝突) | 4 | T1〜T4 |
 
@@ -112,8 +112,9 @@ data.json (~1.7MB) の取得中は `.loading` の文字だけ (index.html:165)�
 ### M16. デスクトップ版に更新通知がない
 インストール後は新バージョンに気付く手段がない (週次で data.json は動くがアプリ本体は据え置き)。local_app.py が自バージョンを `/api/ping` に含め、フロントが GitHub Releases の latest と比較して footer にバナーを出す案 (CSP `connect-src` に api.github.com 追加が必要。サーバ側でチェックして ping に載せる方が CSP 変更不要で筋が良い)。
 
-### M17. デスクトップ版のポート衝突時にユーザー向けの案内がない
-`local_app.py` は既定 8000 で bind し、使用中なら OSError の素の traceback で落ちる (local_app.py:717-733)。exe 利用者にはウィンドウが一瞬で消えるだけに見える。①空きポートへの自動フォールバック (ただし deep link の既定 8000 前提 (desktop.js:25) とズレる点は明示)、②少なくとも人間向けメッセージ + 待機で終了、のどちらかを入れる。
+### M17. デスクトップ版のポート衝突時にユーザー向けの案内がない ✅対応済み
+`local_app.py` は既定 8000 で bind し、使用中なら OSError の素の traceback で落ちていた。exe 利用者にはウィンドウが一瞬で消えるだけに見える。①空きポートへの自動フォールバック (ただし deep link の既定 8000 前提 (desktop.js:25) とズレる点は明示)、②少なくとも人間向けメッセージ + 待機で終了、のどちらかを入れる。
+- **実装メモ**: ②を採用。`_fail_port_taken()` (`local_app.py:941`) が「Port N is already in use by another program (not OpenLeagueDisplay).」を stderr に出し、frozen な windowed ビルドには stderr が無いので `MessageBoxW` (MB_ICONERROR) でも出してから `SystemExit(1)`。bind 失敗時にまず `is_our_server()` (`/api/ping` で相手が自分か確認) を通し、**自分でない時だけ**この経路に入る (自分ならハンドオフして終了、が従来どおり)。①の自動フォールバックは採らなかった: `desktop.js` の deep link・`/api/*` の CORS・`index.html` の CSP `connect-src` がいずれも :8000 をリテラルで持っているので、ポートが動くと Web からの検知と受け渡しが黙って壊れる。
 
 ### M18. 検索中にソートが変更できない (デスクトップでも)
 検索中は sort-select を隠す (render.js:210-212)。モバイルのヘッダー行崩れ対策と明記されているが、デスクトップでは幅に余裕があり「検索結果を新着順で見る」需要はある。`@media` での出し分け (モバイルのみ隠す) を検討。

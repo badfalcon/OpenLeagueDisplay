@@ -50,6 +50,12 @@ datas = [
     ("icon.ico", "."),
     ("js", "js"),
     ("i18n", "i18n"),
+    # The pre-rendered SEO pages (174 files / ~2MB). They exist for crawlers, which never see
+    # this build — but index.html's footer and its <noscript> both link to champions/, and sw.js
+    # precaches ./champions/index.html. Leaving them out made those links 404 and, worse, failed
+    # the service worker's install outright (cache.addAll is all-or-nothing). Cheap against a
+    # ~20-35MB binary, so ship them rather than special-casing the frontend per build target.
+    ("champions", "champions"),
 ]
 
 a = Analysis(

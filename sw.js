@@ -16,7 +16,7 @@
 // - Offline operation (PWA) survives via the cache fallback. SHELL is precached
 //   on install. Bump CACHE_VERSION whenever the shell changes.
 
-const CACHE_VERSION = "v21";
+const CACHE_VERSION = "v22";
 const CACHE_NAME = "old-shell-" + CACHE_VERSION;
 
 // Precache targets. Paths are relative to sw.js (supports GitHub Pages subpath hosting).
@@ -50,7 +50,15 @@ self.addEventListener("install", (e) => {
   // Promote the new SW out of the waiting state and activate it immediately
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE_NAME).then((c) => c.addAll(SHELL))
+    // Precache entry by entry instead of cache.addAll(SHELL). addAll is all-or-nothing: one
+    // unreachable path rejects the whole promise, waitUntil fails with it, and the SW never
+    // installs at all — silently, on every launch. Hit for real in the desktop build, which
+    // serves only what local_app.spec bundles and was missing ./champions/index.html. That
+    // particular gap is closed in the spec now, but SHELL and the bundle list live in separate
+    // files with nothing keeping them in sync, so the install must not be able to fail whole.
+    // A partially warmed cache costs nothing: the fetch handler is network-first regardless,
+    // and the cache only ever matters offline.
+    caches.open(CACHE_NAME).then((c) => Promise.allSettled(SHELL.map((u) => c.add(u))))
   );
 });
 
