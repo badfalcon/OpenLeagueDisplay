@@ -2877,6 +2877,9 @@
     font-size: 34px; font-weight: 700; letter-spacing: 0.08em;
     padding: 4px 16px;
     border: 3px solid;
+    /* The stamp sits on splash art, so its contrast is whatever the artist painted there. A scrim in
+       the card's own near-black gives both stamps a known background instead of a lucky one. */
+    background: rgba(7, 6, 11, 0.6);
     opacity: 0; pointer-events: none;
   }
   .skinder-stamp-like { left: 22px; transform: rotate(-14deg); color: var(--gold-hi); border-color: var(--gold-hi); }
