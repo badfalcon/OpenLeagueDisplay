@@ -472,6 +472,7 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
     "leona": ["targon"],
     "lillia": ["ionia"],
     "lissandra": ["freljord"],
+    "locke": ["demacia"],
     "lucian": ["demacia", "shadow-isles"],
     "lulu": ["bandle-city"],
     "lux": ["demacia"],
