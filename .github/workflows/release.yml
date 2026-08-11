@@ -18,9 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows builds ONEDIR (local_app.spec), so `bin` is a folder and the portable
+          # download is that folder zipped — not a bare exe. macOS / Linux stay onefile,
+          # where the asset is the binary itself.
           - os: windows-latest
-            asset: OpenLeagueDisplay-windows.exe
-            bin: dist/OpenLeagueDisplay.exe
+            asset: OpenLeagueDisplay-windows.zip
+            bin: dist/OpenLeagueDisplay
           - os: macos-latest
             asset: OpenLeagueDisplay-macos
             bin: dist/OpenLeagueDisplay
@@ -64,7 +67,18 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller local_app.spec
 
-      - name: Rename artifact
+      # Windows is onedir, so the portable download has to be the whole folder zipped. Compress
+      # the DIRECTORY (not its contents) so extracting yields a tidy OpenLeagueDisplay\ folder
+      # rather than spraying _internal\ and the exe into wherever the user unzipped.
+      - name: Package portable build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Compress-Archive -Path "${{ matrix.bin }}" -DestinationPath "out/${{ matrix.asset }}" -Force
+
+      - name: Package portable build (macOS / Linux)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p out
@@ -72,8 +86,8 @@ jobs:
 
       # On Windows only, also build a proper installer (setup.exe) with Inno Setup.
       # Provides a "real software" experience with Start Menu entry, uninstaller
-      # (Apps & features) and desktop shortcut.
-      # Ship both this and the portable exe (the bare binary above) in the Release.
+      # (Apps & features) and desktop shortcut. It packs the same onedir folder the
+      # zip above ships, so both Release downloads come from this one PyInstaller run.
       - name: Install Inno Setup (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

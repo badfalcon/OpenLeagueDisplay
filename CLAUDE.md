@@ -42,7 +42,7 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
 ├── generate_data.py                 # CDragon → data.json 生成スクリプト
 ├── serve.py                         # ローカル配信ラッパー (http.serverを薄く包む)
 ├── local_app.py                     # ローカル実行モード: 静的配信 + /api 壁紙設定 (stdlib + 任意 pywebview)
-├── local_app.spec                   # デスクトップ版の PyInstaller spec (バイナリは非コミット)
+├── local_app.spec                   # デスクトップ版の PyInstaller spec (Win=onedir / mac・Linux=onefile、バイナリは非コミット)
 ├── build_installer.py               # exe 再ビルド (PyInstaller) → installer/windows.iss (ISCC) の一括ローカルビルド (stdlib)
 ├── installer/windows.iss            # Windows インストーラの Inno Setup スクリプト (バイナリ/icoは非コミット)
 ├── data.json                        # チャンピオン/スキンのマニフェスト (~1.7MB、初回 generate_data.py で生成)
@@ -110,7 +110,8 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   OS 分岐**: Windows デスクトップは `SETUP_EXE_URL` (= `releases/latest/download/` の固定
   アセット名で setup.exe を直DL)、それ以外は Releases ページ。アセット名の出所は
   installer/windows.iss の OutputBaseFilename + release.yml のインストーラ手順のハードコード
-  (matrix が持つのはポータブル exe 名) — **改名は JS 定数と合わせて3箇所同時**。固定名リンクは
+  (matrix が持つのはポータブル版の資産名 = onedir 化で `...-windows.zip`) — **改名は JS 定数と
+  合わせて3箇所同時**。固定名リンクは
   「latest にそのアセットが無い」と 404 になる (fail-fast:false なので Windows レッグだけ落ちた
   リリースでも他レッグが publish する) — その時は Windows レッグを再実行。UI 側の逃げ道として
   フッター CTA に Releases ページへの副リンクを常設。render.js の DL 3口を包む ②`openInDesktop()` =
@@ -343,9 +344,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   - **`POST /api/quit` = 自主終了の口** (ゲートは他の POST と同じ CSRF ヘッダ + Host 制限)。
     応答を返してから 0.3 秒後に、窓があれば `window.destroy()` (→ `webview.start()` が戻り
     main() の finally が後始末 = 通常の終了経路)、窓が無ければ `server.shutdown()`。存在理由は
-    インストーラ (下記): onefile PyInstaller はブートローダ+子の2プロセスで、Inno の
-    Restart Manager による丁寧なクローズが**いつまでも終わらない**ことがある (実際に踏んだ)。
-    「アプリに終了を頼む」のが exe のロック解放の確実な方法
+    インストーラ (下記): 「アプリに終了を頼む」のがファイルのロック解放の確実な方法だから。
+    onefile 時代はブートローダ+子の2プロセスで Inno の Restart Manager による丁寧なクローズが
+    **いつまでも終わらない**ことがあった (実際に踏んだ) のが直接の動機。onedir 化で単一プロセスに
+    なったので RM の挙動自体は素直になったが、確実な経路としてこちらを残している
   - **スキームの登録はインストーラだけが行う** (`windows.iss` の `[Registry]`)。**アプリ自身は
     `Software\Classes` を一切書かない** (壁紙のレガシー fallback が `Control Panel\Desktop` を
     書くのは別件): 起動のたびに書き直す自己修復案も検討したが、インストーラ版を
@@ -372,8 +374,21 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
     `{localappdata}\Programs\OpenLeagueDisplay`): UAC 昇格不要。アプリのデータ
     (壁紙キャッシュ `%LOCALAPPDATA%` / HKCU の壁紙設定) が元々 per-user なので
     権限モデルと一致する
-  - **PyInstaller は onefile のまま**: インストーラは既存の単一 exe を同梱して
-    ショートカットを張るだけ。spec 構成を変えず mac/linux ジョブにも無影響
+  - **Windows は onedir / それ以外は onefile** (`local_app.spec` の `ONEDIR` が
+    `sys.platform=="win32"` で分岐): onefile は**起動のたびに全ペイロードを temp へ自己展開する**ので
+    起動が遅く (Linux 実測で 0.34s → 0.10s の ~3倍差。Windows は Defender が毎回展開物をスキャンする分
+    さらに開く)、ブートローダ自体が**AV の誤検知**を招きやすい。Windows は本物のインストーラがある
+    (= `windows.iss` がフォルダを `{app}` にコピーするだけ) ので単一ファイル化の利点が無く、
+    起動速度と誤検知だけ損していた。**配布サイズは実質不変** (onefile 14MB / onedir 素の
+    フォルダ 38MB だが zip 15MB。インストーラは lzma2、ポータブルは zip なのでどちらも圧縮される)。
+    **mac/Linux は onefile 据え置き**: インストーラが無くリリース資産そのものが「落として実行する物」
+    なので、単一バイナリのほうが「まずフォルダを解凍」より良い。**UPX も無効化** (同じく AV 誤検知源で、
+    上記のとおり圧縮は配布側が担うので不要。exe からのアイコン抽出を壊す件も解消)
+  - **ポータブル版は zip になる** (onedir の帰結): Windows のポータブル資産は
+    `OpenLeagueDisplay-windows.zip` (フォルダごと圧縮。展開すると `OpenLeagueDisplay/` が出て、
+    exe の隣に `_internal/` が要る)。`release.yml` は Windows だけ `Compress-Archive`、
+    mac/Linux は従来どおり単一バイナリを cp する2ステップに分けてある。**インストーラ版の資産名
+    (`OpenLeagueDisplay-windows-setup.exe`) は不変**なので js/desktop.js の `SETUP_EXE_URL` は無変更
   - **アイコン (`icon.ico`) は小さなブランド資産としてコミット**: `ogp.png` /
     `screenshot.png` と同類 (~10KB) なのでリポジトリに置く。no-binaries ポリシーが
     避けたいのはスプラッシュ画像 (~600MB) とリリース実行ファイルであって、これは
@@ -397,9 +412,10 @@ Community Dragon CDN を直接参照する。LeagueDisplays の代替を狙い�
   - **起動中インスタンスは自分で退かせる** (`[Code] QuitRunningApp`): ファイルコピー直前
     (`PrepareToInstall`) とアンインストール開始時に、`/api/ping` で相手が本当にこのアプリだと
     確認してから `POST /api/quit` (WinHttp COM で X-OLD-Local ヘッダ付き) → ping が消えるまで
-    ~5秒ポーリング。**Restart Manager 任せにしない理由**: onefile PyInstaller の
-    ブートローダ+子ペアは RM の丁寧なクローズが終わらないことがある (「強制終了が終わらない」
-    として実際に踏んだ)。届かなかった場合 (別ポート / /api/quit の無い旧ビルド) の
+    ~5秒ポーリング。**Restart Manager 任せにしない理由**: (onefile 時代の) ブートローダ+子ペアは
+    RM の丁寧なクローズが終わらないことがある (「強制終了が終わらない」として実際に踏んだ)。
+    onedir では単一プロセスだが、確実な経路としてこの手順は維持。届かなかった場合 (別ポート /
+    /api/quit の無い旧ビルド) の
     バックストップが `[Setup] CloseApplications=force` (待ち続けずに強制終了。未保存データは
     無いので安全)。Pascal の `{ }` コメント内にリテラル波括弧を書かないこと (`{app}` と書くと
     コメントがそこで閉じる)
@@ -636,10 +652,11 @@ PyCharm では `.idea/runConfigurations/` に以下の Run Configuration を共�
 - **Serve (http.server :8000)** — `serve.py` を実行
 - **Run desktop app (local_app.py)** — ローカル実行モード (壁紙設定) をネイティブ窓/ブラウザで起動
 - **Build desktop exe (PyInstaller)** — `python -m PyInstaller --noconfirm local_app.spec`。
-  `dist/OpenLeagueDisplay.exe` を生成 (要 `pip install pyinstaller pywebview`)
+  Windows は `dist/OpenLeagueDisplay/OpenLeagueDisplay.exe` (+ `_internal/`)、mac/Linux は
+  `dist/OpenLeagueDisplay` を生成 (要 `pip install pyinstaller pywebview`)
 - **Build installer (Inno Setup)** — `build_installer.py` を実行し `installer/out/...setup.exe` を生成。
-  **exe も毎回作り直してから包む** (インストーラは dist の exe を同梱するだけ + exe はフロント一式を
-  内蔵しているので、exe が古いままだと「ビルド成功したのに中身が古い setup.exe」が黙って出来上がる
+  **exe も毎回作り直してから包む** (インストーラは dist のフォルダを同梱するだけ + そこにフロント一式が
+  内蔵されているので、古いままだと「ビルド成功したのに中身が古い setup.exe」が黙って出来上がる
   — 実際に踏んだ罠)。既存 exe をそのまま包みたい時だけ `--skip-exe` (exe のビルド日時を表示する)。
   要 `pip install pyinstaller pywebview` + Inno Setup 6 (`winget install JRSoftware.InnoSetup`)
 
