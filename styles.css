@@ -2745,6 +2745,202 @@
   }
   .wp-done-dialog .wp-actions { justify-content: center; }
 
+  /* ===== LoLSkinder — hidden "Tinder for skins" swipe game (js/skinder.js) =====
+     A full-screen card-swipe overlay. Not referenced in index.html; the DOM is created
+     lazily on first open. Palette/fonts match the rest of the app. z-index sits with the
+     other modals (below the 1100 toast). */
+  .skinder {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: stretch; justify-content: center;
+    background: radial-gradient(120% 80% at 50% 0%, var(--bg-1), var(--bg) 70%);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  .skinder[hidden] { display: none; }
+  .skinder-dialog {
+    position: relative;
+    width: min(620px, 96vw);
+    display: flex; flex-direction: column;
+    padding: 18px 20px calc(20px + env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+  .skinder-head {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .skinder-brand { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+  /* Eyebrow follows the house grammar (.hero-eyebrow / .banner-eyebrow): Cinzel 10.5px,
+     weight 600, 0.36em tracking, --gold. --gold-deep is a decoration color here (rules,
+     underlines, partial-selection borders), never body ink — at 9.5px it measured 3.9:1,
+     under WCAG AA, the same trap that forced --ink-mute to be lightened. */
+  .skinder-eyebrow {
+    font-family: var(--font-eyebrow);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.36em; text-transform: uppercase;
+    color: var(--gold);
+  }
+  /* The wordmark sits in the same slot as the site's own brand, so it wears the same
+     treatment as header h1 (Fraunces italic with the optical/SOFT variation settings) —
+     it should read as a room inside this site, not a generic app dropped on top. */
+  .skinder-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 24px; font-weight: 500;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80, "wght" 500;
+    letter-spacing: -0.005em;
+    color: var(--gold-hi);
+  }
+  .skinder-counter {
+    font-family: var(--font-eyebrow);
+    font-size: 11px; letter-spacing: 0.1em;
+    color: var(--ink-soft); white-space: nowrap;
+  }
+  .skinder-x {
+    flex: 0 0 auto;
+    width: 38px; height: 38px;
+    background: transparent;
+    border: 1px solid var(--rule-bold);
+    color: var(--gold-hi);
+    font-size: 15px; cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .skinder-x:hover { border-color: var(--gold); background: rgba(212, 168, 87, 0.1); }
+
+  /* The card arena. Cards are absolutely stacked and centered; the stage owns the height. */
+  .skinder-stage {
+    position: relative; flex: 1 1 auto;
+    min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: pan-y;
+  }
+  .skinder-card {
+    position: absolute;
+    width: 100%;
+    max-height: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-bold);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+    user-select: none;
+    /* The peek card behind sits slightly smaller/dimmer for depth. */
+    transform: scale(0.94) translateY(10px);
+    opacity: 0.6;
+  }
+  .skinder-card.is-top {
+    opacity: 1;
+    transform: none;
+    cursor: grab;
+    z-index: 2;
+    transition: transform 0.3s ease;
+    will-change: transform;
+    /* We own every gesture on the top card, so keep the browser from claiming the horizontal
+       drag as a scroll/swipe on touch devices (the background is scroll-locked anyway). */
+    touch-action: none;
+  }
+  .skinder-card.is-top.dragging { transition: none; cursor: grabbing; }
+  .skinder-img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 22%;
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .skinder-info {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 40px 20px 18px;
+    background: linear-gradient(to top, rgba(4, 3, 8, 0.92), rgba(4, 3, 8, 0.55) 45%, transparent);
+    pointer-events: none;
+  }
+  .skinder-champ {
+    font-family: var(--font-eyebrow);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--gold);
+  }
+  .skinder-skin {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-family: var(--font-display);
+    font-size: 21px; color: var(--ink);
+  }
+  .skinder-rarity {
+    font-family: var(--font-eyebrow);
+    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--gold-hi);
+    padding: 2px 8px;
+    border: 1px solid var(--rule-bold);
+  }
+  /* LIKE / NOPE stamps revealed by drag direction (opacity driven inline by skinder.js). */
+  .skinder-stamp {
+    position: absolute; top: 26px; z-index: 3;
+    font-family: var(--font-display);
+    font-size: 34px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 4px 16px;
+    border: 3px solid;
+    opacity: 0; pointer-events: none;
+  }
+  .skinder-stamp-like { left: 22px; transform: rotate(-14deg); color: var(--gold-hi); border-color: var(--gold-hi); }
+  /* --crimson is the seal, not the ink: the codex uses it as a border/fill and pairs it with a
+     pale rose foreground (.btn.danger's #e8a8a8, the err toast's #f4c0c0). Crimson type on the
+     near-black card measured 3.4:1; the rose is 9.9:1 and is the color this palette already
+     reaches for when something says "no". */
+  .skinder-stamp-nope { right: 22px; transform: rotate(14deg); color: #e8a8a8; border-color: var(--crimson); }
+
+  .skinder-actions {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+  }
+  .skinder-btn {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: var(--bg-1);
+    border: 1px solid var(--rule-bold);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  }
+  .skinder-btn:disabled { opacity: 0.35; cursor: default; }
+  .skinder-btn:not(:disabled):hover { transform: translateY(-2px); }
+  .skinder-btn:not(:disabled):active { transform: scale(0.94); }
+  .skinder-nope, .skinder-like { width: 64px; height: 64px; font-size: 26px; }
+  .skinder-undo { width: 46px; height: 46px; font-size: 18px; color: var(--ink-soft); }
+  /* Mirrors .btn.danger exactly (rose ink + translucent crimson edge at rest, crimson fill on
+     hover) so "reject" looks the same here as everywhere else in the app. */
+  .skinder-nope { color: #e8a8a8; border-color: rgba(183, 58, 58, 0.55); }
+  .skinder-nope:not(:disabled):hover { background: var(--crimson); color: var(--ink); border-color: var(--crimson); }
+  .skinder-like { color: var(--gold-hi); }
+  .skinder-like:not(:disabled):hover { border-color: var(--gold); background: rgba(212, 168, 87, 0.16); }
+  .skinder-undo:not(:disabled):hover { border-color: var(--gold); color: var(--gold-hi); }
+  .skinder-hint {
+    flex: 0 0 auto; margin: 0; text-align: center;
+    font-size: 11.5px; color: var(--ink-mute); line-height: 1.5;
+  }
+
+  /* Done screen (deck exhausted). */
+  .skinder-done {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 20px;
+  }
+  /* Same muted treatment as .gallery-empty-mark's ◇ (gold at half opacity) — the site states
+     its marks quietly. ♥ rather than ◇ because this screen is the game's own punchline. */
+  .skinder-done-mark { font-size: 46px; color: var(--gold); opacity: 0.5; line-height: 1; }
+  .skinder-done-title {
+    margin: 0; font-family: var(--font-display);
+    font-size: 26px; color: var(--gold-hi);
+  }
+  .skinder-done-body { margin: 0; font-size: 14px; color: var(--ink-soft); max-width: 34ch; }
+  .skinder-done-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 6px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skinder-card.is-top, .skinder-btn { transition: none; }
+  }
+  @media (max-width: 600px) {
+    .skinder-title { font-size: 20px; }
+    .skinder-skin { font-size: 18px; }
+    .skinder-nope, .skinder-like { width: 58px; height: 58px; font-size: 23px; }
+    .skinder-stamp { font-size: 28px; }
+  }
+
   /* ===== Pre-rendered SEO landing pages (champions/*.html, champions/index.html) =====
      Static, crawlable pages served outside the SPA. They load this stylesheet via
      ../styles.css and reuse the palette/fonts so they read as the same site. Kept
