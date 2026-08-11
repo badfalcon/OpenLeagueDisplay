@@ -1,7 +1,13 @@
-# Categorization config for GitHub's "auto-generated release notes".
+# Filter config for GitHub's "auto-generated release notes".
 # When the release.yml workflow creates a Release with generate_release_notes: true,
-# PRs merged since the previous tag are grouped and listed by these rules.
+# PRs merged since the previous tag are listed as one flat "What's Changed" list.
 # (The weekly data.json auto-update is a direct push to main, not a PR, so it doesn't appear in the notes.)
+#
+# No `categories:` on purpose. GitHub can only group by PR label, and this repo doesn't label PRs
+# (0 of the first 12 merged ones had any), so every category stayed empty and everything fell into a
+# catch-all "Other" heading — a section title that only ever lied about being a subset. If PR titles
+# ever settle into feat:/fix: prefixes, add a workflow that derives labels from them AND restore the
+# categories here; labels alone are the only signal this feature reads.
 changelog:
   exclude:
     # Exclude the data.json auto-update bot and PRs we don't want in the release
@@ -10,22 +16,3 @@ changelog:
       - dependabot
     labels:
       - ignore-for-release
-  categories:
-    - title: ✨ Features
-      labels:
-        - feature
-        - enhancement
-    - title: 🐛 Fixes
-      labels:
-        - bug
-        - fix
-    - title: 📝 Documentation
-      labels:
-        - documentation
-    - title: 🔒 Security
-      labels:
-        - security
-    # Catch-all for PRs that have none of the labels above ('*' is required)
-    - title: 🔧 Other
-      labels:
-        - "*"
